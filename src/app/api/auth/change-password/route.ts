@@ -4,6 +4,17 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { db } from '../../../../lib/db';
 
+type ColumnMeta = {
+  Field: string;
+};
+
+async function getIdField() {
+  const [columnsRaw] = await db.query('SHOW COLUMNS FROM users');
+  const columns = (columnsRaw as ColumnMeta[]) || [];
+  const columnSet = new Set(columns.map((item) => item.Field));
+  return columnSet.has('id') ? 'id' : 'id_user';
+}
+
 export async function POST(request: Request) {
   try {
     const { currentPassword, newPassword } = await request.json();
@@ -34,7 +45,8 @@ export async function POST(request: Request) {
     }
 
     // Verifikasi token
-    const authToken = cookies().get('auth-token');
+    const cookieStore = await cookies();
+    const authToken = cookieStore.get('auth-token');
     if (!authToken) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -44,67 +56,38 @@ export async function POST(request: Request) {
 
     const decoded = jwt.verify(authToken.value, process.env.JWT_SECRET || 'si-surat-secret-key-2024') as any;
     
-    // Mock implementation untuk development
-    if (decoded.userId === 1 && currentPassword === 'adminsurat000') {
-      // Hash password baru
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-      
-      // Dalam implementasi nyata, simpan ke database
-      console.log('Password berhasil diubah:', {
-        userId: decoded.userId,
-        oldPasswordHash: await bcrypt.hash(currentPassword, 10),
-        newPasswordHash: hashedPassword
-      });
+    const idField = await getIdField();
+    const [rows]: any = await db.execute(
+      `SELECT * FROM users WHERE ${idField} = ? AND status IN ("aktif", "active") LIMIT 1`,
+      [decoded.userId]
+    );
 
-      return NextResponse.json({
-        message: 'Password berhasil diubah'
-      });
+    if (!rows || rows.length === 0) {
+      return NextResponse.json(
+        { error: 'User tidak ditemukan' },
+        { status: 404 }
+      );
     }
 
-    // Coba koneksi database untuk implementasi real
-    try {
-      const [rows]: any = await db.execute(
-        'SELECT * FROM users WHERE id = ? AND status = "aktif" LIMIT 1',
-        [decoded.userId]
-      );
+    const user = rows[0];
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
 
-      if (!rows || rows.length === 0) {
-        return NextResponse.json(
-          { error: 'User tidak ditemukan' },
-          { status: 404 }
-        );
-      }
-
-      const user = rows[0];
-      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
-
-      if (!isCurrentPasswordValid) {
-        return NextResponse.json(
-          { error: 'Password lama tidak benar' },
-          { status: 401 }
-        );
-      }
-
-      // Hash password baru
-      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-
-      // Update password di database
-      await db.execute(
-        'UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?',
-        [hashedNewPassword, decoded.userId]
-      );
-
-      return NextResponse.json({
-        message: 'Password berhasil diubah'
-      });
-
-    } catch (dbError) {
-      console.error('Database Error:', dbError);
+    if (!isCurrentPasswordValid) {
       return NextResponse.json(
-        { error: 'Password lama tidak benar (mode development)' },
+        { error: 'Password lama tidak benar' },
         { status: 401 }
       );
     }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await db.execute(
+      `UPDATE users SET password = ?, updated_at = NOW() WHERE ${idField} = ?`,
+      [hashedNewPassword, decoded.userId]
+    );
+
+    return NextResponse.json({
+      message: 'Password berhasil diubah'
+    });
 
   } catch (error) {
     console.error('Change password error:', error);

@@ -36,7 +36,7 @@ async function ensureAdminAuth() {
       return { ok: false as const, status: 403, error: 'Forbidden - Admin only' };
     }
 
-    return { ok: true as const };
+    return { ok: true as const, userId: String(decoded.userId ?? '') };
   } catch {
     return { ok: false as const, status: 401, error: 'Token tidak valid' };
   }
@@ -59,18 +59,25 @@ export async function PUT(
     }
 
     const body = await request.json();
+    const username = String(body?.username || '').trim();
     const nama = String(body?.nama || '').trim();
     const email = String(body?.email || '').trim().toLowerCase();
     const nik = String(body?.nik || '').trim();
+    const role = String(body?.role || '').trim();
     const alamat = String(body?.alamat || '').trim();
     const telepon = String(body?.telepon || '').trim();
     const status = body?.status === 'nonaktif' ? 'nonaktif' : 'aktif';
+    const allowedRoles = new Set(['admin', 'sekretaris', 'kepala_desa', 'masyarakat']);
 
-    if (!nama || !email || !nik || !alamat) {
+    if (!nama || !email || !username || !role) {
       return NextResponse.json({ error: 'Semua field wajib diisi' }, { status: 400 });
     }
 
-    if (!isValidNik(nik)) {
+    if (!allowedRoles.has(role)) {
+      return NextResponse.json({ error: 'Role tidak valid' }, { status: 400 });
+    }
+
+    if (nik && !isValidNik(nik)) {
       return NextResponse.json({ error: 'NIK wajib 16 digit angka' }, { status: 400 });
     }
 
@@ -81,35 +88,51 @@ export async function PUT(
     const columnMap = await getUsersColumnMap();
     const idField = columnMap.has('id') ? 'id' : 'id_user';
 
+    const duplicateChecks = ['email = ?', 'username = ?'];
+    const duplicateParams: Array<string | null> = [email, username];
+    if (nik) {
+      duplicateChecks.push('SUBSTRING_INDEX(nik, "_", 1) = ?');
+      duplicateParams.push(nik);
+    }
+    duplicateChecks.push(`${idField} <> ?`);
+    duplicateParams.push(params.id);
+
     const [existingRows] = await db.execute(
-      `SELECT ${idField} FROM users WHERE (SUBSTRING_INDEX(nik, "_", 1) = ? OR email = ?) AND ${idField} <> ? LIMIT 1`,
-      [nik, email, params.id]
+      `SELECT ${idField} FROM users WHERE (${duplicateChecks.slice(0, -1).join(' OR ')}) AND ${duplicateChecks[duplicateChecks.length - 1]} LIMIT 1`,
+      duplicateParams
     );
 
     if (Array.isArray(existingRows) && existingRows.length > 0) {
       return NextResponse.json(
-        { error: 'NIK sudah terdaftar' },
+        { error: 'Email, username, atau NIK sudah terdaftar' },
         { status: 409 }
       );
     }
 
+    const updates = [
+      'username = ?',
+      'nama = ?',
+      'email = ?',
+      'nik = ?',
+      'role = ?',
+      'alamat = ?',
+      'telepon = ?',
+      'status = ?',
+    ];
+
     await db.execute(
-      `
-      UPDATE users
-      SET nama = ?, email = ?, nik = ?, alamat = ?, telepon = ?, status = ?
-      WHERE ${idField} = ? AND role = 'masyarakat'
-      `,
-      [nama, email, nik, alamat, telepon || null, status, params.id]
+      `UPDATE users SET ${updates.join(', ')} WHERE ${idField} = ?`,
+      [username, nama, email, nik || null, role, alamat || null, telepon || null, status, params.id]
     );
 
     return NextResponse.json({
       success: true,
-      message: 'Data masyarakat berhasil diperbarui',
+      message: 'Data pengguna berhasil diperbarui',
     });
   } catch (error) {
     console.error('Admin users PUT error:', error);
     return NextResponse.json(
-      { error: 'Gagal memperbarui data masyarakat' },
+      { error: 'Gagal memperbarui data pengguna' },
       { status: 500 }
     );
   }
@@ -128,19 +151,26 @@ export async function DELETE(
     const columnMap = await getUsersColumnMap();
     const idField = columnMap.has('id') ? 'id' : 'id_user';
 
+    if (auth.userId === params.id) {
+      return NextResponse.json(
+        { error: 'Akun sendiri tidak dapat dihapus' },
+        { status: 400 }
+      );
+    }
+
     await db.execute(
-      `DELETE FROM users WHERE ${idField} = ? AND role = 'masyarakat'`,
+      `DELETE FROM users WHERE ${idField} = ?`,
       [params.id]
     );
 
     return NextResponse.json({
       success: true,
-      message: 'Data masyarakat berhasil dihapus',
+      message: 'Data pengguna berhasil dihapus',
     });
   } catch (error) {
     console.error('Admin users DELETE error:', error);
     return NextResponse.json(
-      { error: 'Gagal menghapus data masyarakat' },
+      { error: 'Gagal menghapus data pengguna' },
       { status: 500 }
     );
   }

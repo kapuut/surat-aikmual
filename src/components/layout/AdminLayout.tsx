@@ -12,7 +12,8 @@ import {
   FiCheckCircle, 
   FiLock, 
   FiFolder,
-  FiUsers 
+  FiUsers,
+  FiUser
 } from 'react-icons/fi';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -142,6 +143,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span>Persetujuan</span>
             </Link>
             <Link
+              href="/admin/users"
+              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
+                pathname === '/admin/users' 
+                  ? 'bg-slate-800 text-white font-semibold' 
+                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <FiUsers className="w-4 h-4" />
+              <span>Hak Akses Pengguna</span>
+            </Link>
+            <Link
               href="/admin/pemantauan-user"
               className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
                 pathname === '/admin/pemantauan-user' 
@@ -151,6 +163,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <FiUsers className="w-4 h-4" />
               <span>Pemantauan User</span>
+            </Link>
+            <Link
+              href="/admin/profile"
+              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
+                pathname === '/admin/profile' 
+                  ? 'bg-slate-800 text-white font-semibold' 
+                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <FiUser className="w-4 h-4" />
+              <span>Profil Admin</span>
             </Link>
             <Link
               href="/admin/change-password"

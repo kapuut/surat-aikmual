@@ -104,6 +104,19 @@ SELECT 'UPDATE SELESAI!' as status,
        COUNT(DISTINCT role) as total_roles
 FROM users;
 
+-- 10b. BUAT TABLE TEMPLATE SURAT (jika belum ada)
+CREATE TABLE IF NOT EXISTS template_surat (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nama_template VARCHAR(255) NOT NULL,
+  jenis_surat VARCHAR(100) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  uploaded_by INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_template_jenis_surat (jenis_surat),
+  INDEX idx_template_uploaded_by (uploaded_by),
+  CONSTRAINT fk_template_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- 11. NORMALISASI NIK LAMA (format NIK_timestamp -> NIK)
 UPDATE users
 SET nik = SUBSTRING_INDEX(nik, '_', 1)

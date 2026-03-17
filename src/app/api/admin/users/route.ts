@@ -74,16 +74,11 @@ export async function GET() {
       columnMap.has('last_login') ? 'last_login' : 'NULL AS last_login',
     ];
 
-    const whereClause = columnMap.has('role')
-      ? `WHERE role = 'masyarakat'`
-      : '';
-
     const orderByClause = columnMap.has('created_at') ? 'ORDER BY created_at DESC' : '';
 
     const [rows] = await db.query(`
       SELECT ${selectedColumns.join(', ')}
       FROM users
-      ${whereClause}
       ${orderByClause}
     `);
 
@@ -94,7 +89,7 @@ export async function GET() {
   } catch (error: any) {
     console.error('Admin users GET error:', error);
     return NextResponse.json(
-      { error: 'Gagal mengambil data masyarakat' },
+      { error: 'Gagal mengambil data pengguna' },
       { status: 500 }
     );
   }
@@ -111,15 +106,23 @@ export async function POST(request: Request) {
     const nama = String(body?.nama || '').trim();
     const email = String(body?.email || '').trim().toLowerCase();
     const nik = String(body?.nik || '').trim();
+    const username = String(body?.username || '').trim();
+    const role = String(body?.role || 'masyarakat').trim();
     const password = String(body?.password || '');
     const alamat = String(body?.alamat || '').trim();
     const telepon = String(body?.telepon || '').trim();
+    const normalizedNik = nik || null;
+    const allowedRoles = new Set(['admin', 'sekretaris', 'kepala_desa', 'masyarakat']);
 
-    if (!nama || !email || !nik || !password || !alamat) {
+    if (!allowedRoles.has(role)) {
+      return NextResponse.json({ error: 'Role tidak valid' }, { status: 400 });
+    }
+
+    if (!nama || !email || !username || !password) {
       return NextResponse.json({ error: 'Semua field wajib diisi' }, { status: 400 });
     }
 
-    if (!isValidNik(nik)) {
+    if (normalizedNik && !isValidNik(normalizedNik)) {
       return NextResponse.json({ error: 'NIK wajib 16 digit angka' }, { status: 400 });
     }
 
@@ -131,14 +134,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Password minimal 6 karakter' }, { status: 400 });
     }
 
+    const duplicateChecks = ['email = ?', 'username = ?'];
+    const duplicateParams: Array<string | null> = [email, username];
+    if (normalizedNik) {
+      duplicateChecks.push('SUBSTRING_INDEX(nik, "_", 1) = ?');
+      duplicateParams.push(normalizedNik);
+    }
+
     const [existingRows] = await db.execute(
-      'SELECT 1 FROM users WHERE SUBSTRING_INDEX(nik, "_", 1) = ? OR email = ? LIMIT 1',
-      [nik, email]
+      `SELECT 1 FROM users WHERE ${duplicateChecks.join(' OR ')} LIMIT 1`,
+      duplicateParams
     );
 
     if (Array.isArray(existingRows) && existingRows.length > 0) {
       return NextResponse.json(
-        { error: 'NIK sudah terdaftar' },
+        { error: 'Email, username, atau NIK sudah terdaftar' },
         { status: 409 }
       );
     }
@@ -158,13 +168,13 @@ export async function POST(request: Request) {
 
     appendColumn('nama', nama);
     appendColumn('email', email);
-    appendColumn('nik', nik);
+    appendColumn('nik', normalizedNik);
     appendColumn('password', passwordHash);
-    appendColumn('alamat', alamat);
+    appendColumn('alamat', alamat || null);
     appendColumn('telepon', telepon || null);
-    appendColumn('role', 'masyarakat');
+    appendColumn('role', role);
     appendColumn('status', 'aktif');
-    appendColumn('username', nik);
+    appendColumn('username', username);
 
     const idColumn = columnMap.get('id') || columnMap.get('id_user');
     if (idColumn && !/auto_increment/i.test(idColumn.Extra) && idColumn.Null === 'NO') {
@@ -180,20 +190,20 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: 'Data masyarakat berhasil ditambahkan',
+      message: 'Data pengguna berhasil ditambahkan',
     });
   } catch (error: any) {
     console.error('Admin users POST error:', error);
 
     if (error?.code === 'ER_DUP_ENTRY') {
       return NextResponse.json(
-        { error: 'NIK sudah terdaftar' },
+        { error: 'Email, username, atau NIK sudah terdaftar' },
         { status: 409 }
       );
     }
 
     return NextResponse.json(
-      { error: 'Gagal menambahkan data masyarakat' },
+      { error: 'Gagal menambahkan data pengguna' },
       { status: 500 }
     );
   }
