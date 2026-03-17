@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String
+  role      Role     @default(STAFF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SuratMasuk {
+  id           String     @id @default(cuid())
+  nomorSurat   String     @unique
+  perihal      String
+  pengirim     String
+  tanggalSurat DateTime
+  tanggalTerima DateTime
+  lampiran     String?
+  status       Status     @default(PENDING)
+  disposisi    Disposisi[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model SuratKeluar {
+  id           String     @id @default(cuid())
+  nomorSurat   String     @unique
+  perihal      String
+  tujuan       String
+  tanggalSurat DateTime
+  lampiran     String?
+  status       Status     @default(DRAFT)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Disposisi {
+  id           String     @id @default(cuid())
+  suratMasuk   SuratMasuk @relation(fields: [suratMasukId], references: [id])
+  suratMasukId String
+  dari         String
+  kepada       String
+  instruksi    String
+  tanggal      DateTime   @default(now())
+  status       Status     @default(PENDING)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  PIMPINAN
+}
+
+enum Status {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}

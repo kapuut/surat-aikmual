@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom CSS untuk Sistem Pengarsipan Surat Desa Aikmual */
+
+/* Landing Page Styles */
+.service-card {
+  @apply bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200;
+}
+
+.service-card:hover {
+  @apply border-blue-200 bg-blue-50;
+}
+
+.step-card {
+  @apply p-4 text-center;
+}
+
+.step-number {
+  @apply w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-3 font-semibold;
+}
