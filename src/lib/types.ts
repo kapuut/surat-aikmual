@@ -88,6 +88,11 @@ export const defaultPermissions: Record<UserRole, RolePermissions> = {
   }
 };
 
+// Surat Types
+export type StatusSurat = 'DITERIMA' | 'DIPROSES' | 'SELESAI' | 'DITOLAK';
+export type JenisSuratType = 'masuk' | 'keluar';
+export type KategoriSurat = string;
+
 export interface Surat {
   id: string;
   nomorSurat: string;

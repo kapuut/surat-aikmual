@@ -20,28 +20,34 @@ async function getStatistik() {
   );
 
   return { 
-    totalSurat: totalSurat[0].count, 
-    suratMasuk: suratMasuk[0].count, 
-    suratKeluar: suratKeluar[0].count, 
-    suratBulanIni: suratBulanIni[0].count 
+    totalSurat: (totalSurat as any)[0]?.count || 0, 
+    suratMasuk: (suratMasuk as any)[0]?.count || 0, 
+    suratKeluar: (suratKeluar as any)[0]?.count || 0, 
+    suratBulanIni: (suratBulanIni as any)[0]?.count || 0 
   };
 }
 
-async function getSuratTerbaru() {
-  return await prisma.surat.findMany({
-    take: 5,
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      nomorSurat: true,
-      perihal: true,
-      jenisSurat: true,
-      tanggal: true,
-      pengirim: true,
-      penerima: true,
-      kategori: true
-    }
-  });
+async function getSuratTerbaru(): Promise<any[]> {
+  try {
+    const [surat] = await db.query(
+      `SELECT 
+        id, 
+        nomor_surat as nomorSurat, 
+        perihal, 
+        jenis_surat as jenisSurat, 
+        tanggal_surat as tanggal,
+        asal_surat as pengirim,
+        tujuan_surat as penerima,
+        kategori
+      FROM surat 
+      ORDER BY tanggal_surat DESC 
+      LIMIT 5`
+    );
+    return Array.isArray(surat) ? surat : [];
+  } catch (error) {
+    console.error('Error getting surat terbaru:', error);
+    return [];
+  }
 }
 
 export default async function DashboardPage() {

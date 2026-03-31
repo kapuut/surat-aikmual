@@ -62,7 +62,7 @@ export default function SekretarisTemplateSuratPage() {
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-2">
-          <select className="border rounded-lg px-3 py-2 text-sm">
+          <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option>Semua Kategori</option>
             <option>Keterangan</option>
             <option>Pengantar</option>
@@ -72,7 +72,7 @@ export default function SekretarisTemplateSuratPage() {
           <input
             type="text"
             placeholder="Cari template..."
-            className="border rounded-lg px-3 py-2 text-sm w-64"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 flex items-center gap-2">
@@ -104,7 +104,7 @@ export default function SekretarisTemplateSuratPage() {
               </p>
             </div>
             <div className="bg-green-100 p-2 rounded-full">
-              <span className="text-xl">📋</span>
+              <span className="inline-block w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">FILE</span>
             </div>
           </div>
         </div>
@@ -132,7 +132,7 @@ export default function SekretarisTemplateSuratPage() {
               </p>
             </div>
             <div className="bg-orange-100 p-2 rounded-full">
-              <span className="text-xl">📊</span>
+              <span className="inline-block w-10 h-10 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-xs font-bold">CHT</span>
             </div>
           </div>
         </div>

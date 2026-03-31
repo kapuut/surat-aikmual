@@ -129,7 +129,7 @@ export default function TemplateSuratPage() {
     <section>
       {/* Header */}
       <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">📄 Template Surat</h2>
+          <h2 className="text-3xl font-bold text-gray-800">Template Surat</h2>
           <p className="text-gray-500 mt-1">
             Kelola template surat yang digunakan untuk pembuatan surat.
           </p>
@@ -156,7 +156,7 @@ export default function TemplateSuratPage() {
                 type="text"
                 value={formData.nama}
                 onChange={(e) => setFormData((prev) => ({ ...prev, nama: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Contoh: Template Surat Domisili"
                 required
               />
@@ -166,7 +166,7 @@ export default function TemplateSuratPage() {
               <select
                 value={formData.jenisSurat}
                 onChange={(e) => setFormData((prev) => ({ ...prev, jenisSurat: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               >
                 {ALLOWED_SURAT_TYPES.map((item) => (
@@ -181,7 +181,7 @@ export default function TemplateSuratPage() {
               <textarea
                 value={formData.deskripsi}
                 onChange={(e) => setFormData((prev) => ({ ...prev, deskripsi: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={2}
               />
             </div>
@@ -191,7 +191,7 @@ export default function TemplateSuratPage() {
                 type="file"
                 accept=".docx,.pdf"
                 onChange={handleFileChange}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -209,11 +209,11 @@ export default function TemplateSuratPage() {
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex gap-2">
-            <select className="border rounded-lg px-3 py-2 text-sm">
+            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>Kategori Resmi</option>
               <option>Keterangan</option>
             </select>
-            <select className="border rounded-lg px-3 py-2 text-sm">
+            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>Semua Status</option>
               <option>Aktif</option>
             </select>
@@ -221,7 +221,7 @@ export default function TemplateSuratPage() {
 
           <div className="flex gap-3">
             <button className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
-              📄 Unduh Semua Template
+              Unduh Semua Template
             </button>
           </div>
         </div>
@@ -235,8 +235,8 @@ export default function TemplateSuratPage() {
             <div key={template.id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="bg-blue-100 p-3 rounded-lg">
-                    <span className="text-2xl">📄</span>
+                  <div className="bg-blue-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center">
+                    <span className="text-sm font-bold text-blue-700">TMPL</span>
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     template.status === 'aktif' 
@@ -272,13 +272,13 @@ export default function TemplateSuratPage() {
                 
                 <div className="flex gap-2 pt-4 border-t border-gray-200">
                   <a href={template.file_path} target="_blank" rel="noreferrer" className="flex-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg text-sm hover:bg-blue-100 text-center">
-                    👁️ Preview
+                    Preview
                   </a>
                   <button
                     onClick={() => handleDelete(template.id)}
                     className="bg-red-50 text-red-600 px-3 py-2 rounded-lg text-sm hover:bg-red-100"
                   >
-                    🗑️
+                    Hapus
                   </button>
                 </div>
               </div>

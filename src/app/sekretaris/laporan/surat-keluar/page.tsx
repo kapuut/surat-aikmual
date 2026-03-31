@@ -81,7 +81,7 @@ export default function SekretarisLaporanSuratKeluarPage() {
               <p className="text-xs text-gray-500 mt-1">21.1% dari total</p>
             </div>
             <div className="bg-orange-100 p-3 rounded-full">
-              <span className="text-2xl">⏳</span>
+              <span className="inline-block w-12 h-12 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-xs font-bold">WAIT</span>
             </div>
           </div>
         </div>
@@ -94,7 +94,7 @@ export default function SekretarisLaporanSuratKeluarPage() {
               <p className="text-xs text-gray-500 mt-1">78.9% dari total</p>
             </div>
             <div className="bg-green-100 p-3 rounded-full">
-              <span className="text-2xl">✅</span>
+              <span className="inline-block w-12 h-12 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs font-bold">OK</span>
             </div>
           </div>
         </div>

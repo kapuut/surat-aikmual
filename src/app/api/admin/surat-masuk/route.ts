@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/db";
+import { db } from "@/lib/db";
 import { RowDataPacket } from "mysql2";
 
 // GET - Ambil semua surat masuk
 export async function GET(request: NextRequest) {
   try {
-    const [rows] = await pool.query<RowDataPacket[]>(
+    const [rows] = await db.query<RowDataPacket[]>(
       `SELECT 
         sm.*,
         u.nama as created_by_name
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const created_by = 1;
 
     // Insert ke database
-    const [result] = await pool.query(
+    const [result] = await db.query(
       `INSERT INTO surat_masuk 
        (nomor_surat, tanggal_surat, tanggal_terima, asal_surat, perihal, created_by)
        VALUES (?, ?, ?, ?, ?, ?)`,

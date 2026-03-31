@@ -63,6 +63,17 @@ CREATE TABLE permohonan_surat (
     FOREIGN KEY (processed_by) REFERENCES users(id)
 );
 
+-- Template Surat table
+CREATE TABLE template_surat (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nama_template VARCHAR(255) NOT NULL,
+    jenis_surat VARCHAR(100) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    uploaded_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id)
+);
+
 -- Insert default admin user (password: adminsurat000)
 INSERT INTO users (username, password, nama, email, role) VALUES 
 ('admin', '$2b$10$z8V9b2R4qmBbYaX3IYJ.2eerp0NLEByFFEcTKpPilrlPQE8ebqtR2', 'Administrator', 'admin@aikmual.com', 'admin');

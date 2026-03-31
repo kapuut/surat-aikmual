@@ -54,7 +54,7 @@ export default function ApprovalPage() {
     <section>
       {/* Header */}
       <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">✅ Approval Dokumen</h2>
+          <h2 className="text-3xl font-bold text-gray-800">Approval Dokumen</h2>
           <p className="text-gray-500 mt-1">
             Kelola persetujuan dan penandatanganan dokumen surat.
           </p>
@@ -63,18 +63,18 @@ export default function ApprovalPage() {
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex gap-2">
-            <select className="border rounded-lg px-3 py-2 text-sm">
+            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>Semua Status</option>
               <option>Menunggu Approval</option>
               <option>Disetujui</option>
               <option>Ditolak</option>
             </select>
-            <select className="border rounded-lg px-3 py-2 text-sm">
+            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>Semua Priority</option>
               <option>Urgent</option>
               <option>Normal</option>
             </select>
-            <select className="border rounded-lg px-3 py-2 text-sm">
+            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>Semua Jenis Surat</option>
               <option>Surat Keterangan Domisili</option>
               <option>Surat Keterangan Tidak Mampu</option>
@@ -85,7 +85,7 @@ export default function ApprovalPage() {
 
           <div className="flex gap-3">
             <button className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
-              📄 Unduh Laporan Approval
+              Unduh Laporan
             </button>
           </div>
         </div>
@@ -99,7 +99,7 @@ export default function ApprovalPage() {
                 <p className="text-2xl font-bold text-yellow-600">2</p>
               </div>
               <div className="bg-yellow-100 p-2 rounded-full">
-                <span className="text-xl">⏳</span>
+                <span className="inline-block w-10 h-10 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-xs font-bold">WTIN</span>
               </div>
             </div>
           </div>
@@ -111,7 +111,7 @@ export default function ApprovalPage() {
                 <p className="text-2xl font-bold text-green-600">1</p>
               </div>
               <div className="bg-green-100 p-2 rounded-full">
-                <span className="text-xl">✅</span>
+                <span className="inline-block w-10 h-10 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs font-bold">OK</span>
               </div>
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function ApprovalPage() {
                 <p className="text-2xl font-bold text-red-600">1</p>
               </div>
               <div className="bg-red-100 p-2 rounded-full">
-                <span className="text-xl">❌</span>
+                <span className="inline-block w-10 h-10 bg-red-100 text-red-700 rounded-full flex items-center justify-center text-xs font-bold">REJECT</span>
               </div>
             </div>
           </div>
@@ -135,7 +135,7 @@ export default function ApprovalPage() {
                 <p className="text-2xl font-bold text-blue-600">4</p>
               </div>
               <div className="bg-blue-100 p-2 rounded-full">
-                <span className="text-xl">📄</span>
+                <span className="inline-block w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">DOC</span>
               </div>
             </div>
           </div>
@@ -192,15 +192,15 @@ export default function ApprovalPage() {
                   </td>
                   <td className="px-4 py-3 text-center flex gap-2 justify-center">
                     <button className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600">
-                      👁️
+                      Lihat
                     </button>
                     {doc.status === 'Menunggu Approval' && (
                       <>
                         <button className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600">
-                          ✅
+                          Setujui
                         </button>
                         <button className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">
-                          ❌
+                          Tolak
                         </button>
                       </>
                     )}

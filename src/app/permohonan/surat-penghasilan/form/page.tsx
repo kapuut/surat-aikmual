@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -83,23 +83,23 @@ export default function SuratPenghasilanPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
-                <input type="text" name="namaLengkap" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="text" name="namaLengkap" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">NIK *</label>
-                <input type="text" name="nik" required maxLength={16} pattern="[0-9]{16}" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="text" name="nik" required maxLength={16} pattern="[0-9]{16}" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Tempat Lahir *</label>
-                <input type="text" name="tempatLahir" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="text" name="tempatLahir" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Lahir *</label>
-                <input type="date" name="tanggalLahir" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="date" name="tanggalLahir" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Jenis Kelamin *</label>
-                <select name="jenisKelamin" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <select name="jenisKelamin" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">Pilih Jenis Kelamin</option>
                   <option value="Laki-laki">Laki-laki</option>
                   <option value="Perempuan">Perempuan</option>
@@ -107,7 +107,7 @@ export default function SuratPenghasilanPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Pendidikan Terakhir *</label>
-                <select name="pendidikan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <select name="pendidikan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">Pilih Pendidikan</option>
                   <option value="SD">SD</option>
                   <option value="SMP">SMP</option>
@@ -120,15 +120,15 @@ export default function SuratPenghasilanPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Pekerjaan *</label>
-                <input type="text" name="pekerjaan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="text" name="pekerjaan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">No. Telepon *</label>
-                <input type="tel" name="noTelp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="tel" name="noTelp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Alamat Lengkap *</label>
-                <textarea name="alamat" required rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <textarea name="alamat" required rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
           </div>
@@ -138,15 +138,15 @@ export default function SuratPenghasilanPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Jenis Usaha/Pekerjaan *</label>
-                <input type="text" name="jenisUsaha" required placeholder="Contoh: Petani, Pedagang, Karyawan Swasta" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="text" name="jenisUsaha" required placeholder="Contoh: Petani, Pedagang, Karyawan Swasta" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Penghasilan per Bulan *</label>
-                <input type="number" name="penghasilanPerBulan" required placeholder="Dalam Rupiah" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="number" name="penghasilanPerBulan" required placeholder="Dalam Rupiah" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Sumber Penghasilan *</label>
-                <select name="sumberPenghasilan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <select name="sumberPenghasilan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">Pilih Sumber</option>
                   <option value="Usaha Sendiri">Usaha Sendiri</option>
                   <option value="Karyawan/Pegawai">Karyawan/Pegawai</option>
@@ -158,15 +158,15 @@ export default function SuratPenghasilanPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Lama Bekerja *</label>
-                <input type="text" name="lamaBekerja" required placeholder="Contoh: 5 tahun" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="text" name="lamaBekerja" required placeholder="Contoh: 5 tahun" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nama Perusahaan/Tempat Usaha (jika ada)</label>
-                <input type="text" name="namaPerusahaan" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="text" name="namaPerusahaan" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Alamat Perusahaan/Tempat Usaha (jika ada)</label>
-                <textarea name="alamatPerusahaan" rows={2} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <textarea name="alamatPerusahaan" rows={2} className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
           </div>
@@ -175,7 +175,7 @@ export default function SuratPenghasilanPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Keperluan</h2>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Untuk Keperluan *</label>
-              <textarea name="keperluan" required rows={3} placeholder="Jelaskan keperluan surat ini..." className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              <textarea name="keperluan" required rows={3} placeholder="Jelaskan keperluan surat ini..." className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
             </div>
           </div>
 
@@ -206,3 +206,4 @@ export default function SuratPenghasilanPage() {
     </div>
   );
 }
+

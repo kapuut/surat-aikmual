@@ -68,7 +68,7 @@ export default function PublicLoginPage() {
         throw new Error(data.error || "Login gagal. Silakan coba lagi.");
       }
 
-      router.push(data.redirectUrl || "/dashboard");
+      router.push(data.redirectUrl || "/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login gagal. Silakan coba lagi.");
     } finally {
@@ -155,6 +155,14 @@ export default function PublicLoginPage() {
                     <FiEye className="h-5 w-5" />
                   )}
                 </button>
+              </div>
+              <div className="mt-2 text-right">
+                <Link 
+                  href="/forgot-password" 
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Lupa password?
+                </Link>
               </div>
             </div>
 

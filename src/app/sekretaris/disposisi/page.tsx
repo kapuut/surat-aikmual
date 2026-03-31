@@ -58,18 +58,18 @@ export default function SekretarisDisposisiPage() {
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-2">
-          <select className="border rounded-lg px-3 py-2 text-sm">
+          <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option>Semua Status</option>
             <option>Menunggu</option>
             <option>Dalam Proses</option>
             <option>Selesai</option>
           </select>
-          <select className="border rounded-lg px-3 py-2 text-sm">
+          <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option>Semua Prioritas</option>
             <option>Urgent</option>
             <option>Normal</option>
           </select>
-          <select className="border rounded-lg px-3 py-2 text-sm">
+          <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option>Semua Tujuan</option>
             <option>Kepala Desa</option>
             <option>Kader Posyandu</option>
@@ -118,7 +118,7 @@ export default function SekretarisDisposisiPage() {
               </p>
             </div>
             <div className="bg-blue-100 p-2 rounded-full">
-              <span className="text-xl">⏳</span>
+              <span className="inline-block w-10 h-10 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-xs font-bold">WAIT</span>
             </div>
           </div>
         </div>

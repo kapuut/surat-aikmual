@@ -79,7 +79,7 @@ export default function LaporanSuratMasukPage() {
     <section>
       {/* Header */}
       <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">📊 Laporan Surat Masuk</h2>
+          <h2 className="text-3xl font-bold text-gray-800">Laporan Surat Masuk</h2>
           <p className="text-gray-500 mt-1">
             Laporan lengkap data surat masuk yang diterima oleh kantor desa.
           </p>
@@ -90,25 +90,25 @@ export default function LaporanSuratMasukPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                🔍 Pencarian
+                Pencarian
               </label>
               <input
                 type="text"
                 placeholder="Cari berdasarkan nomor surat, pengirim, perihal, atau penerima..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               />
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                📅 Bulan
+                Bulan
               </label>
               <select
                 value={filterBulan}
                 onChange={(e) => setFilterBulan(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">Semua Bulan</option>
                 <option value="1">Januari</option>
@@ -128,12 +128,12 @@ export default function LaporanSuratMasukPage() {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                📆 Tahun
+                Tahun
               </label>
               <select
                 value={filterTahun}
                 onChange={(e) => setFilterTahun(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">Semua Tahun</option>
                 <option value="2025">2025</option>
@@ -155,13 +155,13 @@ export default function LaporanSuratMasukPage() {
               onClick={handleExportPDF}
               className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 flex items-center gap-2"
             >
-              📄 Export PDF
+              Export PDF
             </button>
             <button 
               onClick={handleExportExcel}
               className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 flex items-center gap-2"
             >
-              📊 Export Excel
+              Export Excel
             </button>
           </div>
         </div>
@@ -213,7 +213,7 @@ export default function LaporanSuratMasukPage() {
                 <p className="text-2xl font-bold text-blue-600">{suratMasuk.length}</p>
               </div>
               <div className="bg-blue-100 p-2 rounded-full">
-                <span className="text-xl">📥</span>
+                <span className="inline-block w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">IN</span>
               </div>
             </div>
           </div>
@@ -225,7 +225,7 @@ export default function LaporanSuratMasukPage() {
                 <p className="text-2xl font-bold text-green-600">{filteredData.length}</p>
               </div>
               <div className="bg-green-100 p-2 rounded-full">
-                <span className="text-xl">📊</span>
+                <span className="inline-block w-10 h-10 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-xs font-bold">CHT</span>
               </div>
             </div>
           </div>

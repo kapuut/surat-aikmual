@@ -119,7 +119,7 @@ export default function SuratDomisiliFormPage() {
                     type="text"
                     name="nama"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Masukkan nama lengkap"
                   />
                 </div>
@@ -133,7 +133,7 @@ export default function SuratDomisiliFormPage() {
                     required
                     pattern="[0-9]{16}"
                     maxLength={16}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="16 digit NIK"
                   />
                 </div>
@@ -145,7 +145,7 @@ export default function SuratDomisiliFormPage() {
                     type="text"
                     name="tempatLahir"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Kota/Kabupaten"
                   />
                 </div>
@@ -157,7 +157,7 @@ export default function SuratDomisiliFormPage() {
                     type="date"
                     name="tanggalLahir"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -167,7 +167,7 @@ export default function SuratDomisiliFormPage() {
                   <select
                     name="jenisKelamin"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   >
                     <option value="">Pilih jenis kelamin</option>
                     <option value="Laki-laki">Laki-laki</option>
@@ -181,7 +181,7 @@ export default function SuratDomisiliFormPage() {
                   <select
                     name="agama"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   >
                     <option value="">Pilih agama</option>
                     <option value="Islam">Islam</option>
@@ -200,7 +200,7 @@ export default function SuratDomisiliFormPage() {
                     type="text"
                     name="pekerjaan"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Pekerjaan saat ini"
                   />
                 </div>
@@ -211,7 +211,7 @@ export default function SuratDomisiliFormPage() {
                   <select
                     name="statusPerkawinan"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   >
                     <option value="">Pilih status</option>
                     <option value="Belum Kawin">Belum Kawin</option>
@@ -235,7 +235,7 @@ export default function SuratDomisiliFormPage() {
                 <textarea
                   name="alamatSebelumnya"
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   placeholder="Jalan, RT/RW, Kelurahan, Kecamatan, Kabupaten, Provinsi"
                 />
               </div>
@@ -255,7 +255,7 @@ export default function SuratDomisiliFormPage() {
                     name="alamatSekarang"
                     required
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Nama jalan, nomor rumah, nama kampung/dusun"
                   />
                 </div>
@@ -270,7 +270,7 @@ export default function SuratDomisiliFormPage() {
                       required
                       pattern="[0-9]{3}"
                       maxLength={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       placeholder="001"
                     />
                   </div>
@@ -284,7 +284,7 @@ export default function SuratDomisiliFormPage() {
                       required
                       pattern="[0-9]{3}"
                       maxLength={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       placeholder="001"
                     />
                   </div>
@@ -296,7 +296,7 @@ export default function SuratDomisiliFormPage() {
                       type="text"
                       name="kelurahan"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       placeholder="Nama kelurahan"
                     />
                   </div>
@@ -310,7 +310,7 @@ export default function SuratDomisiliFormPage() {
                       type="text"
                       name="kecamatan"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       placeholder="Nama kecamatan"
                     />
                   </div>
@@ -322,7 +322,7 @@ export default function SuratDomisiliFormPage() {
                       type="text"
                       name="kabupaten"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       placeholder="Nama kabupaten/kota"
                     />
                   </div>
@@ -334,7 +334,7 @@ export default function SuratDomisiliFormPage() {
                       type="text"
                       name="provinsi"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       placeholder="Nama provinsi"
                     />
                   </div>
@@ -347,7 +347,7 @@ export default function SuratDomisiliFormPage() {
                       name="kodePos"
                       pattern="[0-9]{5}"
                       maxLength={5}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       placeholder="12345"
                     />
                   </div>
@@ -360,7 +360,7 @@ export default function SuratDomisiliFormPage() {
                     type="tel"
                     name="noTelp"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="08xxxxxxxxxx"
                   />
                 </div>
@@ -380,7 +380,7 @@ export default function SuratDomisiliFormPage() {
                   <select
                     name="statusTempat"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   >
                     <option value="">Pilih status</option>
                     <option value="Milik Sendiri">Milik Sendiri</option>
@@ -397,7 +397,7 @@ export default function SuratDomisiliFormPage() {
                     type="text"
                     name="lamaTinggal"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Contoh: 2 tahun 3 bulan"
                   />
                 </div>
@@ -409,7 +409,7 @@ export default function SuratDomisiliFormPage() {
                     name="keperluan"
                     required
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Jelaskan keperluan surat keterangan domisili ini"
                   />
                 </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/dashboard-layout';
@@ -22,11 +22,7 @@ export default function SuratPage() {
 
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    fetchSurat();
-  }, [currentPage, searchTerm, statusFilter, kategoriFilter]);
-
-  const fetchSurat = async () => {
+  const fetchSurat = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -49,7 +45,11 @@ export default function SuratPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, statusFilter, kategoriFilter, itemsPerPage, currentPage]);
+
+  useEffect(() => {
+    fetchSurat();
+  }, [currentPage, fetchSurat]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus surat ini?')) {
@@ -76,16 +76,20 @@ export default function SuratPage() {
     return new Date(dateString).toLocaleDateString('id-ID');
   };
 
-  const getStatusBadge = (status: StatusSurat) => {
-    const styles = {
+  const getStatusBadge = (status: string) => {
+    // Status mapping untuk approval permohonan
+    const statusStyles: Record<string, string> = {
       DITERIMA: 'bg-green-100 text-green-800',
       DIPROSES: 'bg-yellow-100 text-yellow-800',
       SELESAI: 'bg-blue-100 text-blue-800',
-      DITOLAK: 'bg-red-100 text-red-800'
+      DITOLAK: 'bg-red-100 text-red-800',
+      // Status filing
+      'aktif': 'bg-green-100 text-green-800',
+      'arsip': 'bg-gray-100 text-gray-800'
     };
 
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status]}`}>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusStyles[status] || 'bg-gray-100 text-gray-800'}`}>
         {status}
       </span>
     );
@@ -130,21 +134,23 @@ export default function SuratPage() {
             </div>
 
             {/* Status Filter */}
-            <Select
+            <select
               value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value as StatusSurat | 'ALL')}
+              onChange={(e) => setStatusFilter(e.target.value as StatusSurat | 'ALL')}
+              className="px-3 py-2 border border-gray-300 rounded-lg"
             >
               <option value="ALL">Semua Status</option>
               <option value="DITERIMA">Diterima</option>
               <option value="DIPROSES">Diproses</option>
               <option value="SELESAI">Selesai</option>
               <option value="DITOLAK">Ditolak</option>
-            </Select>
+            </select>
 
             {/* Kategori Filter */}
-            <Select
+            <select
               value={kategoriFilter}
-              onValueChange={(value) => setKategoriFilter(value as KategoriSurat | 'ALL')}
+              onChange={(e) => setKategoriFilter(e.target.value as KategoriSurat | 'ALL')}
+              className="px-3 py-2 border border-gray-300 rounded-lg"
             >
               <option value="ALL">Semua Kategori</option>
               <option value="SURAT_MASUK">Surat Masuk</option>
@@ -152,7 +158,7 @@ export default function SuratPage() {
               <option value="SURAT_KEPUTUSAN">Surat Keputusan</option>
               <option value="SURAT_KETERANGAN">Surat Keterangan</option>
               <option value="SURAT_UNDANGAN">Surat Undangan</option>
-            </Select>
+            </select>
 
             {/* Reset Button */}
             <Button 
@@ -175,7 +181,7 @@ export default function SuratPage() {
             </div>
           ) : surat.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-gray-400 text-6xl mb-4">📄</div>
+              <div className="text-gray-400 text-6xl mb-4 bg-gray-100 w-16 h-16 rounded-lg flex items-center justify-center"><span className="text-2xl font-bold text-gray-500">-</span></div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 Tidak ada surat
               </h3>
@@ -229,7 +235,7 @@ export default function SuratPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {item.pengirim || item.tujuan || '-'}
+                        {item.pengirim || item.penerima || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
                         <span className="px-2 py-1 bg-gray-100 rounded text-xs">
@@ -237,7 +243,7 @@ export default function SuratPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {formatDate(item.tanggalSurat)}
+                        {formatDate(item.tanggal?.toString() || '')}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {getStatusBadge(item.status)}

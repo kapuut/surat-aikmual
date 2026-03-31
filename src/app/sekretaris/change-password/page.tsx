@@ -210,7 +210,7 @@ export default function SekretarisChangePasswordPage() {
 
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <h3 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
-              <span>✅</span> Keamanan Akun
+              <span className="inline-block w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs font-bold">OK</span> Keamanan Akun
             </h3>
             <p className="text-sm text-green-800">
               Ubah password secara berkala untuk menjaga keamanan akun Anda.

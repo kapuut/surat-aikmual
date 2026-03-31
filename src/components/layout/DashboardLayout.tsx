@@ -13,14 +13,13 @@ import {
   FiFile, 
   FiBarChart, 
   FiTrendingUp, 
-  FiTrendingDown, 
   FiCheckCircle, 
-  FiLock, 
   FiFolder,
   FiUsers,
   FiLogOut,
   FiSettings,
-  FiClock
+  FiClock,
+  FiUser
 } from 'react-icons/fi';
 
 interface DashboardLayoutProps {
@@ -116,30 +115,14 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
         label: 'Laporan Surat Keluar',
         section: 'laporan'
       });
-      items.push({
-        href: `${baseUrl}/laporan/grafik`,
-        icon: FiTrendingDown,
-        label: 'Grafik Analisis',
-        section: 'laporan'
-      });
     }
 
-    // Approval
-    if (permissions.approval.read) {
+    // User Monitoring - hanya untuk admin
+    if (permissions.userManagement.read && role === 'admin') {
       items.push({
-        href: `${baseUrl}/approval`,
-        icon: FiCheckCircle,
-        label: 'Persetujuan',
-        section: 'pengaturan'
-      });
-    }
-
-    // User Management
-    if (permissions.userManagement.read) {
-      items.push({
-        href: `${baseUrl}/users`,
+        href: `${baseUrl}/pemantauan-user`,
         icon: FiUsers,
-        label: 'Manajemen User',
+        label: 'Pemantauan User',
         section: 'pengaturan'
       });
     }
@@ -154,11 +137,11 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
       });
     }
 
-    // Ganti Password - semua role
+    // Profil - semua role
     items.push({
-      href: `${baseUrl}/change-password`,
-      icon: FiLock,
-      label: 'Ganti Password',
+      href: `${baseUrl}/profile`,
+      icon: FiUser,
+      label: 'Profil',
       section: 'pengaturan'
     });
 

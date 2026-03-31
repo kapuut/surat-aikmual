@@ -46,7 +46,7 @@ export default function LaporanGrafikPage() {
     <section>
       {/* Header */}
       <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">📉 Laporan Grafik</h2>
+          <h2 className="text-3xl font-bold text-gray-800">Laporan Grafik</h2>
           <p className="text-gray-500 mt-1">
             Visualisasi data surat masuk dan keluar dalam bentuk grafik per bulan.
           </p>
@@ -57,12 +57,12 @@ export default function LaporanGrafikPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <label className="text-sm font-medium text-gray-700">
-                📅 Pilih Tahun:
+                Pilih Tahun:
               </label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="2025">2025</option>
                 <option value="2024">2024</option>
@@ -75,13 +75,13 @@ export default function LaporanGrafikPage() {
                 onClick={handleExportChart}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 flex items-center gap-2"
               >
-                📊 Export Grafik
+                Export Grafik
               </button>
               <button 
                 onClick={handlePrintReport}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 flex items-center gap-2"
               >
-                🖨️ Print Laporan
+                Print Laporan
               </button>
             </div>
           </div>
@@ -96,8 +96,8 @@ export default function LaporanGrafikPage() {
                 <p className="text-3xl font-bold text-blue-600">{totalSuratMasuk}</p>
                 <p className="text-xs text-gray-400 mt-1">Tahun {selectedYear}</p>
               </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <span className="text-2xl">📥</span>
+              <div className="bg-blue-100 p-3 rounded-full w-16 h-16 flex items-center justify-center">
+                <span className="text-xs font-bold text-blue-700">IN</span>
               </div>
             </div>
           </div>
@@ -109,8 +109,8 @@ export default function LaporanGrafikPage() {
                 <p className="text-3xl font-bold text-red-600">{totalSuratKeluar}</p>
                 <p className="text-xs text-gray-400 mt-1">Tahun {selectedYear}</p>
               </div>
-              <div className="bg-red-100 p-3 rounded-full">
-                <span className="text-2xl">📤</span>
+              <div className="bg-red-100 p-3 rounded-full w-16 h-16 flex items-center justify-center">
+                <span className="text-xs font-bold text-red-700">OUT</span>
               </div>
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function LaporanGrafikPage() {
                 <p className="text-xs text-gray-400 mt-1">per bulan</p>
               </div>
               <div className="bg-green-100 p-3 rounded-full">
-                <span className="text-2xl">📊</span>
+                <span className="inline-block w-12 h-12 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-xs font-bold">CHT</span>
               </div>
             </div>
           </div>
@@ -219,7 +219,7 @@ export default function LaporanGrafikPage() {
                     - {Math.max(...currentData.suratMasuk)} surat
                   </p>
                 </div>
-                <span className="text-2xl">📥</span>
+                <span className="inline-block w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold\">IN</span>
               </div>
               
               <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
@@ -230,14 +230,14 @@ export default function LaporanGrafikPage() {
                     - {Math.max(...currentData.suratKeluar)} surat
                   </p>
                 </div>
-                <span className="text-2xl">📤</span>
+                <span className="inline-block w-10 h-10 bg-red-100 text-red-700 rounded-full flex items-center justify-center text-xs font-bold\">OUT</span>
               </div>
             </div>
           </div>
 
           {/* Summary Table */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">📋 Ringkasan Data</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Ringkasan Data</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>

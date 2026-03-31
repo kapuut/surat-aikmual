@@ -165,7 +165,7 @@ export default function TambahSuratPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Select
                 label="Jenis Surat"
-                options={JENIS_SURAT}
+                options={JENIS_SURAT as any}
                 value={formData.jenisSurat}
                 onChange={(e) => handleInputChange('jenisSurat', e.target.value as 'masuk' | 'keluar')}
                 required

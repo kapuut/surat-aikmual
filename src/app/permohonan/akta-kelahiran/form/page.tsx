@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -29,7 +29,12 @@ export default function FormAktaKelahiran() {
             formData.append('dokumen', file);
           });
         } else {
-          formData.append(key, data[key as keyof FormData]);
+          const value = data[key as keyof FormData];
+          if (typeof value === 'string') {
+            formData.append(key, value);
+          } else if (value instanceof Blob) {
+            formData.append(key, value);
+          }
         }
       });
 
@@ -92,3 +97,4 @@ export default function FormAktaKelahiran() {
     </div>
   );
 }
+

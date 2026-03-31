@@ -49,7 +49,7 @@ export default function SuratMasukPage() {
     <section>
       {/* Header */}
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800">📥 Surat Masuk</h2>
+        <h2 className="text-3xl font-bold text-gray-800">Surat Masuk</h2>
         <p className="text-gray-500 mt-1">
           Kelola data surat masuk yang diterima oleh kantor desa.
         </p>
@@ -58,7 +58,7 @@ export default function SuratMasukPage() {
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex gap-2">
-            <select className="border rounded-lg px-3 py-2 text-sm">
+            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>Pilih Bulan</option>
               <option>Januari</option>
               <option>Februari</option>
@@ -73,7 +73,7 @@ export default function SuratMasukPage() {
               <option>November</option>
               <option>Desember</option>
             </select>
-            <select className="border rounded-lg px-3 py-2 text-sm">
+            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option>Pilih Tahun</option>
               <option>2025</option>
               <option>2024</option>
@@ -83,13 +83,13 @@ export default function SuratMasukPage() {
 
           <div className="flex gap-3">
             <button className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
-              📄 Unduh Laporan
+              Unduh Laporan
             </button>
             <Link
               href="/admin/surat-masuk/tambah"
               className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 inline-flex items-center gap-2"
             >
-              ➕ Tambah Surat Masuk
+              Tambah Surat Masuk
             </Link>
           </div>
         </div>
@@ -138,14 +138,14 @@ export default function SuratMasukPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-center flex gap-2 justify-center">
-                      <button className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600">
-                        👁️
+                      <button className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">
+                        Lihat
                       </button>
-                      <button className="bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600">
-                        ✏️
+                      <button className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600">
+                        Edit
                       </button>
-                      <button className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">
-                        🗑️
+                      <button className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
+                        Hapus
                       </button>
                     </td>
                   </tr>

@@ -17,29 +17,22 @@ async function getIdField() {
 
 export async function POST(request: Request) {
   try {
-    const { currentPassword, newPassword } = await request.json();
+    const { oldPassword, currentPassword, newPassword: pwd } = await request.json();
+    const newPassword = pwd || currentPassword;
     
-    // Validasi input
-    if (!currentPassword || !newPassword) {
+    // Validasi input - accept both oldPassword and currentPassword
+    const oldPass = oldPassword || currentPassword;
+    if (!oldPass || !newPassword) {
       return NextResponse.json(
         { error: 'Password lama dan password baru harus diisi' },
         { status: 400 }
       );
     }
 
-    // Validasi kekuatan password baru
-    if (newPassword.length < 8) {
+    // Validasi kekuatan password baru (minimum 6 karakter)
+    if (newPassword.length < 6) {
       return NextResponse.json(
-        { error: 'Password baru minimal 8 karakter' },
-        { status: 400 }
-      );
-    }
-
-    // Cek password pattern yang kuat
-    const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
-    if (!strongPasswordPattern.test(newPassword)) {
-      return NextResponse.json(
-        { error: 'Password harus mengandung huruf besar, huruf kecil, angka, dan simbol' },
+        { error: 'Password baru minimal 6 karakter' },
         { status: 400 }
       );
     }
@@ -70,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     const user = rows[0];
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isCurrentPasswordValid = await bcrypt.compare(oldPass, user.password);
 
     if (!isCurrentPasswordValid) {
       return NextResponse.json(

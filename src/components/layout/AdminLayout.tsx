@@ -8,9 +8,7 @@ import {
   FiFile, 
   FiBarChart, 
   FiTrendingUp, 
-  FiTrendingDown, 
   FiCheckCircle, 
-  FiLock, 
   FiFolder,
   FiUsers,
   FiUser
@@ -116,43 +114,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <FiTrendingUp className="w-4 h-4" />
               <span>Laporan Surat Keluar</span>
             </Link>
-            <Link
-              href="/admin/laporan/grafik"
-              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/admin/laporan/grafik' 
-                  ? 'bg-slate-800 text-white font-semibold' 
-                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <FiTrendingDown className="w-4 h-4" />
-              <span>Grafik Analisis</span>
-            </Link>
+
           </div>
 
           <div>
             <p className="text-xs uppercase text-gray-400 mt-4 mb-2 font-semibold tracking-wider">Pengaturan</p>
-            <Link
-              href="/admin/approval"
-              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/admin/approval' 
-                  ? 'bg-slate-800 text-white font-semibold' 
-                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <FiCheckCircle className="w-4 h-4" />
-              <span>Persetujuan</span>
-            </Link>
-            <Link
-              href="/admin/users"
-              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/admin/users' 
-                  ? 'bg-slate-800 text-white font-semibold' 
-                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <FiUsers className="w-4 h-4" />
-              <span>Hak Akses Pengguna</span>
-            </Link>
             <Link
               href="/admin/pemantauan-user"
               className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
@@ -173,18 +139,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               }`}
             >
               <FiUser className="w-4 h-4" />
-              <span>Profil Admin</span>
-            </Link>
-            <Link
-              href="/admin/change-password"
-              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/admin/change-password' 
-                  ? 'bg-slate-800 text-white font-semibold' 
-                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <FiLock className="w-4 h-4" />
-              <span>Ganti Password</span>
+              <span>Profil</span>
             </Link>
           </div>
         </nav>
