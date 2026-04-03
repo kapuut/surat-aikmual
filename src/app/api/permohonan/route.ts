@@ -37,6 +37,17 @@ function getFirstStringValue(source: Record<string, unknown>, keys: string[]): s
   return '';
 }
 
+function normalizeDateValue(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const yyyy = parsed.getFullYear();
+  const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+  const dd = String(parsed.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 async function handlePermohonanPost(request: Request) {
   try {
     const contentType = request.headers.get('content-type') || '';
@@ -68,6 +79,19 @@ async function handlePermohonanPost(request: Request) {
     const nik = getFirstStringValue(payload, ['nik']);
     const alamat = getFirstStringValue(payload, ['alamat', 'alamatSekarang', 'alamat_saat_ini']);
     const keperluan = getFirstStringValue(payload, ['keperluan']);
+    const tempatLahir = getFirstStringValue(payload, ['tempatLahir', 'tempat_lahir']);
+    const tanggalLahirRaw = getFirstStringValue(payload, ['tanggalLahir', 'tanggal_lahir']);
+    const jenisKelamin = getFirstStringValue(payload, ['jenisKelamin', 'jenis_kelamin']);
+    const agama = getFirstStringValue(payload, ['agama']);
+    const pekerjaan = getFirstStringValue(payload, ['pekerjaan']);
+    const statusPerkawinan = getFirstStringValue(payload, ['statusPerkawinan', 'status_perkawinan']);
+    const kewarganegaraan = getFirstStringValue(payload, ['kewarganegaraan']) || 'Indonesia';
+    const masaBerlakuDariRaw = getFirstStringValue(payload, ['masaBerlakuDari', 'masa_berlaku_dari']);
+    const masaBerlakuSampaiRaw = getFirstStringValue(payload, ['masaBerlakuSampai', 'masa_berlaku_sampai']);
+
+    const tanggalLahir = normalizeDateValue(tanggalLahirRaw);
+    const masaBerlakuDari = normalizeDateValue(masaBerlakuDariRaw);
+    const masaBerlakuSampai = normalizeDateValue(masaBerlakuSampaiRaw);
 
     if (!namaPemohon || !nik || !alamat || !keperluan) {
       return NextResponse.json(
@@ -83,13 +107,60 @@ async function handlePermohonanPost(request: Request) {
       );
     }
 
-    // Save to database
-    const [result]: any = await db.execute(
-      `INSERT INTO permohonan_surat 
-       (jenis_surat, nama_pemohon, nik, alamat, keperluan, dokumen_path, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [surat.title, namaPemohon, nik, alamat, keperluan, JSON.stringify(uploadedFiles), 'pending']
-    );
+    // Save to database (kompatibel untuk skema lama/baru)
+    let result: any;
+    try {
+      const [insertResult]: any = await db.execute(
+        `INSERT INTO permohonan_surat 
+         (jenis_surat, nama_pemohon, nik, alamat, keperluan, tempat_lahir, tanggal_lahir, jenis_kelamin, agama, pekerjaan, status_perkawinan, kewarganegaraan, masa_berlaku_dari, masa_berlaku_sampai, dokumen_path, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          surat.title,
+          namaPemohon,
+          nik,
+          alamat,
+          keperluan,
+          tempatLahir || null,
+          tanggalLahir,
+          jenisKelamin || null,
+          agama || null,
+          pekerjaan || null,
+          statusPerkawinan || null,
+          kewarganegaraan,
+          masaBerlakuDari,
+          masaBerlakuSampai,
+          JSON.stringify(uploadedFiles),
+          'pending',
+        ]
+      );
+      result = insertResult;
+    } catch (error: any) {
+      if (!String(error?.message || '').toLowerCase().includes('unknown column')) {
+        throw error;
+      }
+
+      try {
+        const [insertResult]: any = await db.execute(
+          `INSERT INTO permohonan_surat 
+           (jenis_surat, nama_pemohon, nik, alamat, keperluan, dokumen_path, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [surat.title, namaPemohon, nik, alamat, keperluan, JSON.stringify(uploadedFiles), 'pending']
+        );
+        result = insertResult;
+      } catch (fallbackError: any) {
+        if (!String(fallbackError?.message || '').toLowerCase().includes('unknown column')) {
+          throw fallbackError;
+        }
+
+        const [insertResult]: any = await db.execute(
+          `INSERT INTO permohonan_surat 
+           (jenis_surat, nama_pemohon, nik, alamat, keperluan, file_path, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [surat.title, namaPemohon, nik, alamat, keperluan, JSON.stringify(uploadedFiles), 'pending']
+        );
+        result = insertResult;
+      }
+    }
 
     return NextResponse.json({ 
       message: 'Permohonan berhasil dikirim',
@@ -142,12 +213,13 @@ export async function GET(request: NextRequest) {
         jenis_surat, 
         nomor_surat, 
         status, 
-        tanggal_permohonan,
-        tanggal_selesai,
-        alasan_penolakan
-      FROM permohonan
+        created_at AS tanggal_permohonan,
+        CASE WHEN status = 'selesai' THEN updated_at ELSE NULL END AS tanggal_selesai,
+        CASE WHEN status = 'ditolak' THEN catatan ELSE NULL END AS alasan_penolakan,
+        file_path
+      FROM permohonan_surat
       WHERE nik = ?
-      ORDER BY tanggal_permohonan DESC
+      ORDER BY created_at DESC
     `;
 
     const [permohonanRows] = await db.execute(query, [userData.nik]);

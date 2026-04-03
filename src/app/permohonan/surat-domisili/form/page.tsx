@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiSend, FiHome } from "react-icons/fi";
+import { FiArrowLeft, FiSend, FiHome, FiCheckCircle } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
@@ -11,11 +11,13 @@ export default function SuratDomisiliFormPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     const formData = new FormData(e.currentTarget);
     const data = {
@@ -58,8 +60,10 @@ export default function SuratDomisiliFormPage() {
         throw new Error(errorData.error || "Gagal mengajukan permohonan");
       }
 
-      alert("Permohonan berhasil diajukan!");
-      router.push("/permohonan/riwayat");
+      setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      window.setTimeout(() => {
+        router.push("/tracking");
+      }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -100,6 +104,16 @@ export default function SuratDomisiliFormPage() {
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
               {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6 flex items-start gap-3">
+              <FiCheckCircle className="w-5 h-5 mt-0.5 text-green-600" />
+              <div>
+                <p className="font-semibold">Permohonan Berhasil</p>
+                <p className="text-sm">{successMessage}</p>
+              </div>
             </div>
           )}
 

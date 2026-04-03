@@ -3,7 +3,7 @@
 import { useRequireAuth } from '@/lib/hooks';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiEye } from 'react-icons/fi';
+import { FiDownload, FiClock } from 'react-icons/fi';
 import SimpleLayout from '@/components/layout/SimpleLayout';
 import Card, { CardHeader, CardBody } from '@/components/ui/Card';
 import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell, StatusBadge, EmptyState } from '@/components/ui/Table';
@@ -18,6 +18,7 @@ interface Permohonan {
   tanggal_permohonan: string;
   tanggal_selesai: string | null;
   alasan_penolakan: string | null;
+  file_path: string | null;
 }
 
 export default function TrackingPage() {
@@ -85,7 +86,7 @@ export default function TrackingPage() {
                     <TableHeaderCell>Tanggal Pengajuan</TableHeaderCell>
                     <TableHeaderCell>Nomor Surat</TableHeaderCell>
                     <TableHeaderCell>Status</TableHeaderCell>
-                    <TableHeaderCell align="center">Aksi</TableHeaderCell>
+                    <TableHeaderCell align="center">Dokumen</TableHeaderCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -114,12 +115,22 @@ export default function TrackingPage() {
                         <StatusBadge status={item.status as 'pending' | 'diproses' | 'selesai' | 'ditolak'} />
                       </TableCell>
                       <TableCell align="center">
-                        <Link href={`/tracking/${item.id}`}>
-                          <Button variant="outline" size="sm" className="inline-flex">
-                            <FiEye className="w-4 h-4" />
-                            <span>Lihat</span>
+                        {item.status === 'selesai' && item.file_path ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="inline-flex"
+                            onClick={() => window.open(item.file_path as string, '_blank')}
+                          >
+                            <FiDownload className="w-4 h-4" />
+                            <span>Unduh Surat</span>
                           </Button>
-                        </Link>
+                        ) : (
+                          <span className="inline-flex items-center gap-2 text-sm text-gray-500">
+                            <FiClock className="w-4 h-4" />
+                            Belum tersedia
+                          </span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -133,7 +144,7 @@ export default function TrackingPage() {
             <CardHeader title="Informasi " />
             <CardBody>
               <p className="text-sm text-gray-700 mb-4">
-                Pantau status permohonan Anda di tabel di atas. Klik tombol &quot;Lihat&quot; untuk melihat detail lengkap permohonan termasuk alasan penolakan (jika ada).
+                Pantau status permohonan Anda di tabel di atas. Jika status sudah selesai, tombol unduh surat akan muncul otomatis.
               </p>
               <Link href="/permohonan">
                 <Button variant="secondary" size="sm">

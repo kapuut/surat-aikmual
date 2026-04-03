@@ -17,6 +17,7 @@ export interface SuratData {
   agama?: string;
   pekerjaan?: string;
   statusPerkawinan?: string;
+  kewarganegaraan?: string;
   alamat: string;
   
   // Isi Surat

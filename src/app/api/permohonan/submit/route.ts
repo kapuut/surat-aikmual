@@ -2,17 +2,27 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
-    // Forward to parent POST handler
-    const response = await fetch('http://localhost:3000/api/permohonan', {
+    // Forward ke origin aktif (mis. localhost:3002), jangan hardcoded port.
+    const targetUrl = new URL('/api/permohonan', request.url);
+    const response = await fetch(targetUrl, {
       method: 'POST',
-      headers: request.headers,
-      body: request.body,
+      headers: {
+        'content-type': request.headers.get('content-type') || 'application/json',
+      },
+      body: await request.text(),
     });
-    return response;
+
+    const bodyText = await response.text();
+    return new Response(bodyText, {
+      status: response.status,
+      headers: {
+        'content-type': response.headers.get('content-type') || 'application/json',
+      },
+    });
   } catch (error) {
     const { NextResponse } = await import('next/server');
     return NextResponse.json(
-      { error: 'Gagal mengirim permohonan' },
+      { error: 'Gagal mengirim permohonan (submit route)' },
       { status: 500 }
     );
   }

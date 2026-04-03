@@ -41,10 +41,10 @@ export async function GET(request: NextRequest) {
     const statsQuery = `
       SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN status = 'diproses' THEN 1 ELSE 0 END) as diproses,
+        SUM(CASE WHEN status IN ('pending', 'diproses') THEN 1 ELSE 0 END) as diproses,
         SUM(CASE WHEN status = 'selesai' THEN 1 ELSE 0 END) as selesai,
         SUM(CASE WHEN status = 'ditolak' THEN 1 ELSE 0 END) as ditolak
-      FROM permohonan
+      FROM permohonan_surat
       WHERE nik = ?
     `;
 
@@ -62,11 +62,13 @@ export async function GET(request: NextRequest) {
         id,
         jenis_surat,
         status,
-        tanggal_permohonan,
-        tanggal_selesai
-      FROM permohonan
+        created_at AS tanggal_dibuat,
+        CASE WHEN status = 'selesai' THEN updated_at ELSE NULL END AS tanggal_selesai,
+        nomor_surat,
+        file_path
+      FROM permohonan_surat
       WHERE nik = ?
-      ORDER BY tanggal_permohonan DESC
+      ORDER BY created_at DESC
       LIMIT 5
     `;
 

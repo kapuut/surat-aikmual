@@ -45,12 +45,13 @@ export async function GET(request: NextRequest) {
         jenis_surat, 
         nomor_surat, 
         status, 
-        tanggal_permohonan,
-        tanggal_selesai,
-        alasan_penolakan
-      FROM permohonan
+        created_at AS tanggal_permohonan,
+        CASE WHEN status = 'selesai' THEN updated_at ELSE NULL END AS tanggal_selesai,
+        CASE WHEN status = 'ditolak' THEN catatan ELSE NULL END AS alasan_penolakan,
+        file_path
+      FROM permohonan_surat
       WHERE nik = ?
-      ORDER BY tanggal_permohonan DESC
+      ORDER BY created_at DESC
     `;
 
     const [permohonanRows] = await db.execute(query, [userData.nik]);
