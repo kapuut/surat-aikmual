@@ -1,10 +1,12 @@
 'use client';
 
-import { useRequireAuth } from '@/lib/useAuth';
+import { useRequireRole } from '@/lib/hooks';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FiFileText, FiCheckCircle, FiClock, FiXCircle, FiArrowRight, FiRefreshCw } from 'react-icons/fi';
 import UserNavbar from '@/components/UserNavbar';
+import UserDashboardLayout from '@/components/layout/UserDashboardLayout';
 
 interface PermohonanSummary {
   id: string;
@@ -15,7 +17,8 @@ interface PermohonanSummary {
 }
 
 export default function DashboardPage() {
-  const { user, loading, isAuthenticated } = useRequireAuth();
+  const { user, loading, isAuthenticated } = useRequireRole(['masyarakat']);
+  const router = useRouter();
   const [permohonan, setPermohonan] = useState<PermohonanSummary[]>([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -25,11 +28,29 @@ export default function DashboardPage() {
   });
   const [dataLoading, setDataLoading] = useState(true);
 
+  // All hooks must be called unconditionally, before any early returns
   useEffect(() => {
     if (isAuthenticated && user) {
       fetchPermohonanData();
     }
   }, [isAuthenticated, user]);
+
+  // Return null after all hooks are called to prevent UI flash during redirect
+  if (loading || !isAuthenticated || !user) {
+    return null;
+  }
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      router.push('/');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   const fetchPermohonanData = async () => {
     try {
@@ -49,26 +70,10 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <UserNavbar />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="animate-pulse space-y-4">
-            <div className="h-10 bg-gray-200 rounded w-1/3"></div>
-            <div className="grid grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-24 bg-gray-200 rounded"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !user) {
-    return null; // Will redirect via middleware
+  if (loading || !isAuthenticated || !user) {
+    // Return null immediately to avoid showing UI before role-based redirect completes
+    // Middleware will handle role-based routing before this page fully renders
+    return null;
   }
 
   const getStatusColor = (status: string) => {
@@ -99,160 +104,162 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <UserNavbar />
+      <UserNavbar showMainMenu={false} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Selamat datang, {user.nama}! 👋
-          </h1>
-          <p className="text-gray-600 mt-2">Kelola permohonan dan lacak status surat Anda di sini</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatsCard
-            icon={<FiFileText className="w-6 h-6" />}
-            label="Total Permohonan"
-            value={stats.total}
-            color="blue"
-          />
-          <StatsCard
-            icon={<FiClock className="w-6 h-6" />}
-            label="Sedang Diproses"
-            value={stats.diproses}
-            color="yellow"
-          />
-          <StatsCard
-            icon={<FiCheckCircle className="w-6 h-6" />}
-            label="Selesai"
-            value={stats.selesai}
-            color="green"
-          />
-          <StatsCard
-            icon={<FiXCircle className="w-6 h-6" />}
-            label="Ditolak"
-            value={stats.ditolak}
-            color="red"
-          />
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Aksi Cepat</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link
-              href="/permohonan"
-              className="flex items-center justify-between p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition border border-blue-200"
-            >
-              <div>
-                <p className="font-semibold text-gray-900">Buat Permohonan Baru</p>
-                <p className="text-sm text-gray-600">Mulai pengajuan surat</p>
-              </div>
-              <FiArrowRight className="w-5 h-5 text-blue-600" />
-            </Link>
-
-            <Link
-              href="/tracking"
-              className="flex items-center justify-between p-4 bg-green-50 rounded-lg hover:bg-green-100 transition border border-green-200"
-            >
-              <div>
-                <p className="font-semibold text-gray-900">Lacak Surat</p>
-                <p className="text-sm text-gray-600">Lihat status permohonan</p>
-              </div>
-              <FiArrowRight className="w-5 h-5 text-green-600" />
-            </Link>
-
-            <Link
-              href="/profile"
-              className="flex items-center justify-between p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition border border-purple-200"
-            >
-              <div>
-                <p className="font-semibold text-gray-900">Kelola Akun</p>
-                <p className="text-sm text-gray-600">Edit profil Anda</p>
-              </div>
-              <FiArrowRight className="w-5 h-5 text-purple-600" />
-            </Link>
+      <UserDashboardLayout onLogout={handleLogout}>
+        <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">
+              Selamat datang, {user.nama}! 👋
+            </h1>
+            <p className="text-gray-600 mt-2">Kelola permohonan dan lacak status surat Anda di sini</p>
           </div>
-        </div>
 
-        {/* Recent Applications */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Permohonan Terbaru</h2>
-            {!dataLoading && (
-              <button
-                onClick={fetchPermohonanData}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-2"
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+            <StatsCard
+              icon={<FiFileText className="w-6 h-6" />}
+              label="Total Permohonan"
+              value={stats.total}
+              color="blue"
+            />
+            <StatsCard
+              icon={<FiClock className="w-6 h-6" />}
+              label="Sedang Diproses"
+              value={stats.diproses}
+              color="yellow"
+            />
+            <StatsCard
+              icon={<FiCheckCircle className="w-6 h-6" />}
+              label="Selesai"
+              value={stats.selesai}
+              color="green"
+            />
+            <StatsCard
+              icon={<FiXCircle className="w-6 h-6" />}
+              label="Ditolak"
+              value={stats.ditolak}
+              color="red"
+            />
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Aksi Cepat</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Link
+                href="/permohonan"
+                className="flex items-center justify-between p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition border border-blue-200"
               >
-                <FiRefreshCw className="w-4 h-4" /> Refresh
-              </button>
+                <div>
+                  <p className="font-semibold text-gray-900">Buat Permohonan Baru</p>
+                  <p className="text-sm text-gray-600">Mulai pengajuan surat</p>
+                </div>
+                <FiArrowRight className="w-5 h-5 text-blue-600" />
+              </Link>
+
+              <Link
+                href="/tracking"
+                className="flex items-center justify-between p-4 bg-green-50 rounded-lg hover:bg-green-100 transition border border-green-200"
+              >
+                <div>
+                  <p className="font-semibold text-gray-900">Lacak Surat</p>
+                  <p className="text-sm text-gray-600">Lihat status permohonan</p>
+                </div>
+                <FiArrowRight className="w-5 h-5 text-green-600" />
+              </Link>
+
+              <Link
+                href="/profile"
+                className="flex items-center justify-between p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition border border-purple-200"
+              >
+                <div>
+                  <p className="font-semibold text-gray-900">Kelola Akun</p>
+                  <p className="text-sm text-gray-600">Edit profil Anda</p>
+                </div>
+                <FiArrowRight className="w-5 h-5 text-purple-600" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Recent Applications */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Permohonan Terbaru</h2>
+              {!dataLoading && (
+                <button
+                  onClick={fetchPermohonanData}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-2"
+                >
+                  <FiRefreshCw className="w-4 h-4" /> Refresh
+                </button>
+              )}
+            </div>
+
+            {dataLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-16 bg-gray-100 rounded animate-pulse"></div>
+                ))}
+              </div>
+            ) : permohonan.length === 0 ? (
+              <div className="text-center py-8">
+                <FiFileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-500">Anda belum memiliki permohonan</p>
+                <Link href="/permohonan" className="text-blue-600 hover:underline mt-2 inline-block">
+                  Buat permohonan pertama Anda →
+                </Link>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="text-left px-4 py-3 font-semibold text-gray-900">Jenis Surat</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-900">Status</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-900">Tanggal</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-900">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {permohonan.slice(0, 5).map(item => (
+                      <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-900 font-medium">{item.jenis_surat}</td>
+                        <td className="px-4 py-3">
+                          <span className={`flex items-center gap-2 ${getStatusColor(item.status)}`}>
+                            {getStatusIcon(item.status)}
+                            <span className="capitalize">{item.status}</span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 text-sm">
+                          {new Date(item.tanggal_dibuat).toLocaleDateString('id-ID')}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/tracking/${item.id}`}
+                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                          >
+                            Lihat Detail →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {permohonan.length > 5 && (
+              <div className="mt-4 text-center">
+                <Link href="/tracking" className="text-blue-600 hover:underline font-medium">
+                  Lihat semua permohonan →
+                </Link>
+              </div>
             )}
           </div>
-
-          {dataLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-16 bg-gray-100 rounded animate-pulse"></div>
-              ))}
-            </div>
-          ) : permohonan.length === 0 ? (
-            <div className="text-center py-8">
-              <FiFileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500">Anda belum memiliki permohonan</p>
-              <Link href="/permohonan" className="text-blue-600 hover:underline mt-2 inline-block">
-                Buat permohonan pertama Anda →
-              </Link>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="text-left px-4 py-3 font-semibold text-gray-900">Jenis Surat</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-900">Status</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-900">Tanggal</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-900">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {permohonan.slice(0, 5).map(item => (
-                    <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-4 py-3 text-gray-900 font-medium">{item.jenis_surat}</td>
-                      <td className="px-4 py-3">
-                        <span className={`flex items-center gap-2 ${getStatusColor(item.status)}`}>
-                          {getStatusIcon(item.status)}
-                          <span className="capitalize">{item.status}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">
-                        {new Date(item.tanggal_dibuat).toLocaleDateString('id-ID')}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/tracking/${item.id}`}
-                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                        >
-                          Lihat Detail →
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {permohonan.length > 5 && (
-            <div className="mt-4 text-center">
-              <Link href="/tracking" className="text-blue-600 hover:underline font-medium">
-                Lihat semua permohonan →
-              </Link>
-            </div>
-          )}
-        </div>
-      </main>
+        </main>
+      </UserDashboardLayout>
     </div>
   );
 }

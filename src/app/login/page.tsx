@@ -15,6 +15,16 @@ export default function PublicLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  const toFriendlyLoginError = (status: number) => {
+    if (status === 404) {
+      return "Layanan login tidak ditemukan (404). Pastikan aplikasi berjalan di port yang benar.";
+    }
+    if (status >= 500) {
+      return "Server sedang bermasalah. Silakan coba lagi beberapa saat.";
+    }
+    return `Gagal memproses login (status ${status}). Silakan coba lagi.`;
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
@@ -57,11 +67,7 @@ export default function PublicLoginPage() {
       if (contentType.includes("application/json")) {
         data = await response.json();
       } else {
-        const rawText = await response.text();
-        throw new Error(
-          `Server tidak mengembalikan JSON. Kemungkinan endpoint error/404. Status: ${response.status}.` +
-          (rawText ? ` Detail: ${rawText.slice(0, 120)}` : "")
-        );
+        throw new Error(toFriendlyLoginError(response.status));
       }
 
       if (!response.ok) {
@@ -70,7 +76,11 @@ export default function PublicLoginPage() {
 
       router.push(data.redirectUrl || "/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login gagal. Silakan coba lagi.");
+      if (err instanceof TypeError) {
+        setError("Tidak dapat terhubung ke server. Periksa koneksi atau jalankan ulang aplikasi.");
+      } else {
+        setError(err instanceof Error ? err.message : "Login gagal. Silakan coba lagi.");
+      }
     } finally {
       setLoading(false);
     }

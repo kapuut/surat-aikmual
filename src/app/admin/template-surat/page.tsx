@@ -127,14 +127,6 @@ export default function TemplateSuratPage() {
 
   return (
     <section>
-      {/* Header */}
-      <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">Template Surat</h2>
-          <p className="text-gray-500 mt-1">
-            Kelola template surat yang digunakan untuk pembuatan surat.
-          </p>
-        </div>
-
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-4 mb-6 space-y-4">
           <h3 className="text-lg font-semibold text-gray-800">Upload Template Surat</h3>
 

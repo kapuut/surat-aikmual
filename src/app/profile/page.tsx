@@ -69,7 +69,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <SimpleLayout>
+      <SimpleLayout useSidebar>
         <div className="animate-pulse space-y-4">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="h-12 bg-gray-200 rounded"></div>
@@ -228,7 +228,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <SimpleLayout>
+    <SimpleLayout useSidebar>
       <div className="min-h-screen bg-white py-12">
         {/* Container */}
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">

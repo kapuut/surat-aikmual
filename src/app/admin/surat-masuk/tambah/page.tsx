@@ -67,10 +67,6 @@ export default function TambahSuratMasukPage() {
         >
           <FiArrowLeft /> Kembali ke Daftar Surat Masuk
         </Link>
-        <h2 className="text-3xl font-bold text-gray-800">Tambah Surat Masuk</h2>
-        <p className="text-gray-500 mt-1">
-          Tambahkan data surat masuk yang diterima oleh kantor desa
-        </p>
       </div>
 
       {error && (

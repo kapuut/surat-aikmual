@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AuthUser } from '@/lib/types';
-import { useSharedStats } from '@/components/dashboard/SharedStats';
+import { useRequireRole, useSharedStats } from '@/lib/hooks';
 import { 
   FiInbox, 
   FiSend, 
@@ -18,9 +18,14 @@ import {
 } from 'react-icons/fi';
 
 export default function SecretaryDashboardPage() {
+  // Ensure only sekretaris users can access this page
+  const { user: authorizedUser, loading, isAuthenticated } = useRequireRole(['sekretaris']);
+
+  // All hooks must be called unconditionally, before any early returns
   const [user, setUser] = useState<AuthUser | null>(null);
   const { stats } = useSharedStats();
 
+  
   const suratMasukBulanIni = stats?.suratMasuk.bulanIni ?? 0;
   const suratKeluarBulanIni = stats?.suratKeluar.bulanIni ?? 0;
   const permohonanPending = stats?.permohonan.pending ?? 0;
@@ -60,7 +65,7 @@ export default function SecretaryDashboardPage() {
     fetchUser();
   }, []);
 
-  if (!user) {
+  if (loading || !isAuthenticated || !authorizedUser || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

@@ -21,6 +21,14 @@ const ALLOWED_PERMOHONAN_SLUGS = new Set([
   'surat-usaha',
 ]);
 
+const MASYARAKAT_ONLY_PREFIXES = [
+  '/dashboard',
+  '/permohonan',
+  '/tracking',
+  '/profile',
+  '/change-password',
+];
+
 function isPermohonanRouteAllowed(pathname: string): boolean {
   if (!pathname.startsWith('/permohonan/')) return true;
 
@@ -34,6 +42,13 @@ function isPermohonanRouteAllowed(pathname: string): boolean {
 
   // Allowed: /permohonan/:slug and /permohonan/:slug/form
   return segments.length <= 3 && (segments.length === 2 || segments[2] === 'form');
+}
+
+function isMasyarakatOnlyRoute(pathname: string): boolean {
+  return MASYARAKAT_ONLY_PREFIXES.some((prefix) => {
+    if (pathname === prefix) return true;
+    return pathname.startsWith(`${prefix}/`);
+  });
 }
 
 export async function middleware(request: NextRequest) {
@@ -101,6 +116,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(getDashboardRoute(userRole), request.url));
     }
 
+    if (isMasyarakatOnlyRoute(pathname) && userRole !== 'masyarakat') {
+      console.log(`Access denied: ${userRole} trying to access masyarakat route`);
+      return NextResponse.redirect(new URL(getDashboardRoute(userRole), request.url));
+    }
+
     // Add user info to headers for server components
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-pathname', pathname);
@@ -148,12 +168,23 @@ function getLoginRouteForPath(pathname: string): string {
 export const config = {
   matcher: [
     // Match all protected routes
+    '/admin',
     '/admin/:path*',
+    '/sekretaris',
     '/sekretaris/:path*',
+    '/kepala-desa',
     '/kepala-desa/:path*',
+    '/dashboard',
     '/dashboard/:path*',
+    '/permohonan',
     '/permohonan/:path*',
+    '/surat',
     '/surat/:path*',
-    '/tracking/:path*'
+    '/tracking',
+    '/tracking/:path*',
+    '/profile',
+    '/profile/:path*',
+    '/change-password',
+    '/change-password/:path*'
   ],
 };

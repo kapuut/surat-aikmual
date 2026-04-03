@@ -2,14 +2,30 @@
 
 import { useRequireAuth } from '@/lib/useAuth';
 import UserNavbar from '@/components/UserNavbar';
+import UserDashboardLayout from '@/components/layout/UserDashboardLayout';
+import { useRouter } from 'next/navigation';
 import React from 'react';
 
 interface SimpleLayoutProps {
   children: React.ReactNode;
+  useSidebar?: boolean;
 }
 
-export default function SimpleLayout({ children }: SimpleLayoutProps) {
+export default function SimpleLayout({ children, useSidebar = false }: SimpleLayoutProps) {
   const { loading } = useRequireAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      router.push('/');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -22,6 +38,19 @@ export default function SimpleLayout({ children }: SimpleLayoutProps) {
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (useSidebar) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <UserNavbar showMainMenu={false} />
+        <UserDashboardLayout onLogout={handleLogout}>
+          <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+            {children}
+          </main>
+        </UserDashboardLayout>
       </div>
     );
   }

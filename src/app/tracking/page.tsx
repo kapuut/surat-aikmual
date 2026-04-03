@@ -1,6 +1,6 @@
 'use client';
 
-import { useRequireAuth } from '@/lib/useAuth';
+import { useRequireAuth } from '@/lib/hooks';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FiEye } from 'react-icons/fi';
@@ -48,7 +48,7 @@ export default function TrackingPage() {
   };
 
   return (
-    <SimpleLayout>
+    <SimpleLayout useSidebar>
       {/* Header Section */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-gray-900 mb-2">Lacak Surat</h1>

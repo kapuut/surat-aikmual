@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { AuthUser } from "@/lib/types";
-import { useSharedStats, AdminStats, DashboardStats } from "@/components/dashboard/SharedStats";
+import { useRequireRole } from "@/lib/hooks";
+import { useSharedStats, type DashboardStats } from "@/lib/hooks";
+import { AdminStats } from "@/components/dashboard/SharedStats";
 import {
   FiActivity,
   FiAlertCircle,
@@ -12,14 +14,17 @@ import {
   FiSend,
   FiFileText,
   FiUsers,
-  FiUserCheck,
   FiTrendingUp,
 } from "react-icons/fi";
 
 export default function AdminDashboardPage() {
+  // Ensure only admin users can access this page
+  const { user: authorizedUser, loading, isAuthenticated } = useRequireRole(['admin']);
+  
   const [user, setUser] = useState<AuthUser | null>(null);
   const { stats, loading: statsLoading, error: statsError, refresh } = useSharedStats();
 
+  // All hooks must be called unconditionally, before any early returns
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -35,17 +40,6 @@ export default function AdminDashboardPage() {
 
     fetchUser();
   }, []);
-
-  const formattedDate = useMemo(
-    () =>
-      new Date().toLocaleDateString("id-ID", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-    []
-  );
 
   const pendingCount = stats?.permohonan.pending ?? 0;
   const approvedCount = stats?.permohonan.disetujui ?? 0;
@@ -226,7 +220,7 @@ export default function AdminDashboardPage() {
     []
   );
 
-  if (!user) {
+  if (loading || !isAuthenticated || !authorizedUser || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -238,35 +232,16 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-blue-600 uppercase tracking-wide flex items-center gap-2">
-              <FiUserCheck className="h-4 w-4" /> Portal Administrasi Terpadu
-            </p>
-            <h1 className="mt-2 text-3xl font-bold text-gray-900">Selamat datang, {user.nama}</h1>
-            <p className="mt-1 text-gray-600 max-w-2xl">
-              Pantau kinerja sekretaris dan kepala desa, kelola akun internal, serta pastikan setiap permohonan warga berjalan efisien dalam satu dasbor terpadu.
-            </p>
-          </div>
-          <div className="text-sm text-gray-500">
-            <p className="font-medium text-gray-700">{formattedDate}</p>
-            <p className="flex items-center gap-2 text-green-600">
-              <FiTrendingUp className="h-4 w-4" /> Sistem aktif dan tersinkron
-                </p>
-              </div>
-            </div>
-          </div>
+    <div className="mx-auto w-full max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-7">
           
-          <div>
+          <div className="space-y-4">
             {statsError && (
               <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                 Gagal memuat statistik terkini. <button onClick={refresh} className="underline font-semibold">Muat ulang</button>
               </div>
             )}
             {statsLoading && (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {Array.from({ length: 4 }).map((_, index) => (
                   <div key={index} className="h-28 animate-pulse rounded-xl border border-gray-200 bg-gray-100" />
                 ))}
@@ -275,9 +250,9 @@ export default function AdminDashboardPage() {
             {!statsLoading && stats && <AdminStats stats={stats as DashboardStats} />}
           </div>
 
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <div className="xl:col-span-2 space-y-6">
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.6fr_1fr] xl:items-start">
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -287,7 +262,7 @@ export default function AdminDashboardPage() {
                   </div>
                   <button onClick={refresh} className="text-sm text-blue-600 hover:underline">Segarkan</button>
                 </div>
-                <div className="mt-6 space-y-4">
+                <div className="mt-6 space-y-3.5">
                   {teamActivity.map((item) => (
                     <div key={item.id} className="flex items-start gap-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
                       <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
@@ -312,7 +287,7 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <FiAlertCircle className="h-5 w-5 text-orange-500" /> Pengawasan Real-time
                 </h2>
@@ -338,13 +313,13 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            <div className="space-y-6">
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <div className="space-y-6 xl:sticky xl:top-6">
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <FiUsers className="h-5 w-5 text-purple-600" /> Tindakan Cepat
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">Akses fitur internal untuk memastikan kontrol penuh.</p>
-                <div className="mt-4 space-y-4">
+                <div className="mt-4 space-y-3">
                   {quickActions.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -367,12 +342,12 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <FiFileText className="h-5 w-5 text-slate-600" /> Log Aktivitas Internal
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">Riwayat audit untuk memastikan transparansi.</p>
-                <div className="mt-4 space-y-4">
+                <div className="mt-4 space-y-3">
                   {activityLog.map((log) => (
                     <div key={log.id} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
                       <div className="flex items-center justify-between text-xs text-gray-500">
@@ -390,12 +365,12 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
               <FiSend className="h-5 w-5 text-blue-600" /> Ringkasan Kinerja Peran
             </h2>
             <p className="mt-1 text-sm text-gray-500">Ikhtisar tugas dan progres setiap peran dalam sistem.</p>
-            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
               {staffHighlights.map((highlight) => {
                 const Icon = highlight.icon;
                 return (

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthUser } from '@/lib/types';
-import { getUser, getDashboardRoute } from '@/lib/auth';
 
 interface AuthGuardProps {
   children: React.ReactNode;

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { AuthUser } from '@/lib/types';
-import { useSharedStats } from "@/components/dashboard/SharedStats";
+import { useRequireRole, useSharedStats } from '@/lib/hooks';
 import { 
   FiInbox, 
   FiSend, 
@@ -17,6 +17,10 @@ import {
 } from 'react-icons/fi';
 
 export default function HeadVillageDashboardPage() {
+  // Ensure only kepala_desa users can access this page
+  const { user: authorizedUser, loading, isAuthenticated } = useRequireRole(['kepala_desa']);
+
+  // All hooks must be called unconditionally, before any early returns
   const [user, setUser] = useState<AuthUser | null>(null);
   const { stats, loading: statsLoading } = useSharedStats();
 
@@ -66,7 +70,7 @@ export default function HeadVillageDashboardPage() {
     fetchUser();
   }, []);
 
-  if (statsLoading || !user) {
+  if (loading || !isAuthenticated || !authorizedUser || statsLoading || !user) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">

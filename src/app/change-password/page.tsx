@@ -1,6 +1,6 @@
 'use client';
 
-import { useRequireAuth } from '@/lib/useAuth';
+import { useRequireAuth } from '@/lib/hooks';
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { FiArrowLeft, FiLock, FiEye, FiEyeOff, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';

@@ -2,10 +2,29 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { FiUser, FiLogOut, FiMenu, FiX, FiChevronDown, FiFileText, FiLock } from 'react-icons/fi';
-import { useAuth } from '@/lib/useAuth';
+import Image from 'next/image';
+import { FiUser, FiLogOut, FiMenu, FiX, FiChevronDown } from 'react-icons/fi';
+import { useAuth } from '@/lib/hooks';
 
-export default function UserNavbar() {
+interface UserNavbarProps {
+  showMainMenu?: boolean;
+}
+
+function getDashboardRoute(role: string): string {
+  switch (role) {
+    case 'admin':
+      return '/admin/dashboard';
+    case 'sekretaris':
+      return '/sekretaris/dashboard';
+    case 'kepala_desa':
+      return '/kepala-desa/dashboard';
+    case 'masyarakat':
+    default:
+      return '/dashboard';
+  }
+}
+
+export default function UserNavbar({ showMainMenu = true }: UserNavbarProps) {
   const { user, isAuthenticated, loading, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -40,37 +59,53 @@ export default function UserNavbar() {
   }
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="bg-white shadow-md sticky top-0 z-40 w-full">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo / Brand */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl text-blue-600">
-            <FiFileText className="text-2xl" />
-            <span className="hidden sm:inline">SI Surat Desa</span>
+          {/* Logo & Title */}
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <div className="flex-shrink-0">
+              <Image 
+                src="/images/logo-desa.png" 
+                alt="Logo Desa Aikmual" 
+                width={40} 
+                height={40}
+                className="object-contain"
+              />
+            </div>
+            <div className="flex flex-col justify-center">
+              <h1 className="text-lg font-bold text-gray-900 leading-tight">Sistem Pelayanan Surat</h1>
+              <p className="text-xs text-gray-600 leading-tight">Desa Aikmual</p>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             {isAuthenticated && user ? (
               <>
-                <Link href="/" className="text-gray-600 hover:text-blue-600 transition">
-                  Beranda
-                </Link>
-                {/* Dashboard untuk admin */}
-                {(user.role === 'admin' || user.role === 'kepala_desa' || user.role === 'staff' || user.role === 'sekretaris') && (
-                  <Link href="/admin/dashboard" className="text-gray-600 hover:text-blue-600 transition font-medium">
-                    Dashboard
-                  </Link>
-                )}
-                {/* Hanya tampilkan untuk non-admin */}
-                {user.role !== 'admin' && user.role !== 'kepala_desa' && user.role !== 'staff' && user.role !== 'sekretaris' && (
+                {showMainMenu && (
                   <>
-                    <Link href="/permohonan" className="text-gray-600 hover:text-blue-600 transition">
-                      Permohonan
+                    {/* Dashboard - dinamis berdasarkan role */}
+                    <Link 
+                      href={getDashboardRoute(user.role)} 
+                      className="text-gray-600 hover:text-blue-600 transition font-medium"
+                    >
+                      Dashboard
                     </Link>
-                    <Link href="/tracking" className="text-gray-600 hover:text-blue-600 transition">
-                      Lacak Surat
-                    </Link>
+
+                    {/* Permohonan - hanya untuk masyarakat */}
+                    {user.role === 'masyarakat' && (
+                      <Link href="/permohonan" className="text-gray-600 hover:text-blue-600 transition">
+                        Permohonan
+                      </Link>
+                    )}
+
+                    {/* Lacak Surat - sembunyikan hanya untuk admin */}
+                    {user.role !== 'admin' && (
+                      <Link href="/tracking" className="text-gray-600 hover:text-blue-600 transition">
+                        Lacak Surat
+                      </Link>
+                    )}
                   </>
                 )}
 
@@ -161,35 +196,41 @@ export default function UserNavbar() {
                 >
                   Beranda
                 </Link>
-                {/* Dashboard untuk admin */}
-                {(user.role === 'admin' || user.role === 'kepala_desa' || user.role === 'staff' || user.role === 'sekretaris') && (
-                  <Link
-                    href="/admin/dashboard"
-                    className="block px-4 py-2 text-gray-600 hover:bg-gray-50 font-medium"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                )}
-                {/* Hanya tampilkan untuk non-admin */}
-                {user.role !== 'admin' && user.role !== 'kepala_desa' && user.role !== 'staff' && user.role !== 'sekretaris' && (
+                {/* Dashboard - dinamis berdasarkan role */}
+                {showMainMenu && (
                   <>
                     <Link
-                      href="/permohonan"
-                      className="block px-4 py-2 text-gray-600 hover:bg-gray-50"
+                      href={getDashboardRoute(user.role)}
+                      className="block px-4 py-2 text-gray-600 hover:bg-gray-50 font-medium"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      Permohonan
+                      Dashboard
                     </Link>
-                    <Link
-                      href="/tracking"
-                      className="block px-4 py-2 text-gray-600 hover:bg-gray-50"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      Lacak Surat
-                    </Link>
+
+                    {/* Permohonan - hanya untuk masyarakat */}
+                    {user.role === 'masyarakat' && (
+                      <Link
+                        href="/permohonan"
+                        className="block px-4 py-2 text-gray-600 hover:bg-gray-50"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Permohonan
+                      </Link>
+                    )}
+
+                    {/* Lacak Surat - sembunyikan hanya untuk admin */}
+                    {user.role !== 'admin' && (
+                      <Link
+                        href="/tracking"
+                        className="block px-4 py-2 text-gray-600 hover:bg-gray-50"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Lacak Surat
+                      </Link>
+                    )}
                   </>
                 )}
+                
                 <Link
                   href="/profile"
                   className="block px-4 py-2 text-gray-600 hover:bg-gray-50"
@@ -197,8 +238,9 @@ export default function UserNavbar() {
                 >
                   Kelola Akun
                 </Link>
-                {/* Ganti Password hanya untuk non-admin */}
-                {user.role !== 'admin' && user.role !== 'kepala_desa' && user.role !== 'staff' && user.role !== 'sekretaris' && (
+
+                {/* Ganti Password - hanya untuk user biasa, tidak untuk staff/admin */}
+                {user.role === 'masyarakat' && (
                   <Link
                     href="/change-password"
                     className="block px-4 py-2 text-gray-600 hover:bg-gray-50"

@@ -32,14 +32,6 @@ export default function SuratKeluarPage() {
 
   return (
     <section>
-      {/* Header */}
-      <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">Surat Keluar</h2>
-          <p className="text-gray-500 mt-1">
-            Kelola data surat keluar yang dikirim oleh kantor desa.
-          </p>
-        </div>
-
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex gap-2">

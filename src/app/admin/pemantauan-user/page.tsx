@@ -291,17 +291,8 @@ export default function PemantauanUserPage() {
 
   return (
     <section>
-      {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-              <FiUsers className="text-blue-600" /> Pemantauan User
-            </h2>
-            <p className="text-gray-500 mt-1">
-              Kelola aktivitas user dan hak akses dalam sistem
-            </p>
-          </div>
+        <div className="flex items-center justify-end">
           {activeTab === 'monitoring' && (
             <button
               onClick={fetchUsersMonitoring}

@@ -34,14 +34,6 @@ export default function LaporanGrafikPage() {
   const avgSuratMasuk = (totalSuratMasuk / 12).toFixed(1);
   const avgSuratKeluar = (totalSuratKeluar / 12).toFixed(1);
 
-  const handleExportChart = () => {
-    alert("Export grafik akan diimplementasikan");
-  };
-
-  const handlePrintReport = () => {
-    alert("Print laporan akan diimplementasikan");
-  };
-
   return (
     <section>
       {/* Header */}
@@ -68,21 +60,6 @@ export default function LaporanGrafikPage() {
                 <option value="2024">2024</option>
                 <option value="2023">2023</option>
               </select>
-            </div>
-            
-            <div className="flex gap-3">
-              <button 
-                onClick={handleExportChart}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 flex items-center gap-2"
-              >
-                Export Grafik
-              </button>
-              <button 
-                onClick={handlePrintReport}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 flex items-center gap-2"
-              >
-                Print Laporan
-              </button>
             </div>
           </div>
         </div>

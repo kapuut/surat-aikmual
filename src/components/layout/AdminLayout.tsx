@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { 
   FiHome, 
   FiInbox, 
@@ -11,16 +14,170 @@ import {
   FiCheckCircle, 
   FiFolder,
   FiUsers,
-  FiUser
+  FiUser,
+  FiLogOut,
+  FiChevronDown
 } from 'react-icons/fi';
+
+type HeaderContent = {
+  eyebrow: string;
+  title: string;
+  description: string;
+};
+
+const HEADER_BY_PATH: Record<string, HeaderContent> = {
+  '/admin/dashboard': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Selamat datang, Administrator Sistem',
+    description:
+      'Pantau kinerja sekretaris dan kepala desa, kelola akun internal, serta pastikan setiap permohonan warga berjalan efisien dalam satu dasbor terpadu.',
+  },
+  '/admin/surat-masuk': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Surat Masuk',
+    description: 'Kelola data surat masuk yang diterima oleh kantor desa.',
+  },
+  '/admin/surat-keluar': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Surat Keluar',
+    description: 'Kelola data surat keluar yang dikirim oleh kantor desa.',
+  },
+  '/admin/permohonan': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Permohonan Surat',
+    description: 'Kelola permohonan, approval, dan penandatanganan surat oleh warga desa.',
+  },
+  '/admin/template-surat': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Template Surat',
+    description: 'Kelola template surat yang digunakan untuk pembuatan surat.',
+  },
+  '/admin/laporan/surat-masuk': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Laporan Surat Masuk',
+    description: 'Laporan lengkap data surat masuk yang diterima oleh kantor desa.',
+  },
+  '/admin/laporan/surat-keluar': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Laporan Surat Keluar',
+    description: 'Laporan lengkap data surat keluar yang dikirim oleh kantor desa.',
+  },
+  '/admin/pemantauan-user': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Pemantauan User',
+    description: 'Kelola aktivitas user dan hak akses dalam sistem.',
+  },
+  '/admin/profile': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Profil',
+    description: 'Kelola data pribadi dan keamanan akun Anda.',
+  },
+  '/admin/approval': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Approval Dokumen',
+    description: 'Kelola persetujuan dan penandatanganan dokumen surat.',
+  },
+  '/admin/laporan/grafik': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Laporan Grafik',
+    description: 'Visualisasi data surat masuk dan keluar dalam bentuk grafik per bulan.',
+  },
+  '/admin/surat-masuk/tambah': {
+    eyebrow: 'Portal Administrasi Terpadu',
+    title: 'Tambah Surat Masuk',
+    description: 'Input dan arsipkan surat masuk baru ke dalam sistem.',
+  },
+};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [userName, setUserName] = useState('Administrator Sistem');
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  const headerContent = (() => {
+    if (pathname === '/admin/dashboard') {
+      return {
+        ...HEADER_BY_PATH['/admin/dashboard'],
+        title: `Selamat datang, ${userName}`,
+      };
+    }
+
+    if (HEADER_BY_PATH[pathname]) {
+      return HEADER_BY_PATH[pathname];
+    }
+
+    if (pathname.startsWith('/admin/laporan/')) {
+      return {
+        eyebrow: 'Portal Administrasi Terpadu',
+        title: 'Laporan Administrasi',
+        description: 'Pantau ringkasan laporan untuk mendukung pengambilan keputusan.',
+      };
+    }
+
+    if (pathname.startsWith('/admin/')) {
+      return {
+        eyebrow: 'Portal Administrasi Terpadu',
+        title: 'Menu Administrasi',
+        description: 'Kelola operasional surat dan layanan desa melalui panel admin.',
+      };
+    }
+
+    return null;
+  })();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('/api/auth/verify', { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.user?.nama) {
+            setUserName(data.user.nama);
+          }
+        }
+      } catch {
+        // Ignore user fetch error in layout header
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } finally {
+      window.location.href = '/admin/login';
+    }
+  };
+
+  const initials = userName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((name) => name[0]?.toUpperCase())
+    .join('');
+  const profileLabel = 'Admin';
 
   return (
-    <div className="flex min-h-screen font-display">
+    <div className="flex h-screen overflow-hidden font-display">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 text-white flex flex-col">
+      <aside className="w-64 shrink-0 h-screen bg-slate-900 text-white flex flex-col overflow-y-auto">
         <div className="p-4 border-b border-slate-700">
           <div className="flex items-center space-x-2">
             <FiFolder className="w-6 h-6 text-blue-400" />
@@ -153,10 +310,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 bg-gray-50 overflow-y-auto">
-        <div className="p-6 lg:p-8">
-          {children}
+      <main className="flex-1 h-screen bg-gray-50 overflow-y-auto w-full">
+        <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            {headerContent && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{headerContent.eyebrow}</p>
+                <h1 className="mt-1 text-xl md:text-2xl font-bold text-gray-900">{headerContent.title}</h1>
+                <p className="mt-1 text-sm text-gray-600 max-w-3xl">
+                  {headerContent.description}
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="relative" ref={profileRef}>
+            <button
+              onClick={() => setIsProfileOpen((prev) => !prev)}
+              className="flex h-9 items-center gap-2 bg-gray-100 hover:bg-gray-200 rounded-lg px-2.5 transition"
+            >
+              <span className="w-7 h-7 rounded-full bg-slate-900 text-white text-xs font-semibold flex items-center justify-center">
+                {initials || 'AD'}
+              </span>
+              <span className="flex h-7 items-center text-xs font-medium text-gray-700 leading-none">{profileLabel}</span>
+              <FiChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isProfileOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-30">
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center gap-2"
+                >
+                  <FiLogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+        <div className={pathname === '/admin/dashboard' ? '' : 'px-6 py-6 lg:px-8'}>{children}</div>
       </main>
     </div>
   );

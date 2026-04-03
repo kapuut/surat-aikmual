@@ -77,14 +77,6 @@ export default function LaporanSuratKeluarPage() {
 
   return (
     <section>
-      {/* Header */}
-      <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">Laporan Surat Keluar</h2>
-          <p className="text-gray-500 mt-1">
-            Laporan lengkap data surat keluar yang dikirim oleh kantor desa.
-          </p>
-        </div>
-
         {/* Search and Filter */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

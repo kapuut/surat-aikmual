@@ -4,8 +4,8 @@ import { FiHome, FiFileText } from "react-icons/fi";
 
 export default function Header() {
   return (
-    <header className="bg-white shadow-md fixed top-0 left-0 right-0 z-50">
-      <div className="container mx-auto px-4">
+    <header className="bg-white shadow-md fixed top-0 left-0 right-0 z-50 w-full">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Title */}
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -19,7 +19,7 @@ export default function Header() {
               />
             </div>
             <div className="flex flex-col justify-center">
-              <h1 className="text-lg font-bold text-gray-900 leading-tight">SI Surat Desa</h1>
+              <h1 className="text-lg font-bold text-gray-900 leading-tight">Sistem Pelayanan Surat</h1>
               <p className="text-xs text-gray-600 leading-tight">Desa Aikmual</p>
             </div>
           </Link>

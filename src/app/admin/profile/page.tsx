@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from 'react';
-import { FiLock, FiEye, FiEyeOff, FiCheck, FiX, FiUser } from 'react-icons/fi';
+import { FiLock, FiEye, FiEyeOff, FiCheck, FiX } from 'react-icons/fi';
 
 type AdminProfile = {
   id: string;
@@ -169,13 +169,6 @@ export default function AdminProfilePage() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-          <FiUser className="text-blue-600" /> Profil
-        </h1>
-        <p className="text-gray-600 mt-1">Kelola data pribadi dan keamanan akun Anda.</p>
-      </div>
-
       {/* Tabs */}
       <div className="flex gap-4 border-b border-gray-200">
         <button

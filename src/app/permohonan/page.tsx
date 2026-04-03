@@ -58,7 +58,7 @@ export default function PermohonanPage() {
   useRequireAuth();
 
   return (
-    <SimpleLayout>
+    <SimpleLayout useSidebar>
       {/* Header Section */}
       <div className="mb-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-2">Permohonan Surat</h1>

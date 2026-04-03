@@ -73,6 +73,16 @@ export default function InternalLoginPage({ variant = "shared" }: InternalLoginP
   const config = useMemo(() => VARIANT_CONFIG[variant] ?? VARIANT_CONFIG.shared, [variant]);
   const IconComponent = config.icon;
 
+  const toFriendlyLoginError = (status: number) => {
+    if (status === 404) {
+      return "Layanan login tidak ditemukan (404). Pastikan aplikasi berjalan di port yang benar.";
+    }
+    if (status >= 500) {
+      return "Server sedang bermasalah. Silakan coba lagi beberapa saat.";
+    }
+    return `Gagal memproses login (status ${status}).`;
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -89,7 +99,14 @@ export default function InternalLoginPage({ variant = "shared" }: InternalLoginP
         }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = null;
+
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        throw new Error(toFriendlyLoginError(res.status));
+      }
 
       if (!res.ok) {
         throw new Error(data.error || "Login gagal");
@@ -104,7 +121,11 @@ export default function InternalLoginPage({ variant = "shared" }: InternalLoginP
         }
       }, 400);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login gagal");
+      if (err instanceof TypeError) {
+        setError("Tidak dapat terhubung ke server. Periksa koneksi atau jalankan ulang aplikasi.");
+      } else {
+        setError(err instanceof Error ? err.message : "Login gagal");
+      }
     } finally {
       setLoading(false);
     }
