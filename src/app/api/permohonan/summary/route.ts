@@ -1,54 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
 import { db } from '@/lib/db';
+import { getUser } from '@/lib/auth';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
-
-interface JWTPayload {
-  userId: number;
-  username: string;
-  iat: number;
-  exp: number;
+function normalizeNikValue(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.split('_')[0].trim();
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // Get and verify JWT token
-    const token = request.cookies.get('token')?.value;
+    const token = request.cookies.get('auth-token')?.value || request.cookies.get('token')?.value;
 
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let decoded: JWTPayload;
-    try {
-      const verified = await jwtVerify(token, JWT_SECRET);
-      decoded = verified.payload as unknown as JWTPayload;
-    } catch (error) {
+    const user = await getUser(token);
+    if (!user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get user's NIK
-    const userQuery = 'SELECT nik FROM users WHERE id = ?';
-    const [userRows] = await db.execute(userQuery, [decoded.userId]);
-    const userData = (userRows as any[])[0];
+    const rawNik = typeof user.nik === 'string' ? user.nik.trim() : '';
+    const baseNik = normalizeNikValue(rawNik);
 
-    if (!userData) {
-      return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
+    if (!rawNik && !baseNik) {
+      return NextResponse.json({ error: 'NIK user tidak ditemukan' }, { status: 400 });
     }
 
     // Get statistics
     const statsQuery = `
       SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN status IN ('pending', 'diproses') THEN 1 ELSE 0 END) as diproses,
-        SUM(CASE WHEN status = 'selesai' THEN 1 ELSE 0 END) as selesai,
+        SUM(CASE WHEN status IN ('pending', 'diproses', 'dikirim_ke_kepala_desa', 'perlu_revisi') THEN 1 ELSE 0 END) as diproses,
+        SUM(CASE WHEN status IN ('selesai', 'ditandatangani') THEN 1 ELSE 0 END) as selesai,
         SUM(CASE WHEN status = 'ditolak' THEN 1 ELSE 0 END) as ditolak
       FROM permohonan_surat
-      WHERE nik = ?
+      WHERE (nik = ? OR nik = ? OR SUBSTRING_INDEX(nik, '_', 1) = ?)
     `;
 
-    const [statsRows] = await db.execute(statsQuery, [userData.nik]);
+    const [statsRows] = await db.execute(statsQuery, [rawNik || baseNik, baseNik || rawNik, baseNik || rawNik]);
     const stats = (statsRows as any[])[0] || {
       total: 0,
       diproses: 0,
@@ -63,16 +55,16 @@ export async function GET(request: NextRequest) {
         jenis_surat,
         status,
         created_at AS tanggal_dibuat,
-        CASE WHEN status = 'selesai' THEN updated_at ELSE NULL END AS tanggal_selesai,
+        CASE WHEN status IN ('selesai', 'ditandatangani') THEN updated_at ELSE NULL END AS tanggal_selesai,
         nomor_surat,
         file_path
       FROM permohonan_surat
-      WHERE nik = ?
+      WHERE (nik = ? OR nik = ? OR SUBSTRING_INDEX(nik, '_', 1) = ?)
       ORDER BY created_at DESC
       LIMIT 5
     `;
 
-    const [permohonanRows] = await db.execute(recentQuery, [userData.nik]);
+    const [permohonanRows] = await db.execute(recentQuery, [rawNik || baseNik, baseNik || rawNik, baseNik || rawNik]);
     const permohonan = (permohonanRows as any[]) || [];
 
     return NextResponse.json({

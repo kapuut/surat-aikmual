@@ -19,6 +19,8 @@ export interface DashboardStats {
     pending: number;
     disetujui: number;
     ditolak: number;
+    menunggu_tanda_tangan?: number;
+    selesai_ditandatangani?: number;
   };
   users: {
     total: number;

@@ -141,6 +141,8 @@ const FAQ_ITEMS = [
 
 export default function HomePage() {
   const { user, loading, isAuthenticated } = useAuth();
+  const isMasyarakat = isAuthenticated && user?.role === 'masyarakat';
+  const showCitizenActions = isMasyarakat;
 
   if (loading) {
     return (
@@ -204,23 +206,25 @@ export default function HomePage() {
               Pelayanan administrasi surat resmi Pemerintah Desa Aikmual yang mudah, cepat, dan transparan.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link
-                href={isAuthenticated ? '/permohonan' : '/login'}
-                className="bg-white text-blue-600 font-semibold py-4 px-8 rounded-full shadow-lg hover:bg-blue-50 transition-all transform hover:scale-105 flex items-center gap-2"
-              >
-                <FiFileText className="w-5 h-5" />
-                {isAuthenticated ? 'Buat Permohonan' : 'Mulai Sekarang'}
-                <FiArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                href="/tracking"
-                className="border-2 border-white text-white font-semibold py-4 px-8 rounded-full hover:bg-white hover:text-blue-600 transition-all flex items-center gap-2"
-              >
-                <FiCheckCircle className="w-5 h-5" />
-                Cek Progres Surat
-              </Link>
-            </div>
+            {showCitizenActions && (
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <Link
+                  href={isAuthenticated ? '/permohonan' : '/login'}
+                  className="bg-white text-blue-600 font-semibold py-4 px-8 rounded-full shadow-lg hover:bg-blue-50 transition-all transform hover:scale-105 flex items-center gap-2"
+                >
+                  <FiFileText className="w-5 h-5" />
+                  {isAuthenticated ? 'Buat Permohonan' : 'Mulai Sekarang'}
+                  <FiArrowRight className="w-4 h-4" />
+                </Link>
+                <Link
+                  href="/tracking"
+                  className="border-2 border-white text-white font-semibold py-4 px-8 rounded-full hover:bg-white hover:text-blue-600 transition-all flex items-center gap-2"
+                >
+                  <FiCheckCircle className="w-5 h-5" />
+                  Cek Progres Surat
+                </Link>
+              </div>
+            )}
 
             <div className="mt-8 flex flex-wrap justify-center gap-3 text-sm md:text-base text-blue-100">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-black/20 px-4 py-2">
@@ -361,20 +365,22 @@ export default function HomePage() {
           <p className="text-gray-600 mb-6">
             Gunakan pelacakan untuk melihat progres, atau hubungi petugas desa untuk konsultasi langsung.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href={isAuthenticated ? '/permohonan' : '/login'}
-              className="bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              {isAuthenticated ? 'Buat Permohonan' : 'Masuk Untuk Mengajukan'}
-            </Link>
-            <Link
-              href="/tracking"
-              className="border border-blue-600 text-blue-600 font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 hover:text-white transition-colors"
-            >
-              Cek Progres Surat
-            </Link>
-          </div>
+          {showCitizenActions && (
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                href={isAuthenticated ? '/permohonan' : '/login'}
+                className="bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                {isAuthenticated ? 'Buat Permohonan' : 'Masuk Untuk Mengajukan'}
+              </Link>
+              <Link
+                href="/tracking"
+                className="border border-blue-600 text-blue-600 font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 hover:text-white transition-colors"
+              >
+                Cek Progres Surat
+              </Link>
+            </div>
+          )}
         </div>
       </main>
 

@@ -1,11 +1,16 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { sendNotificationEmail } from '@/lib/email';
+import { cookies } from 'next/headers';
+import { getUser } from '@/lib/auth';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
+import QRCode from 'qrcode';
+import { createHash, createHmac } from 'crypto';
 import { generateSuratTemplate } from '@/lib/surat-generator/template';
 import { generateNomorSurat } from '@/lib/surat-generator/nomor-surat';
 import { normalizeSuratSlug } from '@/lib/surat-data';
+import type { UserRole } from '@/lib/types';
 import type { JenisSurat, SuratData } from '@/lib/surat-generator/types';
 
 export const runtime = 'nodejs';
@@ -33,15 +38,209 @@ type PermohonanRow = {
   masa_berlaku_sampai?: string | Date | null;
 };
 
-type NormalizedStatus = 'pending' | 'diproses' | 'selesai' | 'ditolak';
+type NormalizedStatus =
+  | 'pending'
+  | 'diproses'
+  | 'dikirim_ke_kepala_desa'
+  | 'perlu_revisi'
+  | 'ditandatangani'
+  | 'selesai'
+  | 'ditolak';
+
+type InternalRole = Extract<UserRole, 'admin' | 'sekretaris' | 'kepala_desa'>;
 
 function normalizeStatus(input: unknown): NormalizedStatus | null {
   const value = String(input ?? '').trim().toLowerCase();
   if (['pending', 'menunggu'].includes(value)) return 'pending';
   if (['diproses', 'proses', 'in_progress', 'in-progress'].includes(value)) return 'diproses';
+  if (
+    [
+      'dikirim_ke_kepala_desa',
+      'dikirim ke kepala desa',
+      'dikirim-kepala-desa',
+      'siap tandatangan',
+      'siap_tandatangan',
+      'terverifikasi',
+      'verified',
+    ].includes(value)
+  ) {
+    return 'dikirim_ke_kepala_desa';
+  }
+  if (['perlu_revisi', 'perlu revisi', 'revisi'].includes(value)) return 'perlu_revisi';
+  if (['ditandatangani', 'signed', 'tertanda'].includes(value)) return 'ditandatangani';
   if (['selesai', 'approved', 'disetujui', 'approve'].includes(value)) return 'selesai';
   if (['ditolak', 'rejected', 'tolak', 'reject'].includes(value)) return 'ditolak';
   return null;
+}
+
+function statusLabel(status: NormalizedStatus): string {
+  const labels: Record<NormalizedStatus, string> = {
+    pending: 'Menunggu Verifikasi',
+    diproses: 'Diproses',
+    dikirim_ke_kepala_desa: 'Dikirim ke Kepala Desa',
+    perlu_revisi: 'Perlu Revisi',
+    ditandatangani: 'Ditandatangani',
+    selesai: 'Selesai',
+    ditolak: 'Ditolak',
+  };
+
+  return labels[status];
+}
+
+function canTransitionStatus(
+  role: InternalRole,
+  currentStatus: NormalizedStatus,
+  nextStatus: NormalizedStatus
+): boolean {
+  if (currentStatus === nextStatus) return true;
+
+  if (role === 'admin' || role === 'sekretaris') {
+    if (nextStatus === 'dikirim_ke_kepala_desa') {
+      return ['pending', 'diproses', 'perlu_revisi'].includes(currentStatus);
+    }
+    if (nextStatus === 'ditolak') {
+      return ['pending', 'diproses', 'perlu_revisi', 'dikirim_ke_kepala_desa'].includes(currentStatus);
+    }
+    if (nextStatus === 'diproses') {
+      return ['pending', 'perlu_revisi'].includes(currentStatus);
+    }
+    if (nextStatus === 'pending') {
+      return currentStatus === 'perlu_revisi';
+    }
+    return false;
+  }
+
+  if (role === 'kepala_desa') {
+    if (nextStatus === 'perlu_revisi') {
+      return currentStatus === 'dikirim_ke_kepala_desa';
+    }
+    if (nextStatus === 'ditandatangani') {
+      return currentStatus === 'dikirim_ke_kepala_desa';
+    }
+    if (nextStatus === 'selesai') {
+      return currentStatus === 'ditandatangani';
+    }
+    return false;
+  }
+
+  return false;
+}
+
+function isUnknownColumnError(error: unknown): boolean {
+  return String((error as any)?.message || '').toLowerCase().includes('unknown column');
+}
+
+async function upsertSuratKeluarArchive(
+  connection: any,
+  params: {
+    nomorSurat: string;
+    perihal: string;
+    tujuan: string;
+    filePath: string | null;
+    createdBy: number | null;
+    tanggal: string;
+  }
+) {
+  const updateVariants: Array<{ query: string; values: unknown[] }> = [
+    {
+      query: `UPDATE surat_keluar
+              SET perihal = ?,
+                  tujuan = ?,
+                  file_path = ?,
+                  status = 'aktif',
+                  tanggal = ?,
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE nomor_surat = ?`,
+      values: [params.perihal, params.tujuan, params.filePath, params.tanggal, params.nomorSurat],
+    },
+    {
+      query: `UPDATE surat_keluar
+              SET perihal = ?,
+                  tujuan = ?,
+                  file_path = ?,
+                  status = 'aktif',
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE nomor_surat = ?`,
+      values: [params.perihal, params.tujuan, params.filePath, params.nomorSurat],
+    },
+    {
+      query: `UPDATE surat_keluar
+              SET perihal = ?,
+                  tujuan = ?,
+                  file_path = ?,
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE nomor_surat = ?`,
+      values: [params.perihal, params.tujuan, params.filePath, params.nomorSurat],
+    },
+  ];
+
+  for (const variant of updateVariants) {
+    try {
+      const [result]: any = await connection.execute(variant.query, variant.values);
+      if (result?.affectedRows > 0) {
+        return;
+      }
+      break;
+    } catch (error) {
+      if (!isUnknownColumnError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  const insertVariants: Array<{ query: string; values: unknown[] }> = [
+    {
+      query: `INSERT INTO surat_keluar
+              (nomor_surat, tanggal_surat, tanggal, tujuan, perihal, file_path, status, created_by)
+              VALUES (?, ?, ?, ?, ?, ?, 'aktif', ?)`,
+      values: [
+        params.nomorSurat,
+        params.tanggal,
+        params.tanggal,
+        params.tujuan,
+        params.perihal,
+        params.filePath,
+        params.createdBy,
+      ],
+    },
+    {
+      query: `INSERT INTO surat_keluar
+              (nomor_surat, tanggal_surat, tujuan, perihal, file_path, status, created_by)
+              VALUES (?, ?, ?, ?, ?, 'aktif', ?)`,
+      values: [
+        params.nomorSurat,
+        params.tanggal,
+        params.tujuan,
+        params.perihal,
+        params.filePath,
+        params.createdBy,
+      ],
+    },
+    {
+      query: `INSERT INTO surat_keluar
+              (nomor_surat, tanggal_surat, tujuan, perihal, file_path, created_by)
+              VALUES (?, ?, ?, ?, ?, ?)`,
+      values: [
+        params.nomorSurat,
+        params.tanggal,
+        params.tujuan,
+        params.perihal,
+        params.filePath,
+        params.createdBy,
+      ],
+    },
+  ];
+
+  for (const variant of insertVariants) {
+    try {
+      await connection.execute(variant.query, variant.values);
+      return;
+    } catch (error) {
+      if (!isUnknownColumnError(error)) {
+        throw error;
+      }
+    }
+  }
 }
 
 function toJenisSurat(value: string): JenisSurat | null {
@@ -68,6 +267,68 @@ function normalizeGender(value: unknown): 'Laki-laki' | 'Perempuan' | undefined 
   if (lowered.includes('laki')) return 'Laki-laki';
   if (lowered.includes('perempuan')) return 'Perempuan';
   return undefined;
+}
+
+function getAppBaseUrl(): string {
+  const raw = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  return raw.replace(/\/$/, '');
+}
+
+function buildVerificationCode(source: string): string {
+  return createHash('sha256').update(source).digest('hex').slice(0, 16).toUpperCase();
+}
+
+function buildIntegrityToken(source: string): string {
+  const secret = process.env.QR_SIGN_SECRET || process.env.JWT_SECRET || 'aikmual-signature-secret';
+  return createHmac('sha256', secret).update(source).digest('hex').slice(0, 24).toUpperCase();
+}
+
+async function createPermohonanQrCode(params: {
+  id: number;
+  nomorSurat: string;
+  nik: string;
+  namaPemohon: string;
+  jenisSurat: string;
+  keperluan: string;
+  pembuatSurat: string;
+  signedAt: Date;
+}): Promise<{ dataUrl: string; verificationCode: string }> {
+  const source = [
+    params.id,
+    params.nomorSurat,
+    params.nik,
+    params.namaPemohon,
+    params.jenisSurat,
+    params.keperluan,
+    params.pembuatSurat,
+  ].join('|');
+
+  const verificationCode = buildVerificationCode(source);
+  const integrityToken = buildIntegrityToken(source);
+  const verifyUrl = `${getAppBaseUrl()}/verifikasi-surat?permohonan=${params.id}&kode=${verificationCode}&token=${integrityToken}`;
+
+  const qrPayload = [
+    'VERIFIKASI SURAT DESA AIKMUAL',
+    `Kode: ${verificationCode}`,
+    `ID Permohonan: ${params.id}`,
+    `Nomor Surat: ${params.nomorSurat}`,
+    `Pembuat Surat: ${params.pembuatSurat}`,
+    `NIK: ${params.nik}`,
+    `Nama Pemohon: ${params.namaPemohon}`,
+    `Jenis Surat: ${params.jenisSurat}`,
+    `Tujuan/Keperluan: ${params.keperluan}`,
+    `Tanggal TTD: ${params.signedAt.toISOString()}`,
+    `Token Integritas: ${integrityToken}`,
+    `URL Verifikasi: ${verifyUrl}`,
+  ].join('\n');
+
+  const dataUrl = await QRCode.toDataURL(qrPayload, {
+    errorCorrectionLevel: 'M',
+    width: 180,
+    margin: 1,
+  });
+
+  return { dataUrl, verificationCode };
 }
 
 async function getNextNomorSuratWithLock(connection: any, tanggal: Date): Promise<string> {
@@ -122,12 +383,33 @@ export async function PUT(
 ) {
   const connection = await db.getConnection();
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const authUser = await getUser(token);
+    if (!authUser) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    if (!['admin', 'sekretaris', 'kepala_desa'].includes(authUser.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const payload = await request.json();
     const normalizedStatus = normalizeStatus(payload?.status);
     const catatan = typeof payload?.catatan === 'string' ? payload.catatan.trim() : null;
+    const noteByRole =
+      authUser.role === 'admin'
+        ? 'Admin'
+        : authUser.role === 'sekretaris'
+          ? 'Sekretaris'
+          : 'Kepala Desa';
+    const effectiveCatatan = catatan || `Status diperbarui oleh ${noteByRole}`;
 
-    const processedByRaw = payload?.processed_by ?? payload?.processedBy;
-    const processedByNumber = Number(processedByRaw);
+    const processedByNumber = Number(authUser.id);
     const processedBy = Number.isFinite(processedByNumber) && processedByNumber > 0
       ? processedByNumber
       : null;
@@ -149,10 +431,28 @@ export async function PUT(
     }
 
     const permohonan = permohonanRows[0] as PermohonanRow;
+    const currentStatus = normalizeStatus(permohonan.status);
+    if (!currentStatus) {
+      await connection.rollback();
+      return NextResponse.json({ error: 'Status saat ini tidak dikenali' }, { status: 400 });
+    }
+
+    if (!canTransitionStatus(authUser.role as InternalRole, currentStatus, normalizedStatus)) {
+      await connection.rollback();
+      return NextResponse.json(
+        {
+          error: `Transisi status dari ${statusLabel(currentStatus)} ke ${statusLabel(normalizedStatus)} tidak diizinkan untuk role ${authUser.role}`,
+        },
+        { status: 403 }
+      );
+    }
+
     let nomorSurat = permohonan.nomor_surat;
     let generatedFilePath = permohonan.file_path;
 
-    if (normalizedStatus === 'selesai') {
+    const shouldGenerateSurat = ['dikirim_ke_kepala_desa', 'ditandatangani', 'selesai'].includes(normalizedStatus);
+
+    if (shouldGenerateSurat) {
       const jenisSurat = toJenisSurat(permohonan.jenis_surat);
       if (!jenisSurat) {
         await connection.rollback();
@@ -172,32 +472,58 @@ export async function PUT(
         nomorSurat = await getNextNomorSuratWithLock(connection, tanggalSurat);
       }
 
-      const suratData: SuratData = {
-        jenisSurat,
-        nomorSurat,
-        tanggalSurat,
-        nama: permohonan.nama_pemohon,
-        nik: permohonan.nik,
-        tempatLahir: asText(permohonan.tempat_lahir),
-        tanggalLahir: asDate(permohonan.tanggal_lahir),
-        jeniKelamin: normalizeGender(permohonan.jenis_kelamin),
-        agama: asText(permohonan.agama),
-        pekerjaan: asText(permohonan.pekerjaan),
-        statusPerkawinan: asText(permohonan.status_perkawinan),
-        kewarganegaraan: asText(permohonan.kewarganegaraan) || 'Indonesia',
-        tanggalBerlaku: {
-          dari: masaBerlakuDari,
-          sampai: masaBerlakuSampai,
-        },
-        alamat: permohonan.alamat,
-        isiSurat: `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}. Surat keterangan ini dipergunakan untuk keperluan ${permohonan.keperluan}.`,
-        kepalaDesa: {
-          nama: 'KEPALA DESA AIKMUAL',
-        },
-      };
+      const shouldEmbedSignature = ['ditandatangani', 'selesai'].includes(normalizedStatus);
+      const shouldRegenerateSurat = !generatedFilePath || shouldEmbedSignature;
 
-      const htmlContent = generateSuratTemplate(suratData);
-      generatedFilePath = await saveGeneratedSuratHtml(htmlContent, nomorSurat, jenisSurat);
+      if (shouldRegenerateSurat) {
+        let qrCodeDataUrl: string | undefined;
+        let verificationCode: string | undefined;
+
+        if (shouldEmbedSignature) {
+          const qr = await createPermohonanQrCode({
+            id: Number(params.id),
+            nomorSurat,
+            nik: permohonan.nik,
+            namaPemohon: permohonan.nama_pemohon,
+            jenisSurat: permohonan.jenis_surat,
+            keperluan: permohonan.keperluan,
+            pembuatSurat: authUser.nama || noteByRole,
+            signedAt: tanggalSurat,
+          });
+          qrCodeDataUrl = qr.dataUrl;
+          verificationCode = qr.verificationCode;
+        }
+
+        const suratData: SuratData = {
+          jenisSurat,
+          nomorSurat,
+          tanggalSurat,
+          nama: permohonan.nama_pemohon,
+          nik: permohonan.nik,
+          tempatLahir: asText(permohonan.tempat_lahir),
+          tanggalLahir: asDate(permohonan.tanggal_lahir),
+          jeniKelamin: normalizeGender(permohonan.jenis_kelamin),
+          agama: asText(permohonan.agama),
+          pekerjaan: asText(permohonan.pekerjaan),
+          statusPerkawinan: asText(permohonan.status_perkawinan),
+          kewarganegaraan: asText(permohonan.kewarganegaraan) || 'Indonesia',
+          tanggalBerlaku: {
+            dari: masaBerlakuDari,
+            sampai: masaBerlakuSampai,
+          },
+          alamat: permohonan.alamat,
+          isiSurat: `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}. Surat keterangan ini dipergunakan untuk keperluan ${permohonan.keperluan}.`,
+          kepalaDesa: {
+            nama: 'KEPALA DESA AIKMUAL',
+            signatureImageUrl: shouldEmbedSignature ? '/images/sample-ttd.png' : undefined,
+            qrCodeDataUrl,
+            verificationCode,
+          },
+        };
+
+        const htmlContent = generateSuratTemplate(suratData);
+        generatedFilePath = await saveGeneratedSuratHtml(htmlContent, nomorSurat, jenisSurat);
+      }
     }
 
     await connection.execute(
@@ -209,8 +535,23 @@ export async function PUT(
            processed_by = COALESCE(?, processed_by),
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [normalizedStatus, catatan, nomorSurat, generatedFilePath, processedBy, params.id]
+      [normalizedStatus, effectiveCatatan, nomorSurat, generatedFilePath, processedBy, params.id]
     );
+
+    if (['ditandatangani', 'selesai'].includes(normalizedStatus) && nomorSurat) {
+      const tanggalArsip = new Date().toISOString().split('T')[0];
+      const tujuan = permohonan.nama_pemohon || 'Pemohon';
+      const perihal = `${permohonan.jenis_surat} - ${permohonan.keperluan}`;
+
+      await upsertSuratKeluarArchive(connection, {
+        nomorSurat,
+        perihal,
+        tujuan,
+        filePath: generatedFilePath,
+        createdBy: processedBy,
+        tanggal: tanggalArsip,
+      });
+    }
 
     await connection.commit();
 
@@ -220,7 +561,7 @@ export async function PUT(
         await sendNotificationEmail(
           permohonan.email,
           `Update Status Permohonan #${params.id}`,
-          `Status permohonan Anda telah diupdate menjadi: ${normalizedStatus}`
+          `Status permohonan Anda telah diupdate menjadi: ${statusLabel(normalizedStatus)}`
         );
       } catch (emailError) {
         console.error('Gagal kirim email notifikasi:', emailError);

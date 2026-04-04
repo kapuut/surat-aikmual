@@ -86,13 +86,23 @@ export function TableCell({ children, align = 'left', className = '' }: TableCel
 }
 
 interface StatusBadgeProps {
-  status: 'pending' | 'diproses' | 'selesai' | 'ditolak';
+  status:
+    | 'pending'
+    | 'diproses'
+    | 'dikirim_ke_kepala_desa'
+    | 'perlu_revisi'
+    | 'ditandatangani'
+    | 'selesai'
+    | 'ditolak';
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const badgeStyles = {
     pending: 'bg-gray-100 text-gray-800',
     diproses: 'bg-yellow-100 text-yellow-800',
+    dikirim_ke_kepala_desa: 'bg-indigo-100 text-indigo-800',
+    perlu_revisi: 'bg-orange-100 text-orange-800',
+    ditandatangani: 'bg-emerald-100 text-emerald-800',
     selesai: 'bg-green-100 text-green-800',
     ditolak: 'bg-red-100 text-red-800',
   };
@@ -100,6 +110,9 @@ export function StatusBadge({ status }: StatusBadgeProps) {
   const labels = {
     pending: 'Menunggu',
     diproses: 'Diproses',
+    dikirim_ke_kepala_desa: 'Dikirim ke Kepala Desa',
+    perlu_revisi: 'Perlu Revisi',
+    ditandatangani: 'Ditandatangani',
     selesai: 'Selesai',
     ditolak: 'Ditolak',
   };

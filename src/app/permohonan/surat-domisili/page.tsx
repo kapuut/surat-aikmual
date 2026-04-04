@@ -9,18 +9,17 @@ export default function SuratDomisiliInfoPage() {
   const router = useRouter();
 
   const persyaratan = [
-    "Scan/foto KTP yang masih berlaku",
-    "Scan/foto Kartu Keluarga (KK)",
-    "Scan/foto Surat Pengantar dari RT/RW",
-    "Upload pas foto terbaru ukuran 3x4",
-    "Scan/foto bukti kepemilikan rumah/kontrak (jika ada)",
+    "Upload KTP yang masih berlaku (wajib)",
+    "Upload Kartu Keluarga (KK) (wajib)",
+    "Upload bukti pendukung domisili sesuai kondisi pemohon",
+    "Dokumen tambahan bukan surat yang diajukan, melainkan bukti pendukung",
   ];
 
   const prosedur = [
     {
       step: 1,
       title: "Persiapan Dokumen",
-      desc: "Siapkan semua persyaratan dokumen yang diperlukan",
+      desc: "Siapkan KTP, KK, dan bukti pendukung domisili sesuai kebutuhan",
     },
     {
       step: 2,
@@ -29,16 +28,21 @@ export default function SuratDomisiliInfoPage() {
     },
     {
       step: 3,
+      title: "Upload Dokumen",
+      desc: "Unggah KTP, KK, dan dokumen pendukung sesuai jenis permohonan",
+    },
+    {
+      step: 4,
       title: "Verifikasi Data",
       desc: "Petugas akan memverifikasi kelengkapan dan kebenaran data",
     },
     {
-      step: 4,
+      step: 5,
       title: "Proses Persetujuan",
       desc: "Menunggu persetujuan dari Kepala Desa",
     },
     {
-      step: 5,
+      step: 6,
       title: "Pengambilan Surat",
       desc: "Surat dapat diambil setelah mendapat persetujuan (3-5 hari kerja)",
     },

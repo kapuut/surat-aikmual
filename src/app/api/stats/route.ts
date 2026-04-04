@@ -57,15 +57,23 @@ export async function GET() {
     );
 
     const [permohonanPending]: any = await db.execute(
-      'SELECT COUNT(*) as count FROM permohonan_surat WHERE status = "pending"'
+      'SELECT COUNT(*) as count FROM permohonan_surat WHERE status IN ("pending", "perlu_revisi")'
     );
 
     const [permohonanDisetujui]: any = await db.execute(
-      'SELECT COUNT(*) as count FROM permohonan_surat WHERE status = "disetujui"'
+      'SELECT COUNT(*) as count FROM permohonan_surat WHERE status IN ("dikirim_ke_kepala_desa", "ditandatangani", "selesai")'
     );
 
     const [permohonanDitolak]: any = await db.execute(
       'SELECT COUNT(*) as count FROM permohonan_surat WHERE status = "ditolak"'
+    );
+
+    const [permohonanMenungguTandaTangan]: any = await db.execute(
+      'SELECT COUNT(*) as count FROM permohonan_surat WHERE status = "dikirim_ke_kepala_desa"'
+    );
+
+    const [permohonanSelesaiDitandatangani]: any = await db.execute(
+      'SELECT COUNT(*) as count FROM permohonan_surat WHERE status IN ("ditandatangani", "selesai")'
     );
 
     // Users Stats (only accessible for admin)
@@ -122,7 +130,9 @@ export async function GET() {
         total: permohonanTotal[0].count,
         pending: permohonanPending[0].count,
         disetujui: permohonanDisetujui[0].count,
-        ditolak: permohonanDitolak[0].count
+        ditolak: permohonanDitolak[0].count,
+        menunggu_tanda_tangan: permohonanMenungguTandaTangan[0].count,
+        selesai_ditandatangani: permohonanSelesaiDitandatangani[0].count
       },
       users: usersStats
     };

@@ -1,40 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
 import { db } from '@/lib/db';
+import { getUser } from '@/lib/auth';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
-
-interface JWTPayload {
-  userId: number;
-  username: string;
-  iat: number;
-  exp: number;
+function normalizeNikValue(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.split('_')[0].trim();
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // Get and verify JWT token
-    const token = request.cookies.get('token')?.value;
+    const token = request.cookies.get('auth-token')?.value || request.cookies.get('token')?.value;
 
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let decoded: JWTPayload;
-    try {
-      const verified = await jwtVerify(token, JWT_SECRET);
-      decoded = verified.payload as unknown as JWTPayload;
-    } catch (error) {
+    const user = await getUser(token);
+    if (!user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get user's NIK to fetch permohonan
-    const userQuery = 'SELECT nik FROM users WHERE id = ?';
-    const [userRows] = await db.execute(userQuery, [decoded.userId]);
-    const userData = (userRows as any[])[0];
+    const rawNik = typeof user.nik === 'string' ? user.nik.trim() : '';
+    const baseNik = normalizeNikValue(rawNik);
 
-    if (!userData) {
-      return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
+    if (!rawNik && !baseNik) {
+      return NextResponse.json({ error: 'NIK user tidak ditemukan' }, { status: 400 });
     }
 
     // Fetch permohonan for this user
@@ -46,15 +38,15 @@ export async function GET(request: NextRequest) {
         nomor_surat, 
         status, 
         created_at AS tanggal_permohonan,
-        CASE WHEN status = 'selesai' THEN updated_at ELSE NULL END AS tanggal_selesai,
-        CASE WHEN status = 'ditolak' THEN catatan ELSE NULL END AS alasan_penolakan,
+        CASE WHEN status IN ('selesai', 'ditandatangani') THEN updated_at ELSE NULL END AS tanggal_selesai,
+        CASE WHEN status IN ('ditolak', 'perlu_revisi') THEN catatan ELSE NULL END AS alasan_penolakan,
         file_path
       FROM permohonan_surat
-      WHERE nik = ?
+      WHERE (nik = ? OR nik = ? OR SUBSTRING_INDEX(nik, '_', 1) = ?)
       ORDER BY created_at DESC
     `;
 
-    const [permohonanRows] = await db.execute(query, [userData.nik]);
+    const [permohonanRows] = await db.execute(query, [rawNik || baseNik, baseNik || rawNik, baseNik || rawNik]);
     const permohonanData = (permohonanRows as any[]) || [];
 
     return NextResponse.json({

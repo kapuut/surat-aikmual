@@ -27,6 +27,9 @@ export interface SuratData {
   kepalaDesa?: {
     nama: string;
     nip?: string;
+    signatureImageUrl?: string;
+    qrCodeDataUrl?: string;
+    verificationCode?: string;
   };
 }
 

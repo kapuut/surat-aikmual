@@ -100,8 +100,8 @@ export default function UserNavbar({ showMainMenu = true }: UserNavbarProps) {
                       </Link>
                     )}
 
-                    {/* Lacak Surat - sembunyikan hanya untuk admin */}
-                    {user.role !== 'admin' && (
+                    {/* Lacak Surat - hanya untuk masyarakat */}
+                    {user.role === 'masyarakat' && (
                       <Link href="/tracking" className="text-gray-600 hover:text-blue-600 transition">
                         Lacak Surat
                       </Link>
@@ -218,8 +218,8 @@ export default function UserNavbar({ showMainMenu = true }: UserNavbarProps) {
                       </Link>
                     )}
 
-                    {/* Lacak Surat - sembunyikan hanya untuk admin */}
-                    {user.role !== 'admin' && (
+                    {/* Lacak Surat - hanya untuk masyarakat */}
+                    {user.role === 'masyarakat' && (
                       <Link
                         href="/tracking"
                         className="block px-4 py-2 text-gray-600 hover:bg-gray-50"

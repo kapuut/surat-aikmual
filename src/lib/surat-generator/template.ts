@@ -59,6 +59,11 @@ export function generateSuratTemplate(
   const editable = Boolean(options.editable);
   const showToolbar = options.showToolbar ?? editable;
   const logoUrl = options.logoUrl || '/images/logo-loteng.png';
+  const kepalaDesaName = data.kepalaDesa?.nama || 'Kepala Desa Aikmual';
+  const signatureImageUrl = (data.kepalaDesa?.signatureImageUrl || '').trim();
+  const qrCodeDataUrl = (data.kepalaDesa?.qrCodeDataUrl || '').trim();
+  const verificationCode = (data.kepalaDesa?.verificationCode || '').trim();
+  const hasDigitalSignatureAssets = Boolean(signatureImageUrl || qrCodeDataUrl);
   
   // Konten isi surat berdasarkan jenis surat
   const isiSurat = data.isiSurat || generateIsiSurat(data);
@@ -374,12 +379,57 @@ export function generateSuratTemplate(
       text-align: center;
       margin-right: 0.2cm;
     }
+
+    .ttd-assets {
+      margin-top: 0.35cm;
+      min-height: 2.35cm;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 0.3cm;
+    }
+
+    .ttd-signature {
+      width: 3.2cm;
+      height: 2.1cm;
+      object-fit: contain;
+    }
+
+    .ttd-qr-wrap {
+      width: 2.35cm;
+      text-align: center;
+    }
+
+    .ttd-qr {
+      width: 1.95cm;
+      height: 1.95cm;
+      object-fit: contain;
+      border: 1px solid #111;
+      padding: 0.04cm;
+      background: #fff;
+    }
+
+    .qr-caption {
+      margin-top: 0.08cm;
+      font-size: 8.5pt;
+      line-height: 1.15;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .ttd-space {
+      height: 2.2cm;
+    }
     
     .tanda-tangan .nama {
       margin-top: 2.2cm;
       font-weight: bold;
       text-transform: uppercase;
       text-decoration: underline;
+    }
+
+    .tanda-tangan .nama.nama-signed {
+      margin-top: 0.35cm;
     }
     
     .tanda-tangan .nip {
@@ -501,8 +551,20 @@ export function generateSuratTemplate(
     <div class="tanda-tangan">
       <div class="pejabat">
         <div>Aikmual, ${escapeHtml(tanggalSurat)}</div>
-        <div>${escapeHtml(data.kepalaDesa?.nama || 'Kepala Desa Aikmual')}</div>
-        <div class="nama">${escapeHtml(data.kepalaDesa?.nama || 'Kepala Desa Aikmual')}</div>
+        <div>${escapeHtml(kepalaDesaName)}</div>
+        ${hasDigitalSignatureAssets
+          ? `
+        <div class="ttd-assets">
+          ${signatureImageUrl ? `<img class="ttd-signature" src="${escapeHtml(signatureImageUrl)}" alt="Tanda tangan Kepala Desa" />` : ''}
+          ${qrCodeDataUrl
+            ? `<div class="ttd-qr-wrap">
+              <img class="ttd-qr" src="${escapeHtml(qrCodeDataUrl)}" alt="QR verifikasi surat" />
+              ${verificationCode ? `<div class="qr-caption">${escapeHtml(verificationCode)}</div>` : ''}
+            </div>`
+            : ''}
+        </div>`
+          : '<div class="ttd-space"></div>'}
+        <div class="nama${hasDigitalSignatureAssets ? ' nama-signed' : ''}">${escapeHtml(kepalaDesaName)}</div>
         ${data.kepalaDesa?.nip ? `<div class="nip">NIP: ${escapeHtml(data.kepalaDesa.nip)}</div>` : ''}
       </div>
     </div>

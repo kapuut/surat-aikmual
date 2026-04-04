@@ -18,15 +18,15 @@ const suratData: Record<string, {
     title: item.title,
     description: item.description,
     requirements: [
-      "Fotokopi KTP Pemohon",
-      "Fotokopi Kartu Keluarga (KK)",
-      "Dokumen pendukung sesuai keperluan",
+      "Upload KTP pemohon (wajib)",
+      "Upload Kartu Keluarga/KK (wajib)",
+      "Upload dokumen pendukung sesuai jenis surat (bukti tambahan)",
       "Nomor telepon aktif"
     ],
     procedures: [
       "Login menggunakan NIK dan password",
       "Isi formulir sesuai data yang benar",
-      "Unggah dokumen persyaratan",
+      "Unggah KTP + KK serta dokumen pendukung",
       "Kirim permohonan dan tunggu verifikasi",
       "Pantau status pada halaman riwayat"
     ]
@@ -122,6 +122,15 @@ export default function SuratDetailPage({ params }: SuratDetailProps) {
                 >
                   Buat Permohonan
                 </Link>
+
+                <div className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4">
+                  <h4 className="text-sm font-semibold text-blue-800">Menu Upload Dokumen</h4>
+                  <ul className="mt-2 space-y-2 text-sm text-blue-700">
+                    <li>1. KTP (wajib)</li>
+                    <li>2. Kartu Keluarga/KK (wajib)</li>
+                    <li>3. Bukti pendukung sesuai jenis surat</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </aside>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiSend, FiHome, FiCheckCircle } from "react-icons/fi";
+import { FiArrowLeft, FiSend, FiHome, FiCheckCircle, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
@@ -20,39 +20,24 @@ export default function SuratDomisiliFormPage() {
     setSuccessMessage(null);
 
     const formData = new FormData(e.currentTarget);
-    const data = {
-      jenisSurat: "Surat Keterangan Domisili",
-      // Data Pemohon
-      nama: formData.get("nama"),
-      nik: formData.get("nik"),
-      tempatLahir: formData.get("tempatLahir"),
-      tanggalLahir: formData.get("tanggalLahir"),
-      jenisKelamin: formData.get("jenisKelamin"),
-      agama: formData.get("agama"),
-      pekerjaan: formData.get("pekerjaan"),
-      statusPerkawinan: formData.get("statusPerkawinan"),
-      // Data Alamat
-      alamatSebelumnya: formData.get("alamatSebelumnya"),
-      alamatSekarang: formData.get("alamatSekarang"),
-      rt: formData.get("rt"),
-      rw: formData.get("rw"),
-      kelurahan: formData.get("kelurahan"),
-      kecamatan: formData.get("kecamatan"),
-      kabupaten: formData.get("kabupaten"),
-      provinsi: formData.get("provinsi"),
-      kodePos: formData.get("kodePos"),
-      noTelp: formData.get("noTelp"),
-      // Data Tambahan
-      statusTempat: formData.get("statusTempat"),
-      lamaTinggal: formData.get("lamaTinggal"),
-      keperluan: formData.get("keperluan"),
-    };
+
+    // Required identity files validation before submit
+    const uploadedFiles = formData
+      .getAll("dokumen")
+      .filter((item): item is File => item instanceof File && item.size > 0);
+
+    if (uploadedFiles.length < 2) {
+      setLoading(false);
+      setError("Upload KTP dan Kartu Keluarga (KK) wajib diisi.");
+      return;
+    }
+
+    formData.set("jenisSurat", "Surat Keterangan Domisili");
 
     try {
       const response = await fetch("/api/permohonan/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -426,6 +411,60 @@ export default function SuratDomisiliFormPage() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Jelaskan keperluan surat keterangan domisili ini"
                   />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
+                <FiUpload className="text-orange-500" /> Menu Upload Dokumen
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                KTP dan KK wajib diunggah. Dokumen tambahan diisi sesuai kebutuhan permohonan domisili.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Upload KTP <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    name="dokumen"
+                    required
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-orange-100 file:text-orange-700"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: JPG, PNG, atau PDF</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Upload Kartu Keluarga (KK) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    name="dokumen"
+                    required
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-orange-100 file:text-orange-700"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: JPG, PNG, atau PDF</p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Dokumen Pendukung Domisili (opsional)
+                  </label>
+                  <input
+                    type="file"
+                    name="dokumen"
+                    multiple
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-orange-100 file:text-orange-700"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Contoh: surat pengantar RT/RW, bukti kontrak rumah, atau bukti pendukung lain sesuai kebutuhan.
+                  </p>
                 </div>
               </div>
             </div>

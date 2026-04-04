@@ -3,9 +3,17 @@ import { NextResponse } from 'next/server';
 import { getUser } from '@/lib/auth';
 import { cookies } from 'next/headers';
 
+function normalizeNikValue(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.split('_')[0].trim();
+}
+
 export async function GET(request: Request) {
   try {
-    const token = cookies().get('auth-token')?.value;
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value || cookieStore.get('token')?.value;
     if (!token) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -22,9 +30,22 @@ export async function GET(request: Request) {
       );
     }
 
+    const rawNik = typeof user.nik === 'string' ? user.nik.trim() : '';
+    const baseNik = normalizeNikValue(rawNik);
+
+    if (!rawNik && !baseNik) {
+      return NextResponse.json(
+        { error: 'NIK user tidak ditemukan' },
+        { status: 400 }
+      );
+    }
+
     const [rows]: any = await db.execute(
-      `SELECT * FROM permohonan_surat WHERE nik = ? ORDER BY created_at DESC`,
-      [user.nik]
+      `SELECT *
+       FROM permohonan_surat
+       WHERE (nik = ? OR nik = ? OR SUBSTRING_INDEX(nik, '_', 1) = ?)
+       ORDER BY created_at DESC`,
+      [rawNik || baseNik, baseNik || rawNik, baseNik || rawNik]
     );
 
     return NextResponse.json(rows);

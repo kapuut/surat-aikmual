@@ -3,9 +3,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { writeFile } from 'fs/promises';
 import path from 'path';
 import { getSuratBySlug, normalizeSuratSlug } from '@/lib/surat-data';
-import { jwtVerify } from 'jose';
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+import { getUser } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
@@ -48,6 +46,13 @@ function normalizeDateValue(value: string): string | null {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function normalizeNikValue(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.split('_')[0].trim();
+}
+
 async function handlePermohonanPost(request: Request) {
   try {
     const contentType = request.headers.get('content-type') || '';
@@ -70,6 +75,13 @@ async function handlePermohonanPost(request: Request) {
     if (!suratSlug) {
       return NextResponse.json(
         { error: 'Jenis surat tidak tersedia' },
+        { status: 400 }
+      );
+    }
+
+    if (suratSlug === 'surat-domisili' && uploadedFiles.length < 2) {
+      return NextResponse.json(
+        { error: 'Upload KTP dan Kartu Keluarga (KK) wajib untuk Surat Domisili' },
         { status: 400 }
       );
     }
@@ -181,31 +193,24 @@ export async function POST(request: Request) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get and verify JWT token
-    const token = request.cookies.get('token')?.value;
+    const token = request.cookies.get('auth-token')?.value || request.cookies.get('token')?.value;
 
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let decoded: any;
-    try {
-      const verified = await jwtVerify(token, JWT_SECRET);
-      decoded = verified.payload as any;
-    } catch (error) {
+    const user = await getUser(token);
+    if (!user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get user's NIK to fetch permohonan
-    const userQuery = 'SELECT nik FROM users WHERE id = ?';
-    const [userRows] = await db.execute(userQuery, [decoded.userId]);
-    const userData = (userRows as any[])[0];
+    const rawNik = typeof user.nik === 'string' ? user.nik.trim() : '';
+    const baseNik = normalizeNikValue(rawNik);
 
-    if (!userData) {
-      return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
+    if (!rawNik && !baseNik) {
+      return NextResponse.json({ error: 'NIK user tidak ditemukan' }, { status: 400 });
     }
 
-    // Fetch permohonan for this user
     const query = `
       SELECT 
         id, 
@@ -214,15 +219,15 @@ export async function GET(request: NextRequest) {
         nomor_surat, 
         status, 
         created_at AS tanggal_permohonan,
-        CASE WHEN status = 'selesai' THEN updated_at ELSE NULL END AS tanggal_selesai,
-        CASE WHEN status = 'ditolak' THEN catatan ELSE NULL END AS alasan_penolakan,
+        CASE WHEN status IN ('selesai', 'ditandatangani') THEN updated_at ELSE NULL END AS tanggal_selesai,
+        CASE WHEN status IN ('ditolak', 'perlu_revisi') THEN catatan ELSE NULL END AS alasan_penolakan,
         file_path
       FROM permohonan_surat
-      WHERE nik = ?
+      WHERE (nik = ? OR nik = ? OR SUBSTRING_INDEX(nik, '_', 1) = ?)
       ORDER BY created_at DESC
     `;
 
-    const [permohonanRows] = await db.execute(query, [userData.nik]);
+    const [permohonanRows] = await db.execute(query, [rawNik || baseNik, baseNik || rawNik, baseNik || rawNik]);
     const permohonanData = (permohonanRows as any[]) || [];
 
     return NextResponse.json({

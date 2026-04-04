@@ -14,7 +14,14 @@ interface Permohonan {
   nik: string;
   jenis_surat: string;
   nomor_surat: string | null;
-  status: 'pending' | 'diproses' | 'selesai' | 'ditolak';
+  status:
+    | 'pending'
+    | 'diproses'
+    | 'dikirim_ke_kepala_desa'
+    | 'perlu_revisi'
+    | 'ditandatangani'
+    | 'selesai'
+    | 'ditolak';
   tanggal_permohonan: string;
   tanggal_selesai: string | null;
   alasan_penolakan: string | null;
@@ -25,6 +32,7 @@ export default function TrackingPage() {
   const { user } = useRequireAuth();
   const [permohonan, setPermohonan] = useState<Permohonan[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPermohonan();
@@ -33,20 +41,45 @@ export default function TrackingPage() {
   const fetchPermohonan = async () => {
     try {
       setLoadingData(true);
+      setFetchError(null);
       const response = await fetch('/api/permohonan', {
         credentials: 'include',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setPermohonan(data.data || []);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Gagal memuat riwayat permohonan');
       }
+
+      setPermohonan(data.data || []);
     } catch (error) {
       console.error('Error fetching permohonan:', error);
+      setFetchError(error instanceof Error ? error.message : 'Terjadi kesalahan saat memuat riwayat');
+      setPermohonan([]);
     } finally {
       setLoadingData(false);
     }
   };
+
+  if (!loadingData && fetchError) {
+    return (
+      <SimpleLayout useSidebar>
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Lacak Surat</h1>
+          <p className="text-lg text-gray-600">Pantau status permohonan surat Anda.</p>
+        </div>
+
+        <Card>
+          <CardBody>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm">
+              {fetchError}
+            </div>
+          </CardBody>
+        </Card>
+      </SimpleLayout>
+    );
+  }
 
   return (
     <SimpleLayout useSidebar>
@@ -112,10 +145,21 @@ export default function TrackingPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={item.status as 'pending' | 'diproses' | 'selesai' | 'ditolak'} />
+                        <StatusBadge
+                          status={
+                            item.status as
+                              | 'pending'
+                              | 'diproses'
+                              | 'dikirim_ke_kepala_desa'
+                              | 'perlu_revisi'
+                              | 'ditandatangani'
+                              | 'selesai'
+                              | 'ditolak'
+                          }
+                        />
                       </TableCell>
                       <TableCell align="center">
-                        {item.status === 'selesai' && item.file_path ? (
+                        {(item.status === 'selesai' || item.status === 'ditandatangani') && item.file_path ? (
                           <Button
                             variant="outline"
                             size="sm"
@@ -144,7 +188,7 @@ export default function TrackingPage() {
             <CardHeader title="Informasi " />
             <CardBody>
               <p className="text-sm text-gray-700 mb-4">
-                Pantau status permohonan Anda di tabel di atas. Jika status sudah selesai, tombol unduh surat akan muncul otomatis.
+                Pantau status permohonan Anda di tabel di atas. Jika status sudah ditandatangani atau selesai, tombol unduh surat akan muncul otomatis.
               </p>
               <Link href="/permohonan">
                 <Button variant="secondary" size="sm">

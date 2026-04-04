@@ -1,0 +1,366 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SURAT KETERANGAN DOMISILI</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Times New Roman', serif;
+      line-height: 1.45;
+      color: #000;
+      background-color: #efefef;
+      padding: 16px;
+    }
+    
+    @media print {
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    }
+    
+    .page {
+      width: 21cm;
+      height: 29.7cm;
+      margin: 0 auto;
+      padding: 1.2cm 1.3cm 1.2cm 1.3cm;
+      background: white;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .editor-toolbar {
+      width: 21cm;
+      margin: 0 auto 10px auto;
+      background: #1f2937;
+      border-radius: 8px;
+      color: #fff;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-family: Arial, sans-serif;
+    }
+
+    .toolbar-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-actions button {
+      border: none;
+      background: #f59e0b;
+      color: #111827;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .toolbar-actions button:hover {
+      background: #fbbf24;
+    }
+    
+    /* Kop Surat */
+    .kop-surat {
+      margin-bottom: 0.7cm;
+      position: relative;
+      padding-bottom: 0.15cm;
+    }
+
+    .kop-row {
+      display: grid;
+      grid-template-columns: 98px 1fr;
+      column-gap: 10px;
+      align-items: center;
+    }
+
+    .logo-wrap {
+      width: 98px;
+      height: 98px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-wrap img {
+      width: 88px;
+      height: 88px;
+      object-fit: contain;
+    }
+
+    .kop-text {
+      text-align: center;
+      padding-right: 98px;
+    }
+
+    .kop-text .kabupaten {
+      font-size: 13pt;
+      font-weight: bold;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .kop-text .kecamatan {
+      font-size: 12pt;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .kop-text .desa {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .kop-text .alamat {
+      font-size: 10.5pt;
+      border: 1px solid #111;
+      padding: 2px 8px;
+      display: inline-block;
+      min-width: 86%;
+    }
+
+    .kop-divider {
+      margin-top: 4px;
+      border-top: 1px solid #000;
+      border-bottom: 2px solid #000;
+      height: 3px;
+    }
+    
+    /* Judul Surat */
+    .judul-surat {
+      text-align: center;
+      margin: 0.2cm 0 0.15cm 0;
+      font-size: 14pt;
+      font-weight: bold;
+      text-decoration: underline;
+      text-transform: uppercase;
+    }
+    
+    /* Nomor Surat */
+    .nomor-surat {
+      text-align: center;
+      margin-bottom: 0.55cm;
+      font-size: 12pt;
+    }
+    
+    /* Isi Surat - Tabel */
+    .isi-surat {
+      font-size: 14pt;
+      margin: 0.2cm 0 0.6cm 0;
+    }
+    
+    .isi-surat p {
+      margin-bottom: 0.35cm;
+      text-align: justify;
+      text-indent: 1.1cm;
+      line-height: 1.5;
+    }
+    
+    .isi-surat table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.15cm 0 0.35cm 1.1cm;
+      font-size: 14pt;
+    }
+    
+    .isi-surat td {
+      padding: 0.03cm 0;
+      border: none;
+      vertical-align: top;
+    }
+    
+    .isi-surat .label {
+      width: 3.8cm;
+    }
+
+    .isi-surat .colon {
+      width: 0.35cm;
+      text-align: center;
+    }
+
+    .isi-surat .nilai {
+      font-weight: 400;
+    }
+
+    .isi-surat .nilai-bold {
+      font-weight: 700;
+    }
+    
+    /* Penutup */
+    .penutup {
+      font-size: 14pt;
+      margin: 0.25cm 0 0.6cm 0;
+      text-align: justify;
+      text-indent: 1.1cm;
+      line-height: 1.5;
+    }
+    
+    /* Tanda Tangan */
+    .tanda-tangan {
+      margin-top: 0.25cm;
+      display: flex;
+      justify-content: flex-end;
+      font-size: 14pt;
+    }
+    
+    .tanda-tangan .pejabat {
+      width: 7.4cm;
+      text-align: center;
+      margin-right: 0.2cm;
+    }
+    
+    .tanda-tangan .nama {
+      margin-top: 2.2cm;
+      font-weight: bold;
+      text-transform: uppercase;
+      text-decoration: underline;
+    }
+    
+    .tanda-tangan .nip {
+      font-size: 11pt;
+      margin-top: 0.25rem;
+    }
+
+    .editable-region[contenteditable="true"] {
+      outline: 2px dashed #9ca3af;
+      outline-offset: 6px;
+      border-radius: 4px;
+      min-height: calc(29.7cm - 2.4cm);
+    }
+
+    .editable-region[contenteditable="true"]:focus {
+      outline-color: #2563eb;
+    }
+
+    .no-print {
+      display: block;
+    }
+    
+    /* Print Styles */
+    @page {
+      size: A4;
+      margin: 0.9cm;
+    }
+    
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+
+      .page {
+        width: 100%;
+        height: 100%;
+        box-shadow: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .editable-region[contenteditable="true"] {
+        outline: none;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 8px;
+      }
+
+      .editor-toolbar,
+      .page {
+        width: 100%;
+      }
+
+      .page {
+        height: auto;
+        min-height: 29.7cm;
+      }
+
+      .kop-row {
+        grid-template-columns: 72px 1fr;
+      }
+
+      .kop-text {
+        padding-right: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  
+  <div class="page" id="suratContent" >
+    <!-- KOP SURAT -->
+    <div class="kop-surat">
+      <div class="kop-row">
+        <div class="logo-wrap">
+          <img src="/images/logo-loteng.png" alt="Logo Lombok Tengah" />
+        </div>
+        <div class="kop-text">
+          <div class="kabupaten">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
+          <div class="kecamatan">KECAMATAN PRAYA</div>
+          <div class="desa">DESA AIKMUAL</div>
+          <div class="alamat">Sekretariat : Jln raya Praya - Mantang KM. 07 Aikmual Praya</div>
+        </div>
+      </div>
+      <div class="kop-divider"></div>
+    </div>
+
+    <!-- JUDUL SURAT -->
+    <div class="judul-surat">SURAT KETERANGAN DOMISILI</div>
+
+    <!-- NOMOR SURAT -->
+    <div class="nomor-surat">No: 001/Ds.Aml/04.2026</div>
+
+    <!-- ISI SURAT -->
+    <div class="isi-surat">
+      <p>Yang bertanda tangan di bawah ini Kepala Desa Aikmual Kecamatan Praya Kabupaten Lombok Tengah menerangkan dengan sebenarnya kepada:</p>
+      
+      <table>
+        <tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">Karunia Putri</td></tr><tr><td class="label">NIK</td><td class="colon">:</td><td class="nilai">5202014209030001</td></tr><tr><td class="label">Tempat Tanggal Lahir</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Status</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">Indonesia</td></tr><tr><td class="label">Alamat</td><td class="colon">:</td><td class="nilai">Aikmual</td></tr><tr><td class="label">Masa Berlaku</td><td class="colon">:</td><td class="nilai">04 April 2026 sampai 04 September 2026</td></tr>
+      </table>
+
+      <p>Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di Aikmual. Surat keterangan ini dipergunakan untuk keperluan Surat.</p>
+    </div>
+
+    <!-- PENUTUP -->
+    <div class="penutup">
+      Demikian surat keterangan ini kami buat dengan sebenarnya agar dapat dipergunakan sebagaimana mestinya.
+    </div>
+
+    <!-- TANDA TANGAN -->
+    <div class="tanda-tangan">
+      <div class="pejabat">
+        <div>Aikmual, 04 April 2026</div>
+        <div>KEPALA DESA AIKMUAL</div>
+        <div class="nama">KEPALA DESA AIKMUAL</div>
+        
+      </div>
+    </div>
+  </div>
+  
+</body>
+</html>
+  

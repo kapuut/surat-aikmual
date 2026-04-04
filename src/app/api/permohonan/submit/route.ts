@@ -2,14 +2,18 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
-    // Forward ke origin aktif (mis. localhost:3002), jangan hardcoded port.
+    const contentType = request.headers.get("content-type") || "";
+
+    // Forward ke endpoint utama permohonan
     const targetUrl = new URL('/api/permohonan', request.url);
-    const response = await fetch(targetUrl, {
+    const body = contentType.includes("multipart/form-data")
+      ? await request.formData()
+      : await request.text();
       method: 'POST',
       headers: {
         'content-type': request.headers.get('content-type') || 'application/json',
       },
-      body: await request.text(),
+        ...(contentType.includes("multipart/form-data") ? {} : { 'Content-Type': 'application/json' }),
     });
 
     const bodyText = await response.text();
