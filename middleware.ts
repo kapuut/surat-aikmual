@@ -11,6 +11,7 @@ const INTERNAL_LOGIN_PATHS = new Set([
 
 const ALLOWED_PERMOHONAN_SLUGS = new Set([
   'surat-domisili',
+  'surat-masih-hidup',
   'surat-kematian',
   'surat-kepemilikan',
   'surat-cerai',

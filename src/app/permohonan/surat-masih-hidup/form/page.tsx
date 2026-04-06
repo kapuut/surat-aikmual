@@ -3,41 +3,81 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiSend, FiHeart } from "react-icons/fi";
+import { FiArrowLeft, FiCheckCircle, FiHeart, FiSend, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { useRequireAuth } from "@/lib/hooks";
 
 export default function SuratMasihHidupFormPage() {
   const router = useRouter();
+  const { user, loading: loadingAuth } = useRequireAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const akunNik = String(user?.nik || "").split("_")[0].trim();
+
+  const showFeedback = () => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleInvalid = () => {
+    setSuccessMessage(null);
+    setError("Form belum lengkap atau ada data yang belum valid. Cek kembali semua field bertanda *.");
+    showFeedback();
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     const formData = new FormData(e.currentTarget);
-    const data = {
-      jenisSurat: "Surat Keterangan Masih Hidup",
-      nama: formData.get("nama"),
-      nik: formData.get("nik"),
-      tempatLahir: formData.get("tempatLahir"),
-      tanggalLahir: formData.get("tanggalLahir"),
-      jenisKelamin: formData.get("jenisKelamin"),
-      agama: formData.get("agama"),
-      pekerjaan: formData.get("pekerjaan"),
-      statusPerkawinan: formData.get("statusPerkawinan"),
-      alamat: formData.get("alamat"),
-      noTelp: formData.get("noTelp"),
-      keperluan: formData.get("keperluan"),
-    };
+
+    if (!akunNik) {
+      setLoading(false);
+      setError("NIK akun tidak ditemukan. Silakan lengkapi profil atau login ulang.");
+      showFeedback();
+      return;
+    }
+
+    const dokumenKTP = formData.get("dokumenKTP");
+    const dokumenKK = formData.get("dokumenKK");
+    const dokumenTambahan = formData
+      .getAll("dokumenTambahan")
+      .filter((item): item is File => item instanceof File && item.size > 0);
+
+    if (!(dokumenKTP instanceof File) || dokumenKTP.size === 0 || !(dokumenKK instanceof File) || dokumenKK.size === 0) {
+      setLoading(false);
+      setError("Upload KTP dan Kartu Keluarga (KK) wajib diisi masing-masing.");
+      showFeedback();
+      return;
+    }
+
+    const submitData = new FormData();
+    for (const [key, value] of formData.entries()) {
+      if (key === "dokumenKTP" || key === "dokumenKK" || key === "dokumenTambahan") {
+        continue;
+      }
+      submitData.append(key, value);
+    }
+
+    submitData.append("dokumen", dokumenKTP);
+    submitData.append("dokumen", dokumenKK);
+    for (const file of dokumenTambahan) {
+      submitData.append("dokumen", file);
+    }
+
+    submitData.set("nik", akunNik);
+    submitData.set("jenisSurat", "Surat Keterangan Masih Hidup");
+    submitData.set("alamat", String(formData.get("alamatTerakhir") || "").trim());
 
     try {
       const response = await fetch("/api/permohonan/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: submitData,
       });
 
       if (!response.ok) {
@@ -45,10 +85,14 @@ export default function SuratMasihHidupFormPage() {
         throw new Error(errorData.error || "Gagal mengajukan permohonan");
       }
 
-      alert("Permohonan berhasil diajukan!");
-      router.push("/permohonan/riwayat");
+      setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      showFeedback();
+      window.setTimeout(() => {
+        router.push("/tracking");
+      }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      showFeedback();
     } finally {
       setLoading(false);
     }
@@ -90,8 +134,18 @@ export default function SuratMasihHidupFormPage() {
             </div>
           )}
 
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6 flex items-start gap-3">
+              <FiCheckCircle className="w-5 h-5 mt-0.5 text-green-600" />
+              <div>
+                <p className="font-semibold">Permohonan Berhasil</p>
+                <p className="text-sm">{successMessage}</p>
+              </div>
+            </div>
+          )}
+
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} onInvalidCapture={handleInvalid} className="space-y-6">
             {/* Data Pribadi */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
@@ -120,9 +174,12 @@ export default function SuratMasihHidupFormPage() {
                     required
                     pattern="[0-9]{16}"
                     maxLength={16}
+                    value={akunNik}
+                    readOnly
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="16 digit NIK"
+                    placeholder={loadingAuth ? "Memuat NIK akun..." : "16 digit NIK"}
                   />
+                  <p className="text-xs text-gray-500 mt-1">NIK mengikuti akun yang sedang login.</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -181,65 +238,89 @@ export default function SuratMasihHidupFormPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Pekerjaan <span className="text-red-500">*</span>
+                    Nomor WhatsApp Aktif <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="text"
-                    name="pekerjaan"
+                    type="tel"
+                    name="noTelp"
                     required
+                    defaultValue={user?.telepon || ""}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Pekerjaan saat ini"
+                    placeholder="08xxxxxxxxxx"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status Perkawinan <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="statusPerkawinan"
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">Pilih status</option>
-                    <option value="Belum Kawin">Belum Kawin</option>
-                    <option value="Kawin">Kawin</option>
-                    <option value="Cerai Hidup">Cerai Hidup</option>
-                    <option value="Cerai Mati">Cerai Mati</option>
-                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Dipakai untuk notifikasi status surat melalui WhatsApp.</p>
                 </div>
               </div>
             </div>
 
-            {/* Alamat */}
+            {/* Alamat Terakhir */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
-                Alamat
+                Alamat Terakhir
               </h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Alamat Lengkap <span className="text-red-500">*</span>
+                    Alamat Terakhir Lengkap <span className="text-red-500">*</span>
                   </label>
                   <textarea
-                    name="alamat"
+                    name="alamatTerakhir"
                     required
                     rows={3}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Jalan, RT/RW, Kelurahan, Kecamatan, Kabupaten, Provinsi"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Upload Dokumen */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
+                <FiUpload className="text-green-600" />
+                Upload Dokumen Pendukung
+              </h2>
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nomor Telepon/HP <span className="text-red-500">*</span>
+                    Upload KTP (wajib) <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="tel"
-                    name="noTelp"
+                    type="file"
+                    name="dokumenKTP"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="08xxxxxxxxxx"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Upload Kartu Keluarga (KK) (wajib) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    name="dokumenKK"
+                    required
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Dokumen Pendukung Tambahan (opsional)
+                  </label>
+                  <input
+                    type="file"
+                    name="dokumenTambahan"
+                    multiple
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+                  />
+                </div>
+
+                <p className="text-xs text-gray-500">Format yang didukung: JPG, PNG, PDF.</p>
               </div>
             </div>
 
@@ -272,10 +353,10 @@ export default function SuratMasihHidupFormPage() {
               </Link>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || loadingAuth || !akunNik}
                 className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Mengirim..." : (
+                {loading || loadingAuth ? "Mengirim..." : (
                   <>
                     <FiSend className="w-5 h-5" />
                     Submit Permohonan

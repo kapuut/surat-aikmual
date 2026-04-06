@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FiCheckCircle, FiCornerUpLeft, FiEye, FiPenTool } from "react-icons/fi";
+import { FiArchive, FiCheckCircle, FiCornerUpLeft, FiEye, FiPenTool, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 
 type WorkflowStatus =
   | "pending"
@@ -101,10 +101,16 @@ function processNote(status: WorkflowStatus): string {
   return "";
 }
 
+function isFinalizedStatus(status: WorkflowStatus): boolean {
+  return status === "ditandatangani" || status === "selesai";
+}
+
 export default function KepalaDesaWorkflowClient() {
   const [data, setData] = useState<PermohonanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showArchive, setShowArchive] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,6 +146,35 @@ export default function KepalaDesaWorkflowClient() {
   useEffect(() => {
     fetchPermohonan();
   }, []);
+
+  const handleDelete = async (id: number) => {
+    try {
+      if (!window.confirm("Hapus permohonan ini dari daftar? Data permohonan akan dihapus dari menu ini.")) {
+        return;
+      }
+
+      setDeleteId(id);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch(`/api/admin/permohonan/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Gagal menghapus permohonan");
+      }
+
+      setNotice(result?.message || "Permohonan berhasil dihapus.");
+      await fetchPermohonan();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan saat menghapus data");
+    } finally {
+      setDeleteId(null);
+    }
+  };
 
   const handleUpdate = async (
     id: number,
@@ -188,13 +223,20 @@ export default function KepalaDesaWorkflowClient() {
     [data]
   );
 
+  const visibleData = useMemo(() => {
+    if (showArchive) {
+      return data.filter((item) => isFinalizedStatus(item.status));
+    }
+    return data.filter((item) => !isFinalizedStatus(item.status));
+  }, [data, showArchive]);
+
   return (
     <section>
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
           <FiCheckCircle className="text-purple-600" /> Permohonan Warga
         </h2>
-        <p className="text-gray-500 mt-1">Tinjau, tandatangani digital, atau kembalikan permohonan untuk revisi.</p>
+        <p className="text-gray-500 mt-1">Tinjau, tandatangani digital, atau hapus dari daftar permohonan bila sudah selesai.</p>
       </div>
 
       {notice && (
@@ -209,23 +251,39 @@ export default function KepalaDesaWorkflowClient() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="bg-gradient-to-br from-indigo-50 to-white rounded-xl border border-indigo-100 shadow-sm p-4">
           <p className="text-sm text-gray-500">Menunggu Tanda Tangan</p>
-          <p className="text-2xl font-bold text-indigo-600">{waitingSignatureCount}</p>
+          <p className="text-2xl font-bold text-indigo-700">{waitingSignatureCount}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+        <div className="bg-gradient-to-br from-emerald-50 to-white rounded-xl border border-emerald-100 shadow-sm p-4">
           <p className="text-sm text-gray-500">Ditandatangani / Selesai</p>
-          <p className="text-2xl font-bold text-green-600">{signedCount}</p>
+          <p className="text-2xl font-bold text-emerald-700">{signedCount}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex items-end">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-end justify-between gap-3">
+          <button
+            onClick={() => setShowArchive((prev) => !prev)}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition ${
+              showArchive
+                ? "bg-amber-50 text-amber-800 border-amber-200"
+                : "bg-slate-50 text-slate-700 border-slate-200"
+            }`}
+          >
+            <FiArchive className="w-4 h-4" />
+            {showArchive ? "Tampilkan Aktif" : "Tampilkan Arsip"}
+          </button>
           <button
             onClick={fetchPermohonan}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700"
+            className="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700"
           >
+            <FiRefreshCw className="w-4 h-4" />
             Refresh Data
           </button>
         </div>
+      </div>
+
+      <div className="mb-4 text-sm text-gray-600">
+        Menampilkan {visibleData.length} data {showArchive ? "arsip selesai" : "permohonan aktif"}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -248,14 +306,14 @@ export default function KepalaDesaWorkflowClient() {
                   Memuat data...
                 </td>
               </tr>
-            ) : data.length === 0 ? (
+            ) : visibleData.length === 0 ? (
               <tr>
                 <td className="px-4 py-5 text-center text-gray-500" colSpan={7}>
-                  Tidak ada permohonan untuk ditinjau.
+                  {showArchive ? "Belum ada arsip permohonan selesai." : "Tidak ada permohonan aktif untuk ditinjau."}
                 </td>
               </tr>
             ) : (
-              data.map((item) => (
+              visibleData.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">
                     {item.nomor_surat || `REG-${item.id}/${new Date(item.created_at).getFullYear()}`}
@@ -390,7 +448,26 @@ export default function KepalaDesaWorkflowClient() {
                               </button>
                             </>
                           )}
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            disabled={deleteId === item.id}
+                            className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                          >
+                            <FiTrash2 className="w-3.5 h-3.5" />
+                            {deleteId === item.id ? "Menghapus..." : "Hapus"}
+                          </button>
                         </>
+                      )}
+
+                      {item.status === "ditandatangani" && (
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          disabled={deleteId === item.id}
+                          className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                        >
+                          <FiTrash2 className="w-3.5 h-3.5" />
+                          {deleteId === item.id ? "Menghapus..." : "Hapus"}
+                        </button>
                       )}
                     </div>
                   </td>

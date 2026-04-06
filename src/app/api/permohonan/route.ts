@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextResponse, NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { getSuratBySlug, normalizeSuratSlug } from '@/lib/surat-data';
@@ -57,6 +58,11 @@ function normalizeDateValue(value: string): string | null {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function isValidWhatsAppNumber(value: string): boolean {
+  const normalized = value.replace(/[^0-9+]/g, '').trim();
+  return /^(\+62|62|0|8)\d{8,13}$/.test(normalized);
+}
+
 function normalizeNikValue(value: unknown): string {
   if (typeof value !== 'string') return '';
   const trimmed = value.trim();
@@ -94,8 +100,23 @@ function isGeneratedSuratFile(pathValue: string | null): boolean {
   return pathValue.includes('/generated-surat/') || pathValue.toLowerCase().endsWith('.html');
 }
 
-function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown): WorkflowStatus {
-  const normalized = String(rawStatus || '').trim().toLowerCase();
+function inferStatusFromNote(note: unknown): WorkflowStatus | null {
+  const text = String(note || '').trim().toLowerCase();
+  if (!text) return null;
+
+  if (text.includes('ditolak') || text.includes('tolak')) return 'ditolak';
+  if (text.includes('revisi')) return 'perlu_revisi';
+  if (text.includes('kepala desa') && (text.includes('dikirim') || text.includes('tanda tangan'))) {
+    return 'dikirim_ke_kepala_desa';
+  }
+  if (text.includes('ditandatangani')) return 'ditandatangani';
+  if (text.includes('selesai') || text.includes('final')) return 'selesai';
+
+  return null;
+}
+
+function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown, note?: unknown): WorkflowStatus {
+  const normalized = String(rawStatus || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
   const knownStatuses: WorkflowStatus[] = [
     'pending',
     'diproses',
@@ -109,6 +130,9 @@ function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown): Workf
   if ((knownStatuses as string[]).includes(normalized)) {
     return normalized as WorkflowStatus;
   }
+
+  const inferredFromNote = inferStatusFromNote(note);
+  if (inferredFromNote) return inferredFromNote;
 
   // Data lama kadang menyimpan status kosong walau nomor surat sudah ada.
   if (typeof nomorSurat === 'string' && nomorSurat.trim()) {
@@ -174,8 +198,9 @@ async function handlePermohonanPost(request: Request) {
     } else {
       const formData = await request.formData();
       payload = Object.fromEntries(formData.entries());
-      const fileList = formData
-        .getAll('dokumen')
+      const fileKeys = ['dokumen', 'dokumenKTP', 'dokumenKK', 'dokumenTambahan'];
+      const fileList = fileKeys
+        .flatMap((key) => formData.getAll(key))
         .filter((item): item is File => item instanceof File && item.size > 0);
       uploadedFiles = await saveUploadedFiles(fileList);
     }
@@ -189,18 +214,28 @@ async function handlePermohonanPost(request: Request) {
       );
     }
 
-    if (suratSlug === 'surat-domisili' && uploadedFiles.length < 2) {
+    if (['surat-domisili', 'surat-masih-hidup'].includes(suratSlug) && uploadedFiles.length < 2) {
       return NextResponse.json(
-        { error: 'Upload KTP dan Kartu Keluarga (KK) wajib untuk Surat Domisili' },
+        { error: 'Upload KTP dan Kartu Keluarga (KK) wajib untuk permohonan ini' },
         { status: 400 }
       );
     }
 
     const surat = getSuratBySlug(suratSlug);
     const namaPemohon = getFirstStringValue(payload, ['nama_pemohon', 'nama_lengkap', 'nama', 'nama_anak']);
-    const nik = getFirstStringValue(payload, ['nik']);
-    const alamat = getFirstStringValue(payload, ['alamat', 'alamatSekarang', 'alamat_saat_ini']);
+    const nikInput = getFirstStringValue(payload, ['nik']);
+    const alamat = getFirstStringValue(payload, ['alamat', 'alamatSekarang', 'alamat_saat_ini', 'alamatTerakhir', 'alamat_terakhir']);
     const keperluan = getFirstStringValue(payload, ['keperluan']);
+    const teleponInput = getFirstStringValue(payload, [
+      'telepon',
+      'noTelp',
+      'no_telp',
+      'nomor_hp',
+      'no_hp',
+      'nomor_wa',
+      'no_wa',
+      'whatsapp',
+    ]);
     const tempatLahir = getFirstStringValue(payload, [
       'tempatLahir',
       'tempat_lahir',
@@ -240,6 +275,15 @@ async function handlePermohonanPost(request: Request) {
     const masaBerlakuDari = normalizeDateValue(masaBerlakuDariRaw);
     const masaBerlakuSampai = normalizeDateValue(masaBerlakuSampaiRaw);
 
+    const cookieStore = await cookies();
+    const authToken = cookieStore.get('auth-token')?.value || cookieStore.get('token')?.value;
+    const authUser = authToken ? await getUser(authToken) : null;
+    const nikUser = typeof authUser?.nik === 'string' ? normalizeNikValue(authUser.nik) : '';
+    const teleponUser = typeof authUser?.telepon === 'string' ? authUser.telepon.trim() : '';
+    const isMasyarakat = authUser?.role === 'masyarakat';
+    const nik = isMasyarakat && nikUser ? nikUser : nikInput;
+    const effectiveTelepon = teleponInput || teleponUser;
+
     const detailData: Record<string, unknown> = {
       tempat_lahir: tempatLahir || undefined,
       tanggal_lahir: tanggalLahir || undefined,
@@ -248,6 +292,8 @@ async function handlePermohonanPost(request: Request) {
       pekerjaan: pekerjaan || undefined,
       status_perkawinan: statusPerkawinan || undefined,
       kewarganegaraan: kewarganegaraan || undefined,
+      telepon: effectiveTelepon || undefined,
+      nik_input: nikInput || undefined,
       masa_berlaku_dari: masaBerlakuDari || undefined,
       masa_berlaku_sampai: masaBerlakuSampai || undefined,
       ...collectAdditionalDetailFields(payload),
@@ -269,6 +315,13 @@ async function handlePermohonanPost(request: Request) {
       );
     }
 
+    if (!effectiveTelepon || !isValidWhatsAppNumber(effectiveTelepon)) {
+      return NextResponse.json(
+        { error: 'Nomor WhatsApp aktif wajib diisi dan harus valid untuk notifikasi proses surat' },
+        { status: 400 }
+      );
+    }
+
     if (suratSlug === 'surat-domisili') {
       const missingFields: string[] = [];
       if (!tempatLahir) missingFields.push('Tempat lahir');
@@ -282,6 +335,24 @@ async function handlePermohonanPost(request: Request) {
         return NextResponse.json(
           {
             error: `Data domisili belum lengkap: ${missingFields.join(', ')}`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (suratSlug === 'surat-masih-hidup') {
+      const missingFields: string[] = [];
+      if (!tempatLahir) missingFields.push('Tempat lahir');
+      if (!tanggalLahir) missingFields.push('Tanggal lahir');
+      if (!jenisKelamin) missingFields.push('Jenis kelamin');
+      if (!agama) missingFields.push('Agama');
+      if (!alamat) missingFields.push('Alamat terakhir');
+
+      if (missingFields.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Data surat keterangan masih hidup belum lengkap: ${missingFields.join(', ')}`,
           },
           { status: 400 }
         );
@@ -403,6 +474,7 @@ export async function GET(request: NextRequest) {
         p.jenis_surat,
         p.nomor_surat,
         p.status,
+        p.catatan,
         p.created_at AS tanggal_permohonan,
         CASE WHEN p.status IN ('selesai', 'ditandatangani') THEN p.updated_at ELSE NULL END AS tanggal_selesai,
         CASE WHEN p.status IN ('ditolak', 'perlu_revisi') THEN p.catatan ELSE NULL END AS alasan_penolakan,
@@ -425,6 +497,7 @@ export async function GET(request: NextRequest) {
         p.jenis_surat,
         p.nomor_surat,
         p.status,
+        p.catatan,
         p.created_at AS tanggal_permohonan,
         CASE WHEN p.status IN ('selesai', 'ditandatangani') THEN p.updated_at ELSE NULL END AS tanggal_selesai,
         CASE WHEN p.status IN ('ditolak', 'perlu_revisi') THEN p.catatan ELSE NULL END AS alasan_penolakan,
@@ -455,7 +528,7 @@ export async function GET(request: NextRequest) {
     const permohonanData = permohonanRows.map((row) => {
       const archivedFilePath = normalizeFilePath(row.archived_file_path);
       const rawFilePath = normalizeFilePath(row.file_path);
-      const normalizedStatus = normalizeWorkflowStatus(row.status, row.nomor_surat);
+      const normalizedStatus = normalizeWorkflowStatus(row.status, row.nomor_surat, row.catatan);
 
       const finalFilePath =
         (isGeneratedSuratFile(archivedFilePath) ? archivedFilePath : null) ||

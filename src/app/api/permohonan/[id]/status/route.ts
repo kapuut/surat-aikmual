@@ -77,6 +77,35 @@ function normalizeStatus(input: unknown): NormalizedStatus | null {
   return null;
 }
 
+function inferStatusFromNote(note: unknown): NormalizedStatus | null {
+  const text = String(note || '').trim().toLowerCase();
+  if (!text) return null;
+
+  if (text.includes('ditolak') || text.includes('tolak')) return 'ditolak';
+  if (text.includes('revisi')) return 'perlu_revisi';
+  if (text.includes('kepala desa') && (text.includes('dikirim') || text.includes('tanda tangan'))) {
+    return 'dikirim_ke_kepala_desa';
+  }
+  if (text.includes('ditandatangani')) return 'ditandatangani';
+  if (text.includes('selesai') || text.includes('final')) return 'selesai';
+
+  return null;
+}
+
+function normalizeCurrentStatus(rawStatus: unknown, nomorSurat: unknown, note?: unknown): NormalizedStatus {
+  const normalized = normalizeStatus(rawStatus);
+  if (normalized) return normalized;
+
+  const inferredFromNote = inferStatusFromNote(note);
+  if (inferredFromNote) return inferredFromNote;
+
+  if (typeof nomorSurat === 'string' && nomorSurat.trim()) {
+    return 'selesai';
+  }
+
+  return 'pending';
+}
+
 function statusLabel(status: NormalizedStatus): string {
   const labels: Record<NormalizedStatus, string> = {
     pending: 'Menunggu Verifikasi',
@@ -236,6 +265,73 @@ async function upsertSuratKeluarArchive(
   ];
 
   for (const variant of insertVariants) {
+    try {
+      await connection.execute(variant.query, variant.values);
+      return;
+    } catch (error) {
+      if (!isUnknownColumnError(error)) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function updatePermohonanStatusRow(
+  connection: any,
+  params: {
+    status: NormalizedStatus;
+    catatan: string | null;
+    nomorSurat: string | null;
+    filePath: string | null;
+    processedBy: number | null;
+    id: string;
+  }
+) {
+  const updateVariants: Array<{ query: string; values: unknown[] }> = [
+    {
+      query: `UPDATE permohonan_surat
+              SET status = ?,
+                  catatan = COALESCE(?, catatan),
+                  nomor_surat = COALESCE(?, nomor_surat),
+                  file_path = COALESCE(?, file_path),
+                  processed_by = COALESCE(?, processed_by),
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE id = ?`,
+      values: [params.status, params.catatan, params.nomorSurat, params.filePath, params.processedBy, params.id],
+    },
+    {
+      query: `UPDATE permohonan_surat
+              SET status = ?,
+                  catatan = COALESCE(?, catatan),
+                  nomor_surat = COALESCE(?, nomor_surat),
+                  dokumen_path = COALESCE(?, dokumen_path),
+                  processed_by = COALESCE(?, processed_by),
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE id = ?`,
+      values: [params.status, params.catatan, params.nomorSurat, params.filePath, params.processedBy, params.id],
+    },
+    {
+      query: `UPDATE permohonan_surat
+              SET status = ?,
+                  catatan = COALESCE(?, catatan),
+                  nomor_surat = COALESCE(?, nomor_surat),
+                  processed_by = COALESCE(?, processed_by),
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE id = ?`,
+      values: [params.status, params.catatan, params.nomorSurat, params.processedBy, params.id],
+    },
+    {
+      query: `UPDATE permohonan_surat
+              SET status = ?,
+                  catatan = COALESCE(?, catatan),
+                  nomor_surat = COALESCE(?, nomor_surat),
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE id = ?`,
+      values: [params.status, params.catatan, params.nomorSurat, params.id],
+    },
+  ];
+
+  for (const variant of updateVariants) {
     try {
       await connection.execute(variant.query, variant.values);
       return;
@@ -507,11 +603,7 @@ export async function PUT(
     }
 
     const permohonan = permohonanRows[0] as PermohonanRow;
-    const currentStatus = normalizeStatus(permohonan.status);
-    if (!currentStatus) {
-      await connection.rollback();
-      return NextResponse.json({ error: 'Status saat ini tidak dikenali' }, { status: 400 });
-    }
+    const currentStatus = normalizeCurrentStatus(permohonan.status, permohonan.nomor_surat, permohonan.catatan);
 
     if (!canTransitionStatus(authUser.role as InternalRole, currentStatus, normalizedStatus)) {
       await connection.rollback();
@@ -523,7 +615,7 @@ export async function PUT(
       );
     }
 
-    const finalStatuses: NormalizedStatus[] = ['ditandatangani', 'selesai'];
+    const finalStatuses: NormalizedStatus[] = ['selesai'];
     const shouldSendReadyNotification =
       finalStatuses.includes(normalizedStatus) && !finalStatuses.includes(currentStatus);
 
@@ -644,19 +736,16 @@ export async function PUT(
       }
     }
 
-    await connection.execute(
-      `UPDATE permohonan_surat
-       SET status = ?,
-           catatan = COALESCE(?, catatan),
-           nomor_surat = COALESCE(?, nomor_surat),
-           file_path = COALESCE(?, file_path),
-           processed_by = COALESCE(?, processed_by),
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [normalizedStatus, effectiveCatatan, nomorSurat, generatedFilePath, processedBy, params.id]
-    );
+    await updatePermohonanStatusRow(connection, {
+      status: normalizedStatus,
+      catatan: effectiveCatatan,
+      nomorSurat,
+      filePath: generatedFilePath,
+      processedBy,
+      id: params.id,
+    });
 
-    if (['ditandatangani', 'selesai'].includes(normalizedStatus) && nomorSurat) {
+    if (normalizedStatus === 'selesai' && nomorSurat) {
       const tanggalArsip = new Date().toISOString().split('T')[0];
       const tujuan = permohonan.nama_pemohon || 'Pemohon';
       const perihal = `${permohonan.jenis_surat} - ${permohonan.keperluan}`;
@@ -695,6 +784,8 @@ export async function PUT(
 
         let waNumber = getTextWithDetail(undefined, detailData, [
           'telepon',
+          'noTelp',
+          'no_telp',
           'phone',
           'no_hp',
           'nomor_hp',

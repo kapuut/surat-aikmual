@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FiArchive, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 
 type WorkflowStatus =
   | "pending"
@@ -30,7 +31,7 @@ function statusLabel(status: WorkflowStatus): string {
     case "diproses":
       return "Diproses Admin";
     case "dikirim_ke_kepala_desa":
-      return "Dikirim ke Kepala Desa";
+      return "Menunggu Konfirmasi Kepala Desa";
     case "perlu_revisi":
       return "Perlu Revisi";
     case "ditandatangani":
@@ -87,12 +88,18 @@ function isAttachmentFile(pathValue: string | null): boolean {
   return pathValue.includes('/uploads/');
 }
 
+function isFinalizedStatus(status: WorkflowStatus): boolean {
+  return status === "ditandatangani" || status === "selesai";
+}
+
 export default function PermohonanAdminPage() {
   const [filterStatus, setFilterStatus] = useState("Semua");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showArchive, setShowArchive] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -162,8 +169,41 @@ export default function PermohonanAdminPage() {
     }
   };
 
+  const handleDelete = async (id: number) => {
+    try {
+      if (!window.confirm("Hapus permohonan ini dari daftar?")) {
+        return;
+      }
+
+      setDeleteId(id);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch(`/api/admin/permohonan/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Gagal menghapus permohonan");
+      }
+
+      setNotice(data?.message || "Permohonan berhasil dihapus.");
+      await fetchPermohonan();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan saat menghapus data");
+    } finally {
+      setDeleteId(null);
+    }
+  };
+
   const filteredPermohonan = useMemo(() => {
-    return permohonan.filter((p) => {
+    const source = showArchive
+      ? permohonan
+      : permohonan.filter((p) => !isFinalizedStatus(p.status));
+
+    return source.filter((p) => {
       const label = statusLabel(p.status);
       const matchStatus = filterStatus === "Semua" || label === filterStatus;
       const matchSearch =
@@ -174,7 +214,7 @@ export default function PermohonanAdminPage() {
       const matchMonth = selectedMonth === "" || month === Number(selectedMonth);
       return matchStatus && matchSearch && matchMonth;
     });
-  }, [permohonan, filterStatus, searchTerm, selectedMonth]);
+  }, [permohonan, showArchive, filterStatus, searchTerm, selectedMonth]);
 
   const stats = {
     menungguVerifikasi: permohonan.filter((p) => p.status === "pending" || p.status === "diproses").length,
@@ -213,7 +253,7 @@ export default function PermohonanAdminPage() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Dikirim ke Kepala Desa</p>
+              <p className="text-sm font-medium text-gray-500">Menunggu Konfirmasi Kepala Desa</p>
               <p className="text-2xl font-bold text-indigo-600">{stats.dikirimKeKepala}</p>
             </div>
             <div className="bg-indigo-100 text-indigo-700 rounded-full w-10 h-10 flex items-center justify-center text-xs font-bold">
@@ -276,7 +316,7 @@ export default function PermohonanAdminPage() {
             <option>Semua</option>
             <option>Menunggu Verifikasi</option>
             <option>Diproses Admin</option>
-            <option>Dikirim ke Kepala Desa</option>
+            <option>Menunggu Konfirmasi Kepala Desa</option>
             <option>Perlu Revisi</option>
             <option>Ditandatangani</option>
             <option>Selesai</option>
@@ -301,14 +341,28 @@ export default function PermohonanAdminPage() {
             <option value="11">November</option>
             <option value="12">Desember</option>
           </select>
-          <button onClick={fetchPermohonan} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
-            Refresh Data
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowArchive((prev) => !prev)}
+              className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border transition ${
+                showArchive
+                  ? "bg-amber-50 text-amber-800 border-amber-200"
+                  : "bg-slate-50 text-slate-700 border-slate-200"
+              }`}
+            >
+              <FiArchive className="w-4 h-4" />
+              {showArchive ? "Mode Aktif" : "Mode Arsip"}
+            </button>
+            <button onClick={fetchPermohonan} className="inline-flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
+              <FiRefreshCw className="w-4 h-4" />
+              Refresh Data
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="mb-4 text-sm text-gray-600">
-        Menampilkan {filteredPermohonan.length} dari {permohonan.length} data
+        Menampilkan {filteredPermohonan.length} data {showArchive ? "arsip/riwayat" : "permohonan aktif"}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -458,7 +512,26 @@ export default function PermohonanAdminPage() {
                           >
                             Ke Surat Keluar
                           </button>
+                          <button
+                            onClick={() => handleDelete(p.id)}
+                            disabled={deleteId === p.id}
+                            className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                          >
+                            <FiTrash2 className="w-3.5 h-3.5" />
+                            {deleteId === p.id ? "Menghapus..." : "Hapus"}
+                          </button>
                         </>
+                      )}
+
+                      {p.status === "ditolak" && (
+                        <button
+                          onClick={() => handleDelete(p.id)}
+                          disabled={deleteId === p.id}
+                          className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                        >
+                          <FiTrash2 className="w-3.5 h-3.5" />
+                          {deleteId === p.id ? "Menghapus..." : "Hapus"}
+                        </button>
                       )}
                     </div>
                   </td>

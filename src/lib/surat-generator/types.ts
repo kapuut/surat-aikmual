@@ -35,6 +35,7 @@ export interface SuratData {
 
 export type JenisSurat = 
   | 'surat-domisili'
+  | 'surat-masih-hidup'
   | 'surat-kematian'
   | 'surat-kepemilikan'
   | 'surat-cerai'
@@ -57,6 +58,12 @@ export const SURAT_TYPES: Record<JenisSurat, SuratMetadata> = {
     judul: 'SURAT KETERANGAN DOMISILI',
     deskripsi: 'Surat keterangan tempat tinggal',
     fields: ['nama', 'nik', 'alamat'],
+  },
+  'surat-masih-hidup': {
+    jenis: 'surat-masih-hidup',
+    judul: 'SURAT KETERANGAN MASIH HIDUP',
+    deskripsi: 'Surat keterangan bahwa seseorang masih hidup',
+    fields: ['nama', 'tempatLahir', 'tanggalLahir', 'jeniKelamin', 'agama', 'alamat'],
   },
   'surat-kematian': {
     jenis: 'surat-kematian',

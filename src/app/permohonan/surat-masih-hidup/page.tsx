@@ -9,11 +9,11 @@ export default function SuratMasihHidupInfoPage() {
   const router = useRouter();
 
   const persyaratan = [
-    "Scan/foto KTP yang masih berlaku",
-    "Scan/foto Kartu Keluarga (KK)",
-    "Scan/foto Surat Pengantar dari RT/RW",
-    "Upload pas foto terbaru ukuran 3x4",
-    "Surat pernyataan dari keluarga atau saksi (jika diperlukan)",
+    "Upload KTP yang masih berlaku (wajib)",
+    "Upload Kartu Keluarga (KK) (wajib)",
+    "Isi data identitas: Nama, TTL, Kelamin, Agama, Alamat terakhir",
+    "Nomor WhatsApp aktif untuk menerima notifikasi status surat",
+    "Dokumen pendukung tambahan (opsional jika diminta petugas)",
   ];
 
   const prosedur = [
@@ -40,7 +40,7 @@ export default function SuratMasihHidupInfoPage() {
     {
       step: 5,
       title: "Pengambilan Surat",
-      desc: "Surat dapat diambil setelah mendapat persetujuan (1-3 hari kerja)",
+      desc: "Surat selesai akan tersedia pada tracking dan notifikasi dikirim via WhatsApp",
     },
   ];
 

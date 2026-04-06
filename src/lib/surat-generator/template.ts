@@ -77,18 +77,26 @@ export function generateSuratTemplate(
       ? `${escapeHtml(formatTanggalSurat(data.tanggalBerlaku.dari))} sampai ${escapeHtml(formatTanggalSurat(data.tanggalBerlaku.sampai))}`
       : '-';
 
-  const rows: string[] = [
-    `<tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
-    `<tr><td class="label">NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
-    `<tr><td class="label">Tempat&nbsp;Tanggal&nbsp;Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
-    `<tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
-    `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
-    `<tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
-    `<tr><td class="label">Status</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.statusPerkawinan)}</td></tr>`,
-    `<tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan)}</td></tr>`,
-    `<tr><td class="label">Alamat</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
-    `<tr><td class="label">Masa Berlaku</td><td class="colon">:</td><td class="nilai">${masaBerlaku}</td></tr>`,
-  ];
+  const rows: string[] = data.jenisSurat === 'surat-masih-hidup'
+    ? [
+        `<tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
+        `<tr><td class="label">TTL</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+        `<tr><td class="label">Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
+        `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
+        `<tr><td class="label">Alamat Terakhir</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
+      ]
+    : [
+        `<tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
+        `<tr><td class="label">NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
+        `<tr><td class="label">Tempat&nbsp;Tanggal&nbsp;Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+        `<tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
+        `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
+        `<tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
+        `<tr><td class="label">Status</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.statusPerkawinan)}</td></tr>`,
+        `<tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan)}</td></tr>`,
+        `<tr><td class="label">Alamat</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
+        `<tr><td class="label">Masa Berlaku</td><td class="colon">:</td><td class="nilai">${masaBerlaku}</td></tr>`,
+      ];
 
   const toolbarHtml = showToolbar
     ? `
@@ -597,6 +605,9 @@ function generateIsiSurat(data: SuratData): string {
   const templates: Record<string, string> = {
     'surat-domisili': 
       `Bahwa yang tersebut di atas benar-benar adalah penduduk sah/berdomisili di Desa Aikmual, Kecamatan Sukarara, Kabupaten Lombok Tengah, dan berdasarkan catatan administrasi kami, adalah benar adanya.`,
+
+    'surat-masih-hidup':
+      `Berdasarkan keterangan dari kepala dusun setempat dan penelitian kami bahwa yang namanya tersebut di atas memang benar masih hidup serta berdomisili di desa aikmual kecamatan praya kabupaten lombok tengah.`,
     
     'surat-kematian': 
       `Bahwa yang tersebut di atas telah meninggal dunia pada tanggal ${data.tanggalBerlaku?.dari ? formatTanggalSurat(data.tanggalBerlaku.dari) : '___________'} dan telah dilaporkan ke Desa Aikmual sesuai dengan peraturan perundang-undangan yang berlaku.`,

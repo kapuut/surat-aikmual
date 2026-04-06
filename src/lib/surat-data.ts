@@ -1,5 +1,6 @@
 export type AllowedSuratSlug =
   | "surat-domisili"
+  | "surat-masih-hidup"
   | "surat-kematian"
   | "surat-kepemilikan"
   | "surat-cerai"
@@ -24,6 +25,13 @@ export const ALLOWED_SURAT_TYPES: readonly SuratTypeItem[] = [
     description: "Surat keterangan tempat tinggal atau domisili",
     templateFile: "template-domisili.docx",
     href: "/permohonan/surat-domisili",
+  },
+  {
+    slug: "surat-masih-hidup",
+    title: "Surat Keterangan Masih Hidup",
+    description: "Surat keterangan bahwa pemohon masih hidup",
+    templateFile: "template-masih-hidup.docx",
+    href: "/permohonan/surat-masih-hidup",
   },
   {
     slug: "surat-kematian",
@@ -90,6 +98,8 @@ export const ALLOWED_SURAT_SLUGS = new Set(
 const aliasToSlugMap = new Map<string, AllowedSuratSlug>([
   ["surat-domisili", "surat-domisili"],
   ["surat keterangan domisili", "surat-domisili"],
+  ["surat-masih-hidup", "surat-masih-hidup"],
+  ["surat keterangan masih hidup", "surat-masih-hidup"],
   ["surat-kematian", "surat-kematian"],
   ["surat keterangan kematian", "surat-kematian"],
   ["surat-kepemilikan", "surat-kepemilikan"],

@@ -45,8 +45,23 @@ function isGeneratedSuratFile(pathValue: string | null): boolean {
   return pathValue.includes('/generated-surat/') || pathValue.toLowerCase().endsWith('.html');
 }
 
-function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown): WorkflowStatus {
-  const normalized = String(rawStatus || '').trim().toLowerCase();
+function inferStatusFromNote(note: unknown): WorkflowStatus | null {
+  const text = String(note || '').trim().toLowerCase();
+  if (!text) return null;
+
+  if (text.includes('ditolak') || text.includes('tolak')) return 'ditolak';
+  if (text.includes('revisi')) return 'perlu_revisi';
+  if (text.includes('kepala desa') && (text.includes('dikirim') || text.includes('tanda tangan'))) {
+    return 'dikirim_ke_kepala_desa';
+  }
+  if (text.includes('ditandatangani')) return 'ditandatangani';
+  if (text.includes('selesai') || text.includes('final')) return 'selesai';
+
+  return null;
+}
+
+function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown, note?: unknown): WorkflowStatus {
+  const normalized = String(rawStatus || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
   const knownStatuses: WorkflowStatus[] = [
     'pending',
     'diproses',
@@ -60,6 +75,9 @@ function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown): Workf
   if ((knownStatuses as string[]).includes(normalized)) {
     return normalized as WorkflowStatus;
   }
+
+  const inferredFromNote = inferStatusFromNote(note);
+  if (inferredFromNote) return inferredFromNote;
 
   if (typeof nomorSurat === 'string' && nomorSurat.trim()) {
     return 'selesai';
@@ -149,7 +167,7 @@ export async function GET(request: NextRequest) {
 
     const normalizedRows = rows.map((row) => ({
       ...row,
-      status: normalizeWorkflowStatus((row as any).status, (row as any).nomor_surat),
+      status: normalizeWorkflowStatus((row as any).status, (row as any).nomor_surat, (row as any).catatan),
       file_path:
         (isGeneratedSuratFile(normalizeFilePath((row as any).archived_file_path))
           ? normalizeFilePath((row as any).archived_file_path)

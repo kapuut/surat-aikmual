@@ -18,7 +18,7 @@ export default function AdminRootLayout({
 
   // Untuk halaman admin lainnya, gunakan SimpleAuthGuard + AdminLayout terpusat
   return (
-    <SimpleAuthGuard>
+    <SimpleAuthGuard requiredRoles={['admin']} unauthorizedRedirect="/admin/login">
       <AdminLayout>
         {children}
       </AdminLayout>

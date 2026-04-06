@@ -5,9 +5,30 @@ import { useRouter } from 'next/navigation';
 
 interface SimpleAuthGuardProps {
   children: React.ReactNode;
+  requiredRoles?: string[];
+  unauthorizedRedirect?: string;
 }
 
-export default function SimpleAuthGuard({ children }: SimpleAuthGuardProps) {
+function getDashboardRoute(role?: string): string {
+  switch (role) {
+    case 'admin':
+      return '/admin/dashboard';
+    case 'sekretaris':
+      return '/sekretaris/dashboard';
+    case 'kepala_desa':
+      return '/kepala-desa/dashboard';
+    case 'masyarakat':
+      return '/dashboard';
+    default:
+      return '/login';
+  }
+}
+
+export default function SimpleAuthGuard({
+  children,
+  requiredRoles,
+  unauthorizedRedirect,
+}: SimpleAuthGuardProps) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const router = useRouter();
 
@@ -23,6 +44,17 @@ export default function SimpleAuthGuard({ children }: SimpleAuthGuardProps) {
         if (response.ok) {
           const data = await response.json();
           console.log('SimpleAuthGuard - API auth verified:', data);
+
+          const userRole = String(data?.user?.role || '').trim();
+          if (requiredRoles && requiredRoles.length > 0 && !requiredRoles.includes(userRole)) {
+            setIsAuthenticated(false);
+            const target = unauthorizedRedirect || getDashboardRoute(userRole);
+            setTimeout(() => {
+              router.push(target);
+            }, 100);
+            return;
+          }
+
           setIsAuthenticated(true);
           return;
         }
@@ -58,7 +90,7 @@ export default function SimpleAuthGuard({ children }: SimpleAuthGuardProps) {
     };
 
     checkAuth();
-  }, [router]);
+  }, [router, requiredRoles, unauthorizedRedirect]);
 
   if (isAuthenticated === null) {
     return (
