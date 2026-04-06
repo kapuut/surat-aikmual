@@ -8,6 +8,7 @@ interface VerificationData {
   nomor_surat: string;
   nama_pemohon: string;
   nik: string;
+  surat_untuk: string;
   jenis_surat: string;
   keperluan: string;
   pembuat_surat: string;
@@ -89,6 +90,7 @@ export default function VerifikasiSuratPage() {
                 <tr><td className="w-44 bg-gray-50 px-4 py-2 font-medium text-gray-700">Nomor Surat</td><td className="px-4 py-2">{data.nomor_surat}</td></tr>
                 <tr><td className="bg-gray-50 px-4 py-2 font-medium text-gray-700">Nama Pemohon</td><td className="px-4 py-2">{data.nama_pemohon}</td></tr>
                 <tr><td className="bg-gray-50 px-4 py-2 font-medium text-gray-700">NIK</td><td className="px-4 py-2">{data.nik}</td></tr>
+                <tr><td className="bg-gray-50 px-4 py-2 font-medium text-gray-700">Surat Ditujukan Untuk</td><td className="px-4 py-2">{data.surat_untuk || `${data.nama_pemohon} (${data.nik})`}</td></tr>
                 <tr><td className="bg-gray-50 px-4 py-2 font-medium text-gray-700">Jenis Surat</td><td className="px-4 py-2">{data.jenis_surat}</td></tr>
                 <tr><td className="bg-gray-50 px-4 py-2 font-medium text-gray-700">Tujuan/Keperluan</td><td className="px-4 py-2">{data.keperluan}</td></tr>
                 <tr><td className="bg-gray-50 px-4 py-2 font-medium text-gray-700">Pembuat/Penanda Tangan</td><td className="px-4 py-2">{data.pembuat_surat} ({data.jabatan_penanda_tangan})</td></tr>

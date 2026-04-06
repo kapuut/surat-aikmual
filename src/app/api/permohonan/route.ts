@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextResponse, NextRequest } from 'next/server';
-import { writeFile } from 'fs/promises';
+import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { getSuratBySlug, normalizeSuratSlug } from '@/lib/surat-data';
 import { getUser } from '@/lib/auth';
@@ -9,10 +9,21 @@ export const runtime = 'nodejs';
 
 const nikRegex = /^\d{16}$/;
 
+type WorkflowStatus =
+  | 'pending'
+  | 'diproses'
+  | 'dikirim_ke_kepala_desa'
+  | 'perlu_revisi'
+  | 'ditandatangani'
+  | 'selesai'
+  | 'ditolak';
+
 async function saveUploadedFiles(files: File[]): Promise<string[]> {
   if (files.length === 0) return [];
 
   const uploadDir = path.join(process.cwd(), 'public/uploads');
+  await mkdir(uploadDir, { recursive: true });
+
   return Promise.all(
     files.map(async (file) => {
       const bytes = await file.arrayBuffer();
@@ -53,6 +64,105 @@ function normalizeNikValue(value: unknown): string {
   return trimmed.split('_')[0].trim();
 }
 
+function normalizeFilePath(rawValue: unknown): string | null {
+  if (typeof rawValue !== 'string') return null;
+  const trimmed = rawValue.trim();
+  if (!trimmed) return null;
+
+  let candidate: string | null = trimmed;
+  if (trimmed.startsWith('[') || trimmed.startsWith('"')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        const first = parsed.find((item) => typeof item === 'string' && item.trim());
+        candidate = typeof first === 'string' ? first.trim() : null;
+      } else if (typeof parsed === 'string' && parsed.trim()) {
+        candidate = parsed.trim();
+      }
+    } catch {
+      // Keep original value when parsing fails.
+    }
+  }
+
+  if (!candidate || candidate === '[]') return null;
+  if (/^https?:\/\//i.test(candidate)) return candidate;
+  return candidate.startsWith('/') ? candidate : `/${candidate}`;
+}
+
+function isGeneratedSuratFile(pathValue: string | null): boolean {
+  if (!pathValue) return false;
+  return pathValue.includes('/generated-surat/') || pathValue.toLowerCase().endsWith('.html');
+}
+
+function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown): WorkflowStatus {
+  const normalized = String(rawStatus || '').trim().toLowerCase();
+  const knownStatuses: WorkflowStatus[] = [
+    'pending',
+    'diproses',
+    'dikirim_ke_kepala_desa',
+    'perlu_revisi',
+    'ditandatangani',
+    'selesai',
+    'ditolak',
+  ];
+
+  if ((knownStatuses as string[]).includes(normalized)) {
+    return normalized as WorkflowStatus;
+  }
+
+  // Data lama kadang menyimpan status kosong walau nomor surat sudah ada.
+  if (typeof nomorSurat === 'string' && nomorSurat.trim()) {
+    return 'selesai';
+  }
+
+  return 'pending';
+}
+
+function collectAdditionalDetailFields(payload: Record<string, unknown>): Record<string, string> {
+  const knownKeys = new Set([
+    'jenis_surat',
+    'jenisSurat',
+    'jenis',
+    'nama_pemohon',
+    'nama_lengkap',
+    'nama',
+    'nama_anak',
+    'nik',
+    'alamat',
+    'alamatSekarang',
+    'alamat_saat_ini',
+    'keperluan',
+    'tempatLahir',
+    'tempat_lahir',
+    'tanggalLahir',
+    'tanggal_lahir',
+    'jenisKelamin',
+    'jenis_kelamin',
+    'agama',
+    'pekerjaan',
+    'statusPerkawinan',
+    'status_perkawinan',
+    'kewarganegaraan',
+    'masaBerlakuDari',
+    'masa_berlaku_dari',
+    'masaBerlakuSampai',
+    'masa_berlaku_sampai',
+    'dokumen',
+  ]);
+
+  const additionalDetail: Record<string, string> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (knownKeys.has(key)) continue;
+    if (typeof value !== 'string') continue;
+
+    const cleaned = value.trim();
+    if (!cleaned) continue;
+    additionalDetail[key] = cleaned;
+  }
+
+  return additionalDetail;
+}
+
 async function handlePermohonanPost(request: Request) {
   try {
     const contentType = request.headers.get('content-type') || '';
@@ -91,12 +201,37 @@ async function handlePermohonanPost(request: Request) {
     const nik = getFirstStringValue(payload, ['nik']);
     const alamat = getFirstStringValue(payload, ['alamat', 'alamatSekarang', 'alamat_saat_ini']);
     const keperluan = getFirstStringValue(payload, ['keperluan']);
-    const tempatLahir = getFirstStringValue(payload, ['tempatLahir', 'tempat_lahir']);
-    const tanggalLahirRaw = getFirstStringValue(payload, ['tanggalLahir', 'tanggal_lahir']);
-    const jenisKelamin = getFirstStringValue(payload, ['jenisKelamin', 'jenis_kelamin']);
+    const tempatLahir = getFirstStringValue(payload, [
+      'tempatLahir',
+      'tempat_lahir',
+      'tempatLahirPemohon',
+      'tempat_lahir_pemohon',
+    ]);
+    const tanggalLahirRaw = getFirstStringValue(payload, [
+      'tanggalLahir',
+      'tanggal_lahir',
+      'tanggalLahirPemohon',
+      'tanggal_lahir_pemohon',
+    ]);
+    const jenisKelamin = getFirstStringValue(payload, [
+      'jenisKelamin',
+      'jenis_kelamin',
+      'jenisKelaminPemohon',
+      'jenis_kelamin_pemohon',
+    ]);
     const agama = getFirstStringValue(payload, ['agama']);
-    const pekerjaan = getFirstStringValue(payload, ['pekerjaan']);
-    const statusPerkawinan = getFirstStringValue(payload, ['statusPerkawinan', 'status_perkawinan']);
+    const pekerjaan = getFirstStringValue(payload, [
+      'pekerjaan',
+      'pekerjaanPemohon',
+      'pekerjaan_pemohon',
+    ]);
+    const statusPerkawinan = getFirstStringValue(payload, [
+      'statusPerkawinan',
+      'status_perkawinan',
+      'statusPerkawinanPemohon',
+      'status_perkawinan_pemohon',
+      'status',
+    ]);
     const kewarganegaraan = getFirstStringValue(payload, ['kewarganegaraan']) || 'Indonesia';
     const masaBerlakuDariRaw = getFirstStringValue(payload, ['masaBerlakuDari', 'masa_berlaku_dari']);
     const masaBerlakuSampaiRaw = getFirstStringValue(payload, ['masaBerlakuSampai', 'masa_berlaku_sampai']);
@@ -104,6 +239,21 @@ async function handlePermohonanPost(request: Request) {
     const tanggalLahir = normalizeDateValue(tanggalLahirRaw);
     const masaBerlakuDari = normalizeDateValue(masaBerlakuDariRaw);
     const masaBerlakuSampai = normalizeDateValue(masaBerlakuSampaiRaw);
+
+    const detailData: Record<string, unknown> = {
+      tempat_lahir: tempatLahir || undefined,
+      tanggal_lahir: tanggalLahir || undefined,
+      jenis_kelamin: jenisKelamin || undefined,
+      agama: agama || undefined,
+      pekerjaan: pekerjaan || undefined,
+      status_perkawinan: statusPerkawinan || undefined,
+      kewarganegaraan: kewarganegaraan || undefined,
+      masa_berlaku_dari: masaBerlakuDari || undefined,
+      masa_berlaku_sampai: masaBerlakuSampai || undefined,
+      ...collectAdditionalDetailFields(payload),
+    };
+
+    const detailDataJson = JSON.stringify(detailData);
 
     if (!namaPemohon || !nik || !alamat || !keperluan) {
       return NextResponse.json(
@@ -119,14 +269,33 @@ async function handlePermohonanPost(request: Request) {
       );
     }
 
+    if (suratSlug === 'surat-domisili') {
+      const missingFields: string[] = [];
+      if (!tempatLahir) missingFields.push('Tempat lahir');
+      if (!tanggalLahir) missingFields.push('Tanggal lahir');
+      if (!jenisKelamin) missingFields.push('Jenis kelamin');
+      if (!agama) missingFields.push('Agama');
+      if (!pekerjaan) missingFields.push('Pekerjaan');
+      if (!statusPerkawinan) missingFields.push('Status perkawinan');
+
+      if (missingFields.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Data domisili belum lengkap: ${missingFields.join(', ')}`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // Save to database (kompatibel untuk skema lama/baru)
-    let result: any;
-    try {
-      const [insertResult]: any = await db.execute(
-        `INSERT INTO permohonan_surat 
+    const filePayload = JSON.stringify(uploadedFiles);
+    const insertVariants: Array<{ query: string; values: unknown[] }> = [
+      {
+        query: `INSERT INTO permohonan_surat 
          (jenis_surat, nama_pemohon, nik, alamat, keperluan, tempat_lahir, tanggal_lahir, jenis_kelamin, agama, pekerjaan, status_perkawinan, kewarganegaraan, masa_berlaku_dari, masa_berlaku_sampai, dokumen_path, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
+        values: [
           surat.title,
           namaPemohon,
           nik,
@@ -141,37 +310,53 @@ async function handlePermohonanPost(request: Request) {
           kewarganegaraan,
           masaBerlakuDari,
           masaBerlakuSampai,
-          JSON.stringify(uploadedFiles),
+          filePayload,
           'pending',
-        ]
-      );
-      result = insertResult;
-    } catch (error: any) {
-      if (!String(error?.message || '').toLowerCase().includes('unknown column')) {
-        throw error;
-      }
+        ],
+      },
+      {
+        query: `INSERT INTO permohonan_surat 
+         (jenis_surat, nama_pemohon, nik, alamat, keperluan, data_detail, dokumen_path, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        values: [surat.title, namaPemohon, nik, alamat, keperluan, detailDataJson, filePayload, 'pending'],
+      },
+      {
+        query: `INSERT INTO permohonan_surat 
+         (jenis_surat, nama_pemohon, nik, alamat, keperluan, data_detail, file_path, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        values: [surat.title, namaPemohon, nik, alamat, keperluan, detailDataJson, filePayload, 'pending'],
+      },
+      {
+        query: `INSERT INTO permohonan_surat 
+         (jenis_surat, nama_pemohon, nik, alamat, keperluan, dokumen_path, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        values: [surat.title, namaPemohon, nik, alamat, keperluan, filePayload, 'pending'],
+      },
+      {
+        query: `INSERT INTO permohonan_surat 
+         (jenis_surat, nama_pemohon, nik, alamat, keperluan, file_path, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        values: [surat.title, namaPemohon, nik, alamat, keperluan, filePayload, 'pending'],
+      },
+    ];
 
+    let result: any = null;
+    let lastUnknownColumnError: unknown;
+    for (const variant of insertVariants) {
       try {
-        const [insertResult]: any = await db.execute(
-          `INSERT INTO permohonan_surat 
-           (jenis_surat, nama_pemohon, nik, alamat, keperluan, dokumen_path, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [surat.title, namaPemohon, nik, alamat, keperluan, JSON.stringify(uploadedFiles), 'pending']
-        );
+        const [insertResult]: any = await db.execute(variant.query, variant.values);
         result = insertResult;
-      } catch (fallbackError: any) {
-        if (!String(fallbackError?.message || '').toLowerCase().includes('unknown column')) {
-          throw fallbackError;
+        break;
+      } catch (error: any) {
+        if (!String(error?.message || '').toLowerCase().includes('unknown column')) {
+          throw error;
         }
-
-        const [insertResult]: any = await db.execute(
-          `INSERT INTO permohonan_surat 
-           (jenis_surat, nama_pemohon, nik, alamat, keperluan, file_path, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [surat.title, namaPemohon, nik, alamat, keperluan, JSON.stringify(uploadedFiles), 'pending']
-        );
-        result = insertResult;
+        lastUnknownColumnError = error;
       }
+    }
+
+    if (!result) {
+      throw lastUnknownColumnError || new Error('Gagal menyimpan permohonan ke database');
     }
 
     return NextResponse.json({ 
@@ -211,24 +396,82 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'NIK user tidak ditemukan' }, { status: 400 });
     }
 
-    const query = `
-      SELECT 
-        id, 
-        nik, 
-        jenis_surat, 
-        nomor_surat, 
-        status, 
-        created_at AS tanggal_permohonan,
-        CASE WHEN status IN ('selesai', 'ditandatangani') THEN updated_at ELSE NULL END AS tanggal_selesai,
-        CASE WHEN status IN ('ditolak', 'perlu_revisi') THEN catatan ELSE NULL END AS alasan_penolakan,
-        file_path
-      FROM permohonan_surat
-      WHERE (nik = ? OR nik = ? OR SUBSTRING_INDEX(nik, '_', 1) = ?)
-      ORDER BY created_at DESC
+    const baseQuery = `
+      SELECT
+        p.id,
+        p.nik,
+        p.jenis_surat,
+        p.nomor_surat,
+        p.status,
+        p.created_at AS tanggal_permohonan,
+        CASE WHEN p.status IN ('selesai', 'ditandatangani') THEN p.updated_at ELSE NULL END AS tanggal_selesai,
+        CASE WHEN p.status IN ('ditolak', 'perlu_revisi') THEN p.catatan ELSE NULL END AS alasan_penolakan,
+        p.file_path,
+        sk.archived_file_path
+      FROM permohonan_surat p
+      LEFT JOIN (
+        SELECT nomor_surat, MAX(file_path) AS archived_file_path
+        FROM surat_keluar
+        GROUP BY nomor_surat
+      ) sk ON sk.nomor_surat = p.nomor_surat
+      WHERE (p.nik = ? OR p.nik = ? OR SUBSTRING_INDEX(p.nik, '_', 1) = ?)
+      ORDER BY p.created_at DESC
     `;
 
-    const [permohonanRows] = await db.execute(query, [rawNik || baseNik, baseNik || rawNik, baseNik || rawNik]);
-    const permohonanData = (permohonanRows as any[]) || [];
+    const fallbackQuery = `
+      SELECT
+        p.id,
+        p.nik,
+        p.jenis_surat,
+        p.nomor_surat,
+        p.status,
+        p.created_at AS tanggal_permohonan,
+        CASE WHEN p.status IN ('selesai', 'ditandatangani') THEN p.updated_at ELSE NULL END AS tanggal_selesai,
+        CASE WHEN p.status IN ('ditolak', 'perlu_revisi') THEN p.catatan ELSE NULL END AS alasan_penolakan,
+        p.dokumen_path AS file_path,
+        sk.archived_file_path
+      FROM permohonan_surat p
+      LEFT JOIN (
+        SELECT nomor_surat, MAX(file_path) AS archived_file_path
+        FROM surat_keluar
+        GROUP BY nomor_surat
+      ) sk ON sk.nomor_surat = p.nomor_surat
+      WHERE (p.nik = ? OR p.nik = ? OR SUBSTRING_INDEX(p.nik, '_', 1) = ?)
+      ORDER BY p.created_at DESC
+    `;
+
+    let permohonanRows: any[] = [];
+    try {
+      const [rows] = await db.execute(baseQuery, [rawNik || baseNik, baseNik || rawNik, baseNik || rawNik]);
+      permohonanRows = (rows as any[]) || [];
+    } catch (error: any) {
+      if (!String(error?.message || '').toLowerCase().includes('unknown column')) {
+        throw error;
+      }
+      const [rows] = await db.execute(fallbackQuery, [rawNik || baseNik, baseNik || rawNik, baseNik || rawNik]);
+      permohonanRows = (rows as any[]) || [];
+    }
+
+    const permohonanData = permohonanRows.map((row) => {
+      const archivedFilePath = normalizeFilePath(row.archived_file_path);
+      const rawFilePath = normalizeFilePath(row.file_path);
+      const normalizedStatus = normalizeWorkflowStatus(row.status, row.nomor_surat);
+
+      const finalFilePath =
+        (isGeneratedSuratFile(archivedFilePath) ? archivedFilePath : null) ||
+        (isGeneratedSuratFile(rawFilePath) ? rawFilePath : null) ||
+        null;
+
+      return {
+        ...row,
+        status: normalizedStatus,
+        file_path: finalFilePath,
+        tanggal_selesai:
+          ['selesai', 'ditandatangani'].includes(normalizedStatus)
+            ? row.tanggal_selesai || row.tanggal_permohonan
+            : null,
+      };
+    });
 
     return NextResponse.json({
       success: true,

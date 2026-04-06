@@ -13,6 +13,18 @@ export default function SuratDomisiliFormPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const showFeedback = () => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleInvalid = () => {
+    setSuccessMessage(null);
+    setError("Form belum lengkap atau ada data yang belum valid. Cek kembali semua field bertanda *.");
+    showFeedback();
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -29,6 +41,7 @@ export default function SuratDomisiliFormPage() {
     if (uploadedFiles.length < 2) {
       setLoading(false);
       setError("Upload KTP dan Kartu Keluarga (KK) wajib diisi.");
+      showFeedback();
       return;
     }
 
@@ -46,11 +59,13 @@ export default function SuratDomisiliFormPage() {
       }
 
       setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      showFeedback();
       window.setTimeout(() => {
         router.push("/tracking");
       }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      showFeedback();
     } finally {
       setLoading(false);
     }
@@ -103,7 +118,7 @@ export default function SuratDomisiliFormPage() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} onInvalidCapture={handleInvalid} className="space-y-6">
             {/* Data Pemohon */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
@@ -267,10 +282,10 @@ export default function SuratDomisiliFormPage() {
                       type="text"
                       name="rt"
                       required
-                      pattern="[0-9]{3}"
+                      pattern="[0-9]{1,3}"
                       maxLength={3}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="001"
+                      placeholder="1-3 digit"
                     />
                   </div>
                   <div>
@@ -281,10 +296,10 @@ export default function SuratDomisiliFormPage() {
                       type="text"
                       name="rw"
                       required
-                      pattern="[0-9]{3}"
+                      pattern="[0-9]{1,3}"
                       maxLength={3}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="001"
+                      placeholder="1-3 digit"
                     />
                   </div>
                   <div className="col-span-2">
@@ -495,6 +510,18 @@ export default function SuratDomisiliFormPage() {
                 )}
               </button>
             </div>
+
+            {loading && (
+              <p className="text-sm text-gray-600">Permohonan sedang diproses...</p>
+            )}
+
+            {error && (
+              <p className="text-sm text-red-600">{error}</p>
+            )}
+
+            {successMessage && (
+              <p className="text-sm text-green-700">{successMessage}</p>
+            )}
           </form>
         </div>
       </div>

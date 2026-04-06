@@ -77,6 +77,16 @@ function processNote(status: WorkflowStatus): string {
   return "";
 }
 
+function isGeneratedSuratFile(pathValue: string | null): boolean {
+  if (!pathValue) return false;
+  return pathValue.includes('/generated-surat/') || pathValue.toLowerCase().endsWith('.html');
+}
+
+function isAttachmentFile(pathValue: string | null): boolean {
+  if (!pathValue) return false;
+  return pathValue.includes('/uploads/');
+}
+
 export default function PermohonanAdminPage() {
   const [filterStatus, setFilterStatus] = useState("Semua");
   const [searchTerm, setSearchTerm] = useState("");
@@ -347,18 +357,55 @@ export default function PermohonanAdminPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {p.file_path ? (
-                      <a href={p.file_path} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                        Lihat File
+                    <div className="flex flex-col gap-1">
+                      <a
+                        href={`/api/admin/permohonan/${p.id}/preview?mode=admin`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Lihat Draft Surat
                       </a>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
+
+                      <a
+                        href={`/api/admin/permohonan/${p.id}/preview?download=doc`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-indigo-700 hover:underline"
+                      >
+                        Unduh DOC
+                      </a>
+
+                      <a
+                        href={
+                          isGeneratedSuratFile(p.file_path)
+                            ? `${p.file_path as string}?print=1`
+                            : `/api/admin/permohonan/${p.id}/preview?mode=admin&print=1`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-emerald-700 hover:underline"
+                      >
+                        Unduh PDF
+                      </a>
+
+                      {isGeneratedSuratFile(p.file_path) && (
+                        <a href={p.file_path as string} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">
+                          Lihat File Final
+                        </a>
+                      )}
+
+                      {isAttachmentFile(p.file_path) && (
+                        <a href={p.file_path as string} target="_blank" rel="noreferrer" className="text-amber-700 hover:underline">
+                          Lihat Lampiran
+                        </a>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-center flex-wrap">
                       <button
-                        onClick={() => window.open(`/api/admin/permohonan/${p.id}/preview`, "_blank")}
+                        onClick={() => window.open(`/api/admin/permohonan/${p.id}/preview?mode=admin`, "_blank")}
                         className="bg-blue-500 text-white px-2 py-1 text-xs rounded hover:bg-blue-600"
                       >
                         Lihat/Edit

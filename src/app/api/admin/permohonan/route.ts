@@ -4,6 +4,15 @@ import { db } from '@/lib/db';
 import { getUser } from '@/lib/auth';
 import { RowDataPacket } from 'mysql2';
 
+type WorkflowStatus =
+  | 'pending'
+  | 'diproses'
+  | 'dikirim_ke_kepala_desa'
+  | 'perlu_revisi'
+  | 'ditandatangani'
+  | 'selesai'
+  | 'ditolak';
+
 function normalizeFilePath(rawValue: unknown): string | null {
   if (typeof rawValue !== 'string') return null;
   const trimmed = rawValue.trim();
@@ -31,6 +40,34 @@ function normalizeFilePath(rawValue: unknown): string | null {
   return candidate.startsWith('/') ? candidate : `/${candidate}`;
 }
 
+function isGeneratedSuratFile(pathValue: string | null): boolean {
+  if (!pathValue) return false;
+  return pathValue.includes('/generated-surat/') || pathValue.toLowerCase().endsWith('.html');
+}
+
+function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown): WorkflowStatus {
+  const normalized = String(rawStatus || '').trim().toLowerCase();
+  const knownStatuses: WorkflowStatus[] = [
+    'pending',
+    'diproses',
+    'dikirim_ke_kepala_desa',
+    'perlu_revisi',
+    'ditandatangani',
+    'selesai',
+    'ditolak',
+  ];
+
+  if ((knownStatuses as string[]).includes(normalized)) {
+    return normalized as WorkflowStatus;
+  }
+
+  if (typeof nomorSurat === 'string' && nomorSurat.trim()) {
+    return 'selesai';
+  }
+
+  return 'pending';
+}
+
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -50,40 +87,52 @@ export async function GET(request: NextRequest) {
 
     const baseQueryWithFilePath = `
       SELECT
-        id,
-        nama_pemohon,
-        nik,
-        alamat,
-        jenis_surat,
-        keperluan,
-        status,
-        catatan,
-        nomor_surat,
-        file_path,
-        created_at,
-        updated_at,
-        processed_by
-      FROM permohonan_surat
-      ORDER BY created_at DESC
+        p.id,
+        p.nama_pemohon,
+        p.nik,
+        p.alamat,
+        p.jenis_surat,
+        p.keperluan,
+        p.status,
+        p.catatan,
+        p.nomor_surat,
+        p.file_path,
+        sk.archived_file_path,
+        p.created_at,
+        p.updated_at,
+        p.processed_by
+      FROM permohonan_surat p
+      LEFT JOIN (
+        SELECT nomor_surat, MAX(file_path) AS archived_file_path
+        FROM surat_keluar
+        GROUP BY nomor_surat
+      ) sk ON sk.nomor_surat = p.nomor_surat
+      ORDER BY p.created_at DESC
     `;
 
     const fallbackQueryWithDokumenPath = `
       SELECT
-        id,
-        nama_pemohon,
-        nik,
-        alamat,
-        jenis_surat,
-        keperluan,
-        status,
-        catatan,
-        nomor_surat,
-        dokumen_path AS file_path,
-        created_at,
-        updated_at,
-        processed_by
-      FROM permohonan_surat
-      ORDER BY created_at DESC
+        p.id,
+        p.nama_pemohon,
+        p.nik,
+        p.alamat,
+        p.jenis_surat,
+        p.keperluan,
+        p.status,
+        p.catatan,
+        p.nomor_surat,
+        p.dokumen_path AS file_path,
+        sk.archived_file_path,
+        p.created_at,
+        p.updated_at,
+        p.processed_by
+      FROM permohonan_surat p
+      LEFT JOIN (
+        SELECT nomor_surat, MAX(file_path) AS archived_file_path
+        FROM surat_keluar
+        GROUP BY nomor_surat
+      ) sk ON sk.nomor_surat = p.nomor_surat
+      ORDER BY p.created_at DESC
     `;
 
     let rows: RowDataPacket[];
@@ -100,7 +149,11 @@ export async function GET(request: NextRequest) {
 
     const normalizedRows = rows.map((row) => ({
       ...row,
-      file_path: normalizeFilePath((row as any).file_path),
+      status: normalizeWorkflowStatus((row as any).status, (row as any).nomor_surat),
+      file_path:
+        (isGeneratedSuratFile(normalizeFilePath((row as any).archived_file_path))
+          ? normalizeFilePath((row as any).archived_file_path)
+          : null) || normalizeFilePath((row as any).file_path),
     }));
 
     return NextResponse.json({

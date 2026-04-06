@@ -9,11 +9,15 @@ export async function POST(request: Request) {
     const body = contentType.includes("multipart/form-data")
       ? await request.formData()
       : await request.text();
+
+    const response = await fetch(targetUrl, {
       method: 'POST',
-      headers: {
-        'content-type': request.headers.get('content-type') || 'application/json',
-      },
-        ...(contentType.includes("multipart/form-data") ? {} : { 'Content-Type': 'application/json' }),
+      headers: contentType.includes("multipart/form-data")
+        ? {}
+        : {
+            'content-type': request.headers.get('content-type') || 'application/json',
+          },
+      body,
     });
 
     const bodyText = await response.text();

@@ -3,13 +3,14 @@ import { NextResponse } from 'next/server';
 import { sendNotificationEmail } from '@/lib/email';
 import { cookies } from 'next/headers';
 import { getUser } from '@/lib/auth';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, readdir, writeFile } from 'fs/promises';
 import path from 'path';
 import QRCode from 'qrcode';
 import { createHash, createHmac } from 'crypto';
 import { generateSuratTemplate } from '@/lib/surat-generator/template';
 import { generateNomorSurat } from '@/lib/surat-generator/nomor-surat';
 import { normalizeSuratSlug } from '@/lib/surat-data';
+import { isWhatsAppApiConfigured, sendWhatsAppNotification } from '@/lib/whatsapp';
 import type { UserRole } from '@/lib/types';
 import type { JenisSurat, SuratData } from '@/lib/surat-generator/types';
 
@@ -26,6 +27,7 @@ type PermohonanRow = {
   catatan: string | null;
   nomor_surat: string | null;
   file_path: string | null;
+  data_detail?: string | null;
   email?: string | null;
   tempat_lahir?: string | null;
   tanggal_lahir?: string | Date | null;
@@ -37,6 +39,8 @@ type PermohonanRow = {
   masa_berlaku_dari?: string | Date | null;
   masa_berlaku_sampai?: string | Date | null;
 };
+
+type DetailData = Record<string, unknown>;
 
 type NormalizedStatus =
   | 'pending'
@@ -118,7 +122,7 @@ function canTransitionStatus(
       return currentStatus === 'dikirim_ke_kepala_desa';
     }
     if (nextStatus === 'selesai') {
-      return currentStatus === 'ditandatangani';
+      return ['dikirim_ke_kepala_desa', 'ditandatangani'].includes(currentStatus);
     }
     return false;
   }
@@ -269,6 +273,73 @@ function normalizeGender(value: unknown): 'Laki-laki' | 'Perempuan' | undefined 
   return undefined;
 }
 
+function parseDetailData(value: unknown): DetailData {
+  if (!value) return {};
+
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return value as DetailData;
+  }
+
+  if (typeof value !== 'string') return {};
+
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as DetailData;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function getTextWithDetail(primaryValue: unknown, detailData: DetailData, keys: string[]): string | undefined {
+  const fromPrimary = asText(primaryValue);
+  if (fromPrimary) return fromPrimary;
+
+  for (const key of keys) {
+    const fromDetail = asText(detailData[key]);
+    if (fromDetail) return fromDetail;
+  }
+
+  return undefined;
+}
+
+function getDateWithDetail(primaryValue: unknown, detailData: DetailData, keys: string[]): Date | undefined {
+  const fromPrimary = asDate(primaryValue);
+  if (fromPrimary) return fromPrimary;
+
+  for (const key of keys) {
+    const fromDetail = asDate(detailData[key]);
+    if (fromDetail) return fromDetail;
+  }
+
+  return undefined;
+}
+
+function getGenderWithDetail(
+  primaryValue: unknown,
+  detailData: DetailData,
+  keys: string[]
+): 'Laki-laki' | 'Perempuan' | undefined {
+  const fromPrimary = normalizeGender(primaryValue);
+  if (fromPrimary) return fromPrimary;
+
+  for (const key of keys) {
+    const fromDetail = normalizeGender(detailData[key]);
+    if (fromDetail) return fromDetail;
+  }
+
+  return undefined;
+}
+
+function normalizeNikValue(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.split('_')[0].trim();
+}
+
 function getAppBaseUrl(): string {
   const raw = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   return raw.replace(/\/$/, '');
@@ -290,8 +361,8 @@ async function createPermohonanQrCode(params: {
   namaPemohon: string;
   jenisSurat: string;
   keperluan: string;
+  suratUntuk: string;
   pembuatSurat: string;
-  signedAt: Date;
 }): Promise<{ dataUrl: string; verificationCode: string }> {
   const source = [
     params.id,
@@ -300,6 +371,7 @@ async function createPermohonanQrCode(params: {
     params.namaPemohon,
     params.jenisSurat,
     params.keperluan,
+    params.suratUntuk,
     params.pembuatSurat,
   ].join('|');
 
@@ -307,22 +379,8 @@ async function createPermohonanQrCode(params: {
   const integrityToken = buildIntegrityToken(source);
   const verifyUrl = `${getAppBaseUrl()}/verifikasi-surat?permohonan=${params.id}&kode=${verificationCode}&token=${integrityToken}`;
 
-  const qrPayload = [
-    'VERIFIKASI SURAT DESA AIKMUAL',
-    `Kode: ${verificationCode}`,
-    `ID Permohonan: ${params.id}`,
-    `Nomor Surat: ${params.nomorSurat}`,
-    `Pembuat Surat: ${params.pembuatSurat}`,
-    `NIK: ${params.nik}`,
-    `Nama Pemohon: ${params.namaPemohon}`,
-    `Jenis Surat: ${params.jenisSurat}`,
-    `Tujuan/Keperluan: ${params.keperluan}`,
-    `Tanggal TTD: ${params.signedAt.toISOString()}`,
-    `Token Integritas: ${integrityToken}`,
-    `URL Verifikasi: ${verifyUrl}`,
-  ].join('\n');
-
-  const dataUrl = await QRCode.toDataURL(qrPayload, {
+  // Use verification URL directly so mobile scanners open verification page immediately.
+  const dataUrl = await QRCode.toDataURL(verifyUrl, {
     errorCorrectionLevel: 'M',
     width: 180,
     margin: 1,
@@ -375,6 +433,24 @@ async function saveGeneratedSuratHtml(
 
   await writeFile(absolutePath, htmlContent, 'utf-8');
   return `/generated-surat/${fileName}`;
+}
+
+async function resolveKepalaDesaSignatureUrl(userId: number | null): Promise<string> {
+  const fallback = '/images/sample-ttd.png';
+  if (!userId) return fallback;
+
+  const signaturesDir = path.join(process.cwd(), 'public', 'uploads', 'signatures');
+  const prefix = `kepala-desa-${userId}.`;
+
+  try {
+    const entries = await readdir(signaturesDir, { withFileTypes: true });
+    const matched = entries.find((entry) => entry.isFile() && entry.name.startsWith(prefix));
+
+    if (!matched) return fallback;
+    return `/uploads/signatures/${matched.name}`;
+  } catch {
+    return fallback;
+  }
 }
 
 export async function PUT(
@@ -447,6 +523,10 @@ export async function PUT(
       );
     }
 
+    const finalStatuses: NormalizedStatus[] = ['ditandatangani', 'selesai'];
+    const shouldSendReadyNotification =
+      finalStatuses.includes(normalizedStatus) && !finalStatuses.includes(currentStatus);
+
     let nomorSurat = permohonan.nomor_surat;
     let generatedFilePath = permohonan.file_path;
 
@@ -463,9 +543,45 @@ export async function PUT(
       }
 
       const tanggalSurat = new Date();
-      const masaBerlakuDari = asDate(permohonan.masa_berlaku_dari) || tanggalSurat;
+      const detailData = parseDetailData(permohonan.data_detail);
+      const tempatLahir = getTextWithDetail(permohonan.tempat_lahir, detailData, [
+        'tempat_lahir',
+        'tempatLahir',
+        'tempat_lahir_pemohon',
+        'tempatLahirPemohon',
+      ]);
+      const tanggalLahir = getDateWithDetail(permohonan.tanggal_lahir, detailData, [
+        'tanggal_lahir',
+        'tanggalLahir',
+        'tanggal_lahir_pemohon',
+        'tanggalLahirPemohon',
+      ]);
+      const jenisKelamin = getGenderWithDetail(permohonan.jenis_kelamin, detailData, [
+        'jenis_kelamin',
+        'jenisKelamin',
+        'jenis_kelamin_pemohon',
+        'jenisKelaminPemohon',
+      ]);
+      const agama = getTextWithDetail(permohonan.agama, detailData, ['agama']);
+      const pekerjaan = getTextWithDetail(permohonan.pekerjaan, detailData, [
+        'pekerjaan',
+        'pekerjaan_pemohon',
+        'pekerjaanPemohon',
+      ]);
+      const statusPerkawinan = getTextWithDetail(permohonan.status_perkawinan, detailData, [
+        'status_perkawinan',
+        'statusPerkawinan',
+        'status_perkawinan_pemohon',
+        'statusPerkawinanPemohon',
+        'status',
+      ]);
+      const kewarganegaraan =
+        getTextWithDetail(permohonan.kewarganegaraan, detailData, ['kewarganegaraan']) || 'Indonesia';
+      const masaBerlakuDari =
+        getDateWithDetail(permohonan.masa_berlaku_dari, detailData, ['masa_berlaku_dari', 'masaBerlakuDari']) ||
+        tanggalSurat;
       const masaBerlakuSampai =
-        asDate(permohonan.masa_berlaku_sampai) ||
+        getDateWithDetail(permohonan.masa_berlaku_sampai, detailData, ['masa_berlaku_sampai', 'masaBerlakuSampai']) ||
         new Date(masaBerlakuDari.getFullYear(), masaBerlakuDari.getMonth() + 5, masaBerlakuDari.getDate());
 
       if (!nomorSurat) {
@@ -478,8 +594,10 @@ export async function PUT(
       if (shouldRegenerateSurat) {
         let qrCodeDataUrl: string | undefined;
         let verificationCode: string | undefined;
+        let signatureImageUrl: string | undefined;
 
         if (shouldEmbedSignature) {
+          signatureImageUrl = await resolveKepalaDesaSignatureUrl(processedBy);
           const qr = await createPermohonanQrCode({
             id: Number(params.id),
             nomorSurat,
@@ -487,8 +605,8 @@ export async function PUT(
             namaPemohon: permohonan.nama_pemohon,
             jenisSurat: permohonan.jenis_surat,
             keperluan: permohonan.keperluan,
+            suratUntuk: `${permohonan.nama_pemohon} (${permohonan.nik})`,
             pembuatSurat: authUser.nama || noteByRole,
-            signedAt: tanggalSurat,
           });
           qrCodeDataUrl = qr.dataUrl;
           verificationCode = qr.verificationCode;
@@ -500,13 +618,13 @@ export async function PUT(
           tanggalSurat,
           nama: permohonan.nama_pemohon,
           nik: permohonan.nik,
-          tempatLahir: asText(permohonan.tempat_lahir),
-          tanggalLahir: asDate(permohonan.tanggal_lahir),
-          jeniKelamin: normalizeGender(permohonan.jenis_kelamin),
-          agama: asText(permohonan.agama),
-          pekerjaan: asText(permohonan.pekerjaan),
-          statusPerkawinan: asText(permohonan.status_perkawinan),
-          kewarganegaraan: asText(permohonan.kewarganegaraan) || 'Indonesia',
+          tempatLahir,
+          tanggalLahir,
+          jeniKelamin: jenisKelamin,
+          agama,
+          pekerjaan,
+          statusPerkawinan,
+          kewarganegaraan,
           tanggalBerlaku: {
             dari: masaBerlakuDari,
             sampai: masaBerlakuSampai,
@@ -515,7 +633,7 @@ export async function PUT(
           isiSurat: `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}. Surat keterangan ini dipergunakan untuk keperluan ${permohonan.keperluan}.`,
           kepalaDesa: {
             nama: 'KEPALA DESA AIKMUAL',
-            signatureImageUrl: shouldEmbedSignature ? '/images/sample-ttd.png' : undefined,
+            signatureImageUrl: shouldEmbedSignature ? signatureImageUrl : undefined,
             qrCodeDataUrl,
             verificationCode,
           },
@@ -565,6 +683,75 @@ export async function PUT(
         );
       } catch (emailError) {
         console.error('Gagal kirim email notifikasi:', emailError);
+      }
+    }
+
+    // Notifikasi WhatsApp bersifat best-effort agar alur update status tetap aman.
+    if (shouldSendReadyNotification && isWhatsAppApiConfigured()) {
+      try {
+        const detailData = parseDetailData(permohonan.data_detail);
+        const nikRaw = String(permohonan.nik || '').trim();
+        const nikBase = normalizeNikValue(nikRaw);
+
+        let waNumber = getTextWithDetail(undefined, detailData, [
+          'telepon',
+          'phone',
+          'no_hp',
+          'nomor_hp',
+          'no_wa',
+          'nomor_wa',
+          'whatsapp',
+        ]);
+
+        if (nikRaw || nikBase) {
+          const [userRows]: any = await db.execute(
+            `SELECT telepon
+             FROM users
+             WHERE telepon IS NOT NULL
+               AND telepon <> ''
+               AND (nik = ? OR SUBSTRING_INDEX(nik, '_', 1) = ?)
+             ORDER BY CASE WHEN SUBSTRING_INDEX(nik, '_', 1) = ? THEN 0 ELSE 1 END
+             LIMIT 1`,
+            [nikRaw || nikBase, nikBase || nikRaw, nikBase || nikRaw]
+          );
+
+          const teleponFromUser = asText(userRows?.[0]?.telepon);
+          if (teleponFromUser) {
+            waNumber = teleponFromUser;
+          }
+        }
+
+        if (waNumber) {
+          const nomorSuratLabel = nomorSurat || '-';
+          const statusText = statusLabel(normalizedStatus);
+          const jenisSuratLabel = permohonan.jenis_surat || 'Surat';
+          const baseUrl = getAppBaseUrl();
+          const trackingUrl = `${baseUrl}/tracking`;
+
+          const finalFileUrl = generatedFilePath
+            ? `${baseUrl}${generatedFilePath}${generatedFilePath.includes('?') ? '&print=1' : '?print=1'}`
+            : trackingUrl;
+
+          const messageLines = [
+            `Halo ${permohonan.nama_pemohon},`,
+            `Permohonan ${jenisSuratLabel} Anda sudah jadi (${statusText}).`,
+            `Nomor Surat: ${nomorSuratLabel}`,
+            `Keperluan: ${permohonan.keperluan}`,
+            `Lihat/unduh surat: ${finalFileUrl}`,
+          ];
+
+          await sendWhatsAppNotification({
+            to: waNumber,
+            message: messageLines.join('\n'),
+            metadata: {
+              permohonanId: Number(params.id),
+              status: normalizedStatus,
+              nomorSurat: nomorSurat || null,
+            },
+          });
+        }
+      } catch (waError) {
+        console.error('Gagal kirim notifikasi WhatsApp:', waError);
       }
     }
 

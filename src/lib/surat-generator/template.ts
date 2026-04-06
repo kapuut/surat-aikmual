@@ -62,7 +62,6 @@ export function generateSuratTemplate(
   const kepalaDesaName = data.kepalaDesa?.nama || 'Kepala Desa Aikmual';
   const signatureImageUrl = (data.kepalaDesa?.signatureImageUrl || '').trim();
   const qrCodeDataUrl = (data.kepalaDesa?.qrCodeDataUrl || '').trim();
-  const verificationCode = (data.kepalaDesa?.verificationCode || '').trim();
   const hasDigitalSignatureAssets = Boolean(signatureImageUrl || qrCodeDataUrl);
   
   // Konten isi surat berdasarkan jenis surat
@@ -81,7 +80,7 @@ export function generateSuratTemplate(
   const rows: string[] = [
     `<tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
     `<tr><td class="label">NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
-    `<tr><td class="label">Tempat Tanggal Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+    `<tr><td class="label">Tempat&nbsp;Tanggal&nbsp;Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
     `<tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
     `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
     `<tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
@@ -149,6 +148,24 @@ export function generateSuratTemplate(
     }
   </script>`
     : '';
+
+  const printScriptHtml = `
+  <script>
+    (function () {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('print') === '1') {
+          window.addEventListener('load', function () {
+            setTimeout(function () {
+              window.print();
+            }, 180);
+          });
+        }
+      } catch {
+        // ignore query parsing errors
+      }
+    })();
+  </script>`;
 
   return `
 <!DOCTYPE html>
@@ -342,6 +359,7 @@ export function generateSuratTemplate(
     
     .isi-surat .label {
       width: 3.8cm;
+      white-space: nowrap;
     }
 
     .isi-surat .colon {
@@ -387,17 +405,20 @@ export function generateSuratTemplate(
       justify-content: center;
       align-items: flex-end;
       gap: 0.3cm;
+      flex-direction: row;
     }
 
     .ttd-signature {
       width: 3.2cm;
       height: 2.1cm;
       object-fit: contain;
+      order: 2;
     }
 
     .ttd-qr-wrap {
       width: 2.35cm;
       text-align: center;
+      order: 1;
     }
 
     .ttd-qr {
@@ -407,14 +428,6 @@ export function generateSuratTemplate(
       border: 1px solid #111;
       padding: 0.04cm;
       background: #fff;
-    }
-
-    .qr-caption {
-      margin-top: 0.08cm;
-      font-size: 8.5pt;
-      line-height: 1.15;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
     }
 
     .ttd-space {
@@ -559,7 +572,6 @@ export function generateSuratTemplate(
           ${qrCodeDataUrl
             ? `<div class="ttd-qr-wrap">
               <img class="ttd-qr" src="${escapeHtml(qrCodeDataUrl)}" alt="QR verifikasi surat" />
-              ${verificationCode ? `<div class="qr-caption">${escapeHtml(verificationCode)}</div>` : ''}
             </div>`
             : ''}
         </div>`
@@ -570,6 +582,7 @@ export function generateSuratTemplate(
     </div>
   </div>
   ${scriptHtml}
+  ${printScriptHtml}
 </body>
 </html>
   `;

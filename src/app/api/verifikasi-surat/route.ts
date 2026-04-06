@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
     }
 
     const pembuatSurat = String(row.processed_by_name || "").trim() || "Petugas Desa";
+    const suratUntuk = `${String(row.nama_pemohon || "-")} (${String(row.nik || "-")})`;
 
     const source = [
       String(row.id),
@@ -79,12 +80,21 @@ export async function GET(request: NextRequest) {
       String(row.nama_pemohon || ""),
       String(row.jenis_surat || ""),
       String(row.keperluan || ""),
+      suratUntuk,
       pembuatSurat,
     ].join("|");
 
     const expectedKode = buildVerificationCode(source);
     const expectedToken = buildIntegrityToken(source);
     const valid = expectedKode === kode && expectedToken === token;
+
+    if (!valid) {
+      return NextResponse.json({
+        success: true,
+        valid: false,
+        reason: "Kode verifikasi tidak cocok (indikasi manipulasi)",
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -94,6 +104,7 @@ export async function GET(request: NextRequest) {
         nomor_surat: String(row.nomor_surat || "-"),
         nama_pemohon: String(row.nama_pemohon || "-"),
         nik: String(row.nik || "-"),
+        surat_untuk: suratUntuk,
         jenis_surat: String(row.jenis_surat || "-"),
         keperluan: String(row.keperluan || "-"),
         pembuat_surat: pembuatSurat,
@@ -102,7 +113,7 @@ export async function GET(request: NextRequest) {
         tanggal_ttd: row.updated_at,
         file_path: row.file_path || null,
       },
-      reason: valid ? "Kode verifikasi dan token integritas cocok" : "Kode verifikasi tidak cocok (indikasi manipulasi)",
+      reason: "Kode verifikasi dan token integritas cocok",
     });
   } catch (error) {
     console.error("Error verifikasi surat:", error);

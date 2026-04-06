@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FiUser, FiMail, FiLock, FiMapPin, FiEye, FiEyeOff, FiUserPlus } from "react-icons/fi";
+import { FiUser, FiMail, FiLock, FiMapPin, FiPhone, FiEye, FiEyeOff, FiUserPlus } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
@@ -26,10 +26,11 @@ export default function RegisterPage() {
       nik: String(formData.get("nik") || "").trim(),
       password: String(formData.get("password") || ""),
       alamat: String(formData.get("alamat") || "").trim(),
+      telepon: String(formData.get("telepon") || "").trim(),
     };
 
-    if (!payload.nama || !payload.email || !payload.nik || !payload.password || !payload.alamat) {
-      setError("Semua field wajib diisi");
+    if (!payload.nama || !payload.email || !payload.nik || !payload.password || !payload.alamat || !payload.telepon) {
+      setError("Semua field wajib diisi, termasuk nomor WhatsApp aktif");
       setLoading(false);
       return;
     }
@@ -42,6 +43,12 @@ export default function RegisterPage() {
 
     if (payload.password.length < 6) {
       setError("Password minimal 6 karakter");
+      setLoading(false);
+      return;
+    }
+
+    if (!/^(\+62|62|0|8)\d{8,13}$/.test(payload.telepon.replace(/[^0-9+]/g, ""))) {
+      setError("Format nomor WhatsApp tidak valid");
       setLoading(false);
       return;
     }
@@ -206,6 +213,28 @@ export default function RegisterPage() {
                     placeholder="Masukkan alamat lengkap"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label htmlFor="telepon" className="block text-sm font-medium text-gray-700 mb-2">
+                  Nomor WhatsApp Aktif
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FiPhone className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="telepon"
+                    name="telepon"
+                    type="tel"
+                    required
+                    className="block w-full pl-10 pr-3 py-3 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Contoh: 081234567890"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Digunakan untuk notifikasi saat surat selesai diproses.
+                </p>
               </div>
 
               <button

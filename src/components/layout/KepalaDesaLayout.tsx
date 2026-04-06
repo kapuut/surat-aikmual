@@ -12,6 +12,7 @@ import {
   FiTrendingUp,
   FiTrendingDown,
   FiLock, 
+  FiUser,
   FiFolder,
   FiLogOut,
   FiChevronDown
@@ -72,8 +73,8 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
   },
   '/kepala-desa/change-password': {
     eyebrow: 'Portal Administrasi Terpadu',
-    title: 'Ganti Password',
-    description: 'Perbarui keamanan akun untuk menjaga akses tetap aman.',
+    title: 'Profil Akun',
+    description: 'Kelola data profil, ubah password, dan upload file tanda tangan digital.',
   },
 };
 
@@ -273,8 +274,8 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
                   : 'text-gray-300 hover:bg-slate-800 hover:text-white'
               }`}
             >
-              <FiLock className="w-4 h-4" />
-              <span>Ganti Password</span>
+              <FiUser className="w-4 h-4" />
+              <span>Profil Akun</span>
             </Link>
           </div>
         </nav>

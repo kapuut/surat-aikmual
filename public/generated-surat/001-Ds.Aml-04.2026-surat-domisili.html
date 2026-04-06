@@ -190,6 +190,7 @@
     
     .isi-surat .label {
       width: 3.8cm;
+      white-space: nowrap;
     }
 
     .isi-surat .colon {
@@ -227,12 +228,52 @@
       text-align: center;
       margin-right: 0.2cm;
     }
+
+    .ttd-assets {
+      margin-top: 0.35cm;
+      min-height: 2.35cm;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 0.3cm;
+      flex-direction: row;
+    }
+
+    .ttd-signature {
+      width: 3.2cm;
+      height: 2.1cm;
+      object-fit: contain;
+      order: 2;
+    }
+
+    .ttd-qr-wrap {
+      width: 2.35cm;
+      text-align: center;
+      order: 1;
+    }
+
+    .ttd-qr {
+      width: 1.95cm;
+      height: 1.95cm;
+      object-fit: contain;
+      border: 1px solid #111;
+      padding: 0.04cm;
+      background: #fff;
+    }
+
+    .ttd-space {
+      height: 2.2cm;
+    }
     
     .tanda-tangan .nama {
       margin-top: 2.2cm;
       font-weight: bold;
       text-transform: uppercase;
       text-decoration: underline;
+    }
+
+    .tanda-tangan .nama.nama-signed {
+      margin-top: 0.35cm;
     }
     
     .tanda-tangan .nip {
@@ -339,7 +380,7 @@
       <p>Yang bertanda tangan di bawah ini Kepala Desa Aikmual Kecamatan Praya Kabupaten Lombok Tengah menerangkan dengan sebenarnya kepada:</p>
       
       <table>
-        <tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">Karunia Putri</td></tr><tr><td class="label">NIK</td><td class="colon">:</td><td class="nilai">5202014209030001</td></tr><tr><td class="label">Tempat Tanggal Lahir</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Status</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">Indonesia</td></tr><tr><td class="label">Alamat</td><td class="colon">:</td><td class="nilai">Aikmual</td></tr><tr><td class="label">Masa Berlaku</td><td class="colon">:</td><td class="nilai">04 April 2026 sampai 04 September 2026</td></tr>
+        <tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">Karunia Putri</td></tr><tr><td class="label">NIK</td><td class="colon">:</td><td class="nilai">5202014209030001</td></tr><tr><td class="label">Tempat&nbsp;Tanggal&nbsp;Lahir</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Status</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">Indonesia</td></tr><tr><td class="label">Alamat</td><td class="colon">:</td><td class="nilai">Aikmual</td></tr><tr><td class="label">Masa Berlaku</td><td class="colon">:</td><td class="nilai">06 April 2026 sampai 06 September 2026</td></tr>
       </table>
 
       <p>Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di Aikmual. Surat keterangan ini dipergunakan untuk keperluan Surat.</p>
@@ -353,14 +394,37 @@
     <!-- TANDA TANGAN -->
     <div class="tanda-tangan">
       <div class="pejabat">
-        <div>Aikmual, 04 April 2026</div>
+        <div>Aikmual, 06 April 2026</div>
         <div>KEPALA DESA AIKMUAL</div>
-        <div class="nama">KEPALA DESA AIKMUAL</div>
+        
+        <div class="ttd-assets">
+          <img class="ttd-signature" src="/uploads/signatures/kepala-desa-3.png" alt="Tanda tangan Kepala Desa" />
+          <div class="ttd-qr-wrap">
+              <img class="ttd-qr" src="data:image/png;base64,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" alt="QR verifikasi surat" />
+            </div>
+        </div>
+        <div class="nama nama-signed">KEPALA DESA AIKMUAL</div>
         
       </div>
     </div>
   </div>
   
+  <script>
+    (function () {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('print') === '1') {
+          window.addEventListener('load', function () {
+            setTimeout(function () {
+              window.print();
+            }, 180);
+          });
+        }
+      } catch (e) {
+        // ignore query parsing errors
+      }
+    })();
+  </script>
 </body>
 </html>
   

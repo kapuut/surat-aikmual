@@ -62,6 +62,15 @@ export default function TrackingPage() {
     }
   };
 
+  const buildPdfUrl = (item: Permohonan): string => {
+    if (item.file_path) {
+      return `${item.file_path}${item.file_path.includes('?') ? '&' : '?'}print=1`;
+    }
+
+    // Fallback untuk data lama yang statusnya final tetapi file final belum tertaut.
+    return `/api/admin/permohonan/${item.id}/preview?print=1`;
+  };
+
   if (!loadingData && fetchError) {
     return (
       <SimpleLayout useSidebar>
@@ -159,15 +168,15 @@ export default function TrackingPage() {
                         />
                       </TableCell>
                       <TableCell align="center">
-                        {(item.status === 'selesai' || item.status === 'ditandatangani') && item.file_path ? (
+                        {item.status === 'selesai' || item.status === 'ditandatangani' ? (
                           <Button
                             variant="outline"
                             size="sm"
                             className="inline-flex"
-                            onClick={() => window.open(item.file_path as string, '_blank')}
+                            onClick={() => window.open(buildPdfUrl(item), '_blank')}
                           >
                             <FiDownload className="w-4 h-4" />
-                            <span>Unduh Surat</span>
+                            <span>Unduh PDF</span>
                           </Button>
                         ) : (
                           <span className="inline-flex items-center gap-2 text-sm text-gray-500">

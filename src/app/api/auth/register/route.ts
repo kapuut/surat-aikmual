@@ -22,6 +22,12 @@ function isValidNik(nik: string): boolean {
   return /^\d{16}$/.test(nik);
 }
 
+function isValidPhone(phone: string): boolean {
+  const digits = phone.replace(/[^0-9+]/g, '').trim();
+  if (!digits) return false;
+  return /^(\+62|62|0|8)\d{8,13}$/.test(digits);
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -30,10 +36,11 @@ export async function POST(request: Request) {
     const nik = String(body?.nik || '').trim();
     const password = String(body?.password || '');
     const alamat = String(body?.alamat || '').trim();
+    const telepon = String(body?.telepon || '').trim();
 
-    if (!nama || !email || !nik || !password || !alamat) {
+    if (!nama || !email || !nik || !password || !alamat || !telepon) {
       return NextResponse.json(
-        { error: 'Semua field wajib diisi' },
+        { error: 'Semua field wajib diisi, termasuk nomor WhatsApp aktif' },
         { status: 400 }
       );
     }
@@ -55,6 +62,13 @@ export async function POST(request: Request) {
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password minimal 6 karakter' },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidPhone(telepon)) {
+      return NextResponse.json(
+        { error: 'Format nomor WhatsApp tidak valid' },
         { status: 400 }
       );
     }
@@ -92,6 +106,7 @@ export async function POST(request: Request) {
     appendColumn('nik', nik);
     appendColumn('password', passwordHash);
     appendColumn('alamat', alamat);
+    appendColumn('telepon', telepon);
     appendColumn('role', 'masyarakat');
     appendColumn('status', 'aktif');
     appendColumn('username', nik);

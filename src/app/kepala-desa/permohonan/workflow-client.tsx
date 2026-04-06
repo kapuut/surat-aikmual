@@ -25,6 +25,41 @@ interface PermohonanItem {
   catatan: string | null;
 }
 
+function normalizeFilePath(rawValue: string | null): string | null {
+  if (!rawValue) return null;
+  const trimmed = rawValue.trim();
+  if (!trimmed) return null;
+
+  let candidate: string | null = trimmed;
+  if (trimmed.startsWith("[") || trimmed.startsWith('"')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        const first = parsed.find((item) => typeof item === "string" && item.trim());
+        candidate = typeof first === "string" ? first.trim() : null;
+      } else if (typeof parsed === "string" && parsed.trim()) {
+        candidate = parsed.trim();
+      }
+    } catch {
+      // Keep original when parsing fails.
+    }
+  }
+
+  if (!candidate || candidate === "[]") return null;
+  if (/^https?:\/\//i.test(candidate)) return candidate;
+  return candidate.startsWith("/") ? candidate : `/${candidate}`;
+}
+
+function isGeneratedSuratFile(pathValue: string | null): boolean {
+  if (!pathValue) return false;
+  return pathValue.includes("/generated-surat/") || pathValue.toLowerCase().endsWith(".html");
+}
+
+function isAttachmentFile(pathValue: string | null): boolean {
+  if (!pathValue) return false;
+  return pathValue.includes("/uploads/");
+}
+
 function statusLabel(status: WorkflowStatus): string {
   const labels: Record<WorkflowStatus, string> = {
     pending: "Menunggu Verifikasi",
@@ -58,7 +93,7 @@ function processNote(status: WorkflowStatus): string {
     return "Menunggu verifikasi oleh Kepala Desa";
   }
   if (status === "ditandatangani" || status === "selesai") {
-    return "Selesai diverifikasi dan siap arsip surat keluar";
+    return "Surat sudah ditandatangani digital dan siap diverifikasi lewat QR";
   }
   if (status === "perlu_revisi") {
     return "Menunggu revisi data dari admin";
@@ -86,7 +121,12 @@ export default function KepalaDesaWorkflowClient() {
 
       const rows = (result.data || []) as PermohonanItem[];
       setData(
-        rows.filter((item) =>
+        rows
+          .map((item) => ({
+            ...item,
+            file_path: normalizeFilePath(item.file_path),
+          }))
+          .filter((item) =>
           ["dikirim_ke_kepala_desa", "ditandatangani", "selesai", "perlu_revisi"].includes(item.status)
         )
       );
@@ -234,17 +274,27 @@ export default function KepalaDesaWorkflowClient() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {item.file_path ? (
+                    <div className="flex flex-col gap-1">
                       <button
-                        onClick={() => window.open(item.file_path as string, "_blank")}
+                        onClick={() => window.open(`/api/admin/permohonan/${item.id}/preview`, "_blank")}
                         className="inline-flex items-center gap-1 text-blue-600 hover:underline"
                       >
                         <FiEye className="w-3.5 h-3.5" />
-                        Lihat Surat
+                        Lihat Draft Surat
                       </button>
-                    ) : (
-                      <span className="text-xs text-gray-400">Belum ada file</span>
-                    )}
+
+                      {isGeneratedSuratFile(item.file_path) && (
+                        <a href={item.file_path as string} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">
+                          Lihat File Final
+                        </a>
+                      )}
+
+                      {isAttachmentFile(item.file_path) && (
+                        <a href={item.file_path as string} target="_blank" rel="noreferrer" className="text-amber-700 hover:underline">
+                          Lihat Lampiran
+                        </a>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2 justify-center flex-wrap">
@@ -280,17 +330,17 @@ export default function KepalaDesaWorkflowClient() {
                             onClick={() =>
                               handleUpdate(
                                 item.id,
-                                "ditandatangani",
-                                "Surat telah ditandatangani secara digital oleh Kepala Desa.",
-                                "Surat berhasil ditandatangani.",
-                                "Pastikan surat sudah sesuai. Lanjut tandatangani sekarang?"
+                                  "selesai",
+                                  "Surat telah diverifikasi dan ditandatangani secara digital oleh Kepala Desa.",
+                                  "Surat berhasil diverifikasi dan ditandatangani digital.",
+                                  "Pastikan data surat sudah benar. Lanjut verifikasi + tanda tangan digital sekarang?"
                               )
                             }
                             disabled={actionId === item.id}
                             className="inline-flex items-center gap-1 bg-blue-600 text-white px-2 py-1 text-xs rounded hover:bg-blue-700 disabled:opacity-50"
                           >
                             <FiPenTool className="w-3.5 h-3.5" />
-                            Tandatangani
+                              Verifikasi + TTD Digital
                           </button>
                         </>
                       )}
@@ -316,12 +366,29 @@ export default function KepalaDesaWorkflowClient() {
                         <>
                           <span className="text-xs text-gray-500">Tidak ada aksi</span>
                           {item.status === "selesai" && (
-                            <button
-                              onClick={() => (window.location.href = "/kepala-desa/surat-keluar")}
-                              className="bg-emerald-600 text-white px-2 py-1 text-xs rounded hover:bg-emerald-700"
-                            >
-                              Ke Surat Keluar
-                            </button>
+                            <>
+                              <button
+                                onClick={() =>
+                                  handleUpdate(
+                                    item.id,
+                                    "selesai",
+                                    "Regenerasi surat final dengan TTD digital dan QR verifikasi oleh Kepala Desa.",
+                                    "File final berhasil diperbarui dengan TTD digital + QR verifikasi.",
+                                    "Regenerasi file final sekarang? Tindakan ini akan memperbarui QR dan metadata tanda tangan."
+                                  )
+                                }
+                                disabled={actionId === item.id}
+                                className="bg-blue-600 text-white px-2 py-1 text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                Regenerasi TTD+QR
+                              </button>
+                              <button
+                                onClick={() => (window.location.href = "/kepala-desa/surat-keluar")}
+                                className="bg-emerald-600 text-white px-2 py-1 text-xs rounded hover:bg-emerald-700"
+                              >
+                                Ke Surat Keluar
+                              </button>
+                            </>
                           )}
                         </>
                       )}
