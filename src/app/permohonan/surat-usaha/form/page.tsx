@@ -1,187 +1,294 @@
-﻿"use client";
+"use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiShield, FiCheckCircle, FiClock, FiFileText } from "react-icons/fi";
+import { FiArrowLeft, FiBriefcase, FiCheckCircle, FiSend, FiUpload } from "react-icons/fi";
 
-const persyaratan = [
-	"Fotokopi Kartu Keluarga (KK)",
-	"Fotokopi KTP Pemohon",
-	"Surat Pengantar dari RT/RW",
-	"Fotokopi SIUP/TDP (jika ada)",
-	"Foto lokasi usaha",
-	"Surat keterangan usaha dari RT/RW",
-	"Formulir permohonan yang telah diisi"
-];
+function normalizeSpacing(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
 
-const prosedur = [
-	{
-		step: 1,
-		title: "Siapkan Persyaratan",
-		description: "Kumpulkan semua dokumen yang diperlukan sesuai daftar persyaratan"
-	},
-	{
-		step: 2,
-		title: "Isi Formulir",
-		description: "Klik tombol 'Ajukan Permohonan' dan isi formulir dengan lengkap"
-	},
-	{
-		step: 3,
-		title: "Upload Dokumen",
-		description: "Upload semua dokumen persyaratan dalam format PDF atau JPG"
-	},
-	{
-		step: 4,
-		title: "Verifikasi Lokasi",
-		description: "Tim akan melakukan verifikasi lokasi usaha jika diperlukan"
-	},
-	{
-		step: 5,
-		title: "Tunggu Persetujuan",
-		description: "Proses verifikasi membutuhkan waktu 2-4 hari kerja"
-	},
-	{
-		step: 6,
-		title: "Ambil Surat",
-		description: "Surat dapat diambil di kantor desa atau dikirim via email"
-	}
-];
+function toTitleCase(value: string): string {
+  const cleaned = normalizeSpacing(value);
+  if (!cleaned) return "";
 
-export default function SuratUsahaPage() {
-	return (
-		<div className="min-h-screen bg-gray-50">
-			{/* Header */}
-			<header className="bg-white border-b">
-				<div className="max-w-7xl mx-auto px-4 py-4">
-					<div className="flex items-center gap-4">
-						<Link
-							href="/"
-							className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
-						>
-							<FiArrowLeft className="w-5 h-5" />
-							Kembali ke Beranda
-						</Link>
-					</div>
-				</div>
-			</header>
+  return cleaned
+    .toLowerCase()
+    .split(" ")
+    .map((word) => (word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : ""))
+    .join(" ");
+}
 
-			<div className="max-w-4xl mx-auto px-4 py-8">
-				{/* Hero Section */}
-				<div className="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-2xl text-white p-8 mb-8">
-					<div className="flex items-center gap-4 mb-4">
-						<div className="w-16 h-16 bg-white/20 rounded-lg flex items-center justify-center">
-							<FiShield className="w-8 h-8" />
-						</div>
-						<div>
-							<h1 className="text-3xl font-bold">Surat Keterangan Usaha</h1>
-							<p className="text-indigo-100">Surat keterangan untuk keperluan usaha dan bisnis</p>
-						</div>
-					</div>
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-						<div className="flex items-center gap-2">
-							<FiClock className="w-4 h-4" />
-							<span className="text-sm">Estimasi: 2-4 hari kerja</span>
-						</div>
-						<div className="flex items-center gap-2">
-							<FiFileText className="w-4 h-4" />
-							<span className="text-sm">Format: PDF/Digital</span>
-						</div>
-						<div className="flex items-center gap-2">
-							<FiCheckCircle className="w-4 h-4" />
-							<span className="text-sm">Gratis</span>
-						</div>
-					</div>
-				</div>
+export default function SuratUsahaFormPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-				<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-					{/* Persyaratan */}
-					<div className="bg-white rounded-xl p-6 shadow-sm">
-						<h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-							<FiFileText className="w-6 h-6 text-indigo-600" />
-							Persyaratan
-						</h2>
-						<ul className="space-y-3">
-							{persyaratan.map((item, index) => (
-								<li key={index} className="flex items-start gap-3">
-									<div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-										<span className="text-xs font-semibold text-indigo-600">{index + 1}</span>
-									</div>
-									<span className="text-gray-700">{item}</span>
-								</li>
-							))}
-						</ul>
-					</div>
+  const showFeedback = () => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
-					{/* Prosedur */}
-					<div className="bg-white rounded-xl p-6 shadow-sm">
-						<h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-							<FiCheckCircle className="w-6 h-6 text-indigo-600" />
-							Prosedur Pengajuan
-						</h2>
-						<div className="space-y-4">
-							{prosedur.map((item, index) => (
-								<div key={index} className="flex gap-4">
-									<div className="w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center flex-shrink-0">
-										<span className="text-sm font-semibold">{item.step}</span>
-									</div>
-									<div>
-										<h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
-										<p className="text-sm text-gray-600">{item.description}</p>
-									</div>
-								</div>
-							))}
-						</div>
-					</div>
-				</div>
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccessMessage(null);
 
-				{/* Use Cases */}
-				<div className="mt-8 bg-white rounded-xl p-6 shadow-sm">
-					<h2 className="text-xl font-bold text-gray-900 mb-4">Kegunaan Surat Ini</h2>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<div className="flex items-start gap-3">
-							<div className="w-2 h-2 bg-indigo-600 rounded-full mt-2 flex-shrink-0"></div>
-							<span className="text-gray-700">Pengajuan kredit usaha mikro</span>
-						</div>
-						<div className="flex items-start gap-3">
-							<div className="w-2 h-2 bg-indigo-600 rounded-full mt-2 flex-shrink-0"></div>
-							<span className="text-gray-700">Pendaftaran program bantuan UMKM</span>
-						</div>
-						<div className="flex items-start gap-3">
-							<div className="w-2 h-2 bg-indigo-600 rounded-full mt-2 flex-shrink-0"></div>
-							<span className="text-gray-700">Keperluan pajak dan perizinan</span>
-						</div>
-						<div className="flex items-start gap-3">
-							<div className="w-2 h-2 bg-indigo-600 rounded-full mt-2 flex-shrink-0"></div>
-							<span className="text-gray-700">Verifikasi kegiatan usaha</span>
-						</div>
-					</div>
-				</div>
+    const formData = new FormData(e.currentTarget);
+    const asString = (name: string) => String(formData.get(name) || "");
 
-				{/* CTA Section */}
-				<div className="mt-8 bg-white rounded-xl p-6 shadow-sm text-center">
-					<h3 className="text-xl font-bold text-gray-900 mb-2">
-						Siap Mengajukan Permohonan?
-					</h3>
-					<p className="text-gray-600 mb-6">
-						Pastikan semua persyaratan sudah lengkap sebelum mengajukan permohonan
-					</p>
-					<div className="flex flex-col sm:flex-row gap-4 justify-center">
-						<Link
-							href="/permohonan/surat-usaha/form"
-							className="bg-indigo-600 text-white font-semibold py-3 px-8 rounded-lg hover:bg-indigo-700 transition-colors inline-flex items-center justify-center gap-2"
-						>
-							<FiFileText className="w-5 h-5" />
-							Ajukan Permohonan
-						</Link>
-						<Link
-							href="/tracking"
-							className="border border-indigo-600 text-indigo-600 font-semibold py-3 px-8 rounded-lg hover:bg-indigo-600 hover:text-white transition-colors inline-flex items-center justify-center gap-2"
-						>
-							<FiCheckCircle className="w-5 h-5" />
-							Lacak Status
-						</Link>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
+    const dokumenKTP = formData.get("dokumenKTP");
+    const dokumenKK = formData.get("dokumenKK");
+    const hasKtp = dokumenKTP instanceof File && dokumenKTP.size > 0;
+    const hasKk = dokumenKK instanceof File && dokumenKK.size > 0;
+
+    if (!hasKtp || !hasKk) {
+      setLoading(false);
+      setError("Upload KTP dan Kartu Keluarga (KK) wajib diisi.");
+      showFeedback();
+      return;
+    }
+
+    formData.set("jenisSurat", "Surat Keterangan Usaha");
+    formData.set("nama", toTitleCase(asString("nama")));
+    formData.set("nik", normalizeSpacing(asString("nik")));
+    formData.set("tempatLahir", toTitleCase(asString("tempatLahir")));
+    formData.set("agama", toTitleCase(asString("agama")));
+    formData.set("statusPerkawinan", toTitleCase(asString("statusPerkawinan")));
+    formData.set("pekerjaan", toTitleCase(asString("pekerjaan")));
+    formData.set("kewarganegaraan", toTitleCase(asString("kewarganegaraan")) || "Indonesia");
+    formData.set("noTelp", normalizeSpacing(asString("noTelp")));
+
+    formData.set("dusun", toTitleCase(asString("dusun")));
+    formData.set("desa", toTitleCase(asString("desa")));
+    formData.set("kecamatan", toTitleCase(asString("kecamatan")));
+    formData.set("kabupaten", toTitleCase(asString("kabupaten")));
+
+    formData.set("penyandangCacat", toTitleCase(asString("penyandangCacat")) || "Tidak");
+    formData.set("mulaiUsaha", normalizeSpacing(asString("mulaiUsaha")));
+    formData.set("jenisUsaha", toTitleCase(asString("jenisUsaha")));
+    formData.set("keperluan", normalizeSpacing(asString("keperluan")));
+
+    try {
+      const response = await fetch("/api/permohonan", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Gagal mengajukan permohonan");
+      }
+
+      setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      showFeedback();
+      window.setTimeout(() => {
+        router.push("/tracking");
+      }, 1200);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      showFeedback();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="mb-6">
+          <Link href="/permohonan/surat-usaha" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4">
+            <FiArrowLeft /> Kembali
+          </Link>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center text-white">
+                <FiBriefcase className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Surat Keterangan Usaha</h1>
+                <p className="text-gray-600">Silakan lengkapi formulir sesuai data pada surat contoh</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-start gap-3">
+              <FiCheckCircle className="w-5 h-5 mt-0.5 text-green-600" />
+              <div>
+                <p className="font-semibold">Permohonan Berhasil</p>
+                <p className="text-sm">{successMessage}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Data Pemohon</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
+                <input type="text" name="nama" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">NIK / No KTP *</label>
+                <input type="text" name="nik" required maxLength={16} pattern="[0-9]{16}" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tempat Lahir *</label>
+                <input type="text" name="tempatLahir" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Lahir *</label>
+                <input type="date" name="tanggalLahir" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Jenis Kelamin *</label>
+                <select name="jenisKelamin" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Pilih Jenis Kelamin</option>
+                  <option value="Laki-laki">Laki-laki</option>
+                  <option value="Perempuan">Perempuan</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Agama *</label>
+                <select name="agama" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Pilih Agama</option>
+                  <option value="Islam">Islam</option>
+                  <option value="Kristen">Kristen</option>
+                  <option value="Katolik">Katolik</option>
+                  <option value="Hindu">Hindu</option>
+                  <option value="Buddha">Buddha</option>
+                  <option value="Konghucu">Konghucu</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status *</label>
+                <select name="statusPerkawinan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Pilih Status</option>
+                  <option value="Belum Kawin">Belum Kawin</option>
+                  <option value="Kawin">Kawin</option>
+                  <option value="Cerai Hidup">Cerai Hidup</option>
+                  <option value="Cerai Mati">Cerai Mati</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Pekerjaan *</label>
+                <input type="text" name="pekerjaan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kewarganegaraan *</label>
+                <input type="text" name="kewarganegaraan" defaultValue="Indonesia" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">No. Telepon / WhatsApp *</label>
+                <input type="tel" name="noTelp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Alamat / Tempat Tinggal (Isi Per Kolom) *</label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dusun *</label>
+                <input type="text" name="dusun" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Desa *</label>
+                <input type="text" name="desa" defaultValue="Aikmual" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kecamatan *</label>
+                <input type="text" name="kecamatan" defaultValue="Praya" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kabupaten *</label>
+                <input type="text" name="kabupaten" defaultValue="Lombok Tengah" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Data Usaha</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Penyandang Cacat</label>
+                <select name="penyandangCacat" defaultValue="Tidak" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="Tidak">Tidak</option>
+                  <option value="Ya">Ya</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mulai Usaha *</label>
+                <input type="text" name="mulaiUsaha" required placeholder="Contoh: Tahun 2017" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Jenis Usaha *</label>
+                <input type="text" name="jenisUsaha" required placeholder="Contoh: Sembako" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Keperluan</h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Untuk Keperluan *</label>
+              <textarea name="keperluan" required rows={3} placeholder="Contoh: Kelengkapan Administrasi" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FiUpload className="w-5 h-5 text-blue-600" />
+              Upload Dokumen
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">KTP dan KK wajib diunggah. Dokumen pendukung lainnya opsional.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Upload KTP *</label>
+                <input type="file" name="dokumenKTP" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-blue-100 file:text-blue-700" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Upload Kartu Keluarga (KK) *</label>
+                <input type="file" name="dokumenKK" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-blue-100 file:text-blue-700" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dokumen Pendukung Lainnya (Opsional)</label>
+                <input type="file" name="dokumenTambahan" multiple accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-gray-100 file:text-gray-700" />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <Link href="/permohonan/surat-usaha" className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-center">
+              Batal
+            </Link>
+            <button type="submit" disabled={loading} className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-blue-400 flex items-center justify-center gap-2">
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Memproses...
+                </>
+              ) : (
+                <>
+                  <FiSend className="w-5 h-5" />
+                  Ajukan Permohonan
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }

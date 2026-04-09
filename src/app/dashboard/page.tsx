@@ -4,7 +4,7 @@ import { useRequireRole } from '@/lib/hooks';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FiFileText, FiCheckCircle, FiClock, FiXCircle, FiArrowRight, FiRefreshCw } from 'react-icons/fi';
+import { FiFileText, FiCheckCircle, FiClock, FiXCircle, FiRefreshCw } from 'react-icons/fi';
 import UserNavbar from '@/components/UserNavbar';
 import UserDashboardLayout from '@/components/layout/UserDashboardLayout';
 
@@ -142,45 +142,6 @@ export default function DashboardPage() {
               value={stats.ditolak}
               color="red"
             />
-          </div>
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Aksi Cepat</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link
-                href="/permohonan"
-                className="flex items-center justify-between p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition border border-blue-200"
-              >
-                <div>
-                  <p className="font-semibold text-gray-900">Buat Permohonan Baru</p>
-                  <p className="text-sm text-gray-600">Mulai pengajuan surat</p>
-                </div>
-                <FiArrowRight className="w-5 h-5 text-blue-600" />
-              </Link>
-
-              <Link
-                href="/tracking"
-                className="flex items-center justify-between p-4 bg-green-50 rounded-lg hover:bg-green-100 transition border border-green-200"
-              >
-                <div>
-                  <p className="font-semibold text-gray-900">Lacak Surat</p>
-                  <p className="text-sm text-gray-600">Lihat status permohonan</p>
-                </div>
-                <FiArrowRight className="w-5 h-5 text-green-600" />
-              </Link>
-
-              <Link
-                href="/profile"
-                className="flex items-center justify-between p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition border border-purple-200"
-              >
-                <div>
-                  <p className="font-semibold text-gray-900">Kelola Akun</p>
-                  <p className="text-sm text-gray-600">Edit profil Anda</p>
-                </div>
-                <FiArrowRight className="w-5 h-5 text-purple-600" />
-              </Link>
-            </div>
           </div>
 
           {/* Recent Applications */}

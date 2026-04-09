@@ -3,42 +3,51 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiSend, FiUser } from "react-icons/fi";
+import { FiArrowLeft, FiCheckCircle, FiSend, FiUpload, FiUser } from "react-icons/fi";
 
 export default function SuratJandaPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const showFeedback = () => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleInvalid = () => {
+    setSuccessMessage(null);
+    setError("Form belum lengkap atau ada data yang belum valid. Cek kembali semua field bertanda *.");
+    showFeedback();
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     const formData = new FormData(e.currentTarget);
-    const data = {
-      jenisSurat: "Surat Keterangan Janda/Duda",
-      namaLengkap: formData.get("namaLengkap"),
-      nik: formData.get("nik"),
-      tempatLahir: formData.get("tempatLahir"),
-      tanggalLahir: formData.get("tanggalLahir"),
-      jenisKelamin: formData.get("jenisKelamin"),
-      agama: formData.get("agama"),
-      pekerjaan: formData.get("pekerjaan"),
-      alamat: formData.get("alamat"),
-      noTelp: formData.get("noTelp"),
-      statusJanda: formData.get("statusJanda"),
-      namaPasangan: formData.get("namaPasangan"),
-      tanggalKejadian: formData.get("tanggalKejadian"),
-      sebabStatus: formData.get("sebabStatus"),
-      keperluan: formData.get("keperluan"),
-    };
+    const dokumenKTP = formData.get("dokumenKTP");
+    const dokumenKK = formData.get("dokumenKK");
+    const hasKtp = dokumenKTP instanceof File && dokumenKTP.size > 0;
+    const hasKk = dokumenKK instanceof File && dokumenKK.size > 0;
+
+    if (!hasKtp || !hasKk) {
+      setLoading(false);
+      setError("Upload KTP dan Kartu Keluarga (KK) wajib diisi.");
+      showFeedback();
+      return;
+    }
+
+    formData.set("jenisSurat", "Surat Keterangan Janda/Duda");
 
     try {
-      const response = await fetch("/api/permohonan/submit", {
+      const response = await fetch("/api/permohonan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -46,10 +55,14 @@ export default function SuratJandaPage() {
         throw new Error(errorData.error || "Gagal mengajukan permohonan");
       }
 
-      alert("Permohonan berhasil diajukan!");
-      router.push("/permohonan/riwayat");
+      setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      showFeedback();
+      window.setTimeout(() => {
+        router.push("/tracking");
+      }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      showFeedback();
     } finally {
       setLoading(false);
     }
@@ -75,13 +88,29 @@ export default function SuratJandaPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} onInvalidCapture={handleInvalid} className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-start gap-3">
+              <FiCheckCircle className="w-5 h-5 mt-0.5 text-green-600" />
+              <div>
+                <p className="font-semibold">Permohonan Berhasil</p>
+                <p className="text-sm">{successMessage}</p>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Data Pemohon</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
-                <input type="text" name="namaLengkap" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="text" name="nama" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">NIK *</label>
@@ -120,12 +149,31 @@ export default function SuratJandaPage() {
                 <input type="text" name="pekerjaan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kewarganegaraan *</label>
+                <input type="text" name="kewarganegaraan" required defaultValue="Indonesia" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">No. Telepon *</label>
                 <input type="tel" name="noTelp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Alamat Lengkap *</label>
-                <textarea name="alamat" required rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Alamat (Isi Per Kolom) *</label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dusun *</label>
+                <input type="text" name="dusun" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Desa *</label>
+                <input type="text" name="desa" required defaultValue="Aikmual" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kecamatan *</label>
+                <input type="text" name="kecamatan" required defaultValue="Praya" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kabupaten *</label>
+                <input type="text" name="kabupaten" required defaultValue="Lombok Tengah" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
           </div>
@@ -142,19 +190,11 @@ export default function SuratJandaPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nama Almarhum/Almarhumah Suami/Istri *</label>
-                <input type="text" name="namaPasangan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Meninggal/Cerai *</label>
-                <input type="date" name="tanggalKejadian" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sebab Status *</label>
-                <select name="sebabStatus" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">Pilih Sebab</option>
-                  <option value="Meninggal Dunia">Meninggal Dunia</option>
-                  <option value="Cerai">Cerai</option>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Alasan Status *</label>
+                <select name="alasanStatus" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Pilih Alasan</option>
+                  <option value="Cerai Hidup">Cerai Hidup</option>
+                  <option value="Cerai Mati">Cerai Mati</option>
                 </select>
               </div>
             </div>
@@ -168,9 +208,27 @@ export default function SuratJandaPage() {
             </div>
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">{error}</div>
-          )}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FiUpload className="w-5 h-5 text-blue-600" />
+              Upload Dokumen
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">KTP dan KK wajib diunggah. Dokumen pendukung lainnya bersifat opsional.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Upload KTP *</label>
+                <input type="file" name="dokumenKTP" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-blue-100 file:text-blue-700" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Upload Kartu Keluarga (KK) *</label>
+                <input type="file" name="dokumenKK" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-blue-100 file:text-blue-700" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dokumen Pendukung Lainnya (Opsional)</label>
+                <input type="file" name="dokumenTambahan" multiple accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-gray-100 file:text-gray-700" />
+              </div>
+            </div>
+          </div>
 
           <div className="flex gap-4">
             <Link href="/" className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-center">

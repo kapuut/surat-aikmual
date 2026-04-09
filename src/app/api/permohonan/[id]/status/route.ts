@@ -12,7 +12,7 @@ import { generateNomorSurat } from '@/lib/surat-generator/nomor-surat';
 import { normalizeSuratSlug } from '@/lib/surat-data';
 import { isWhatsAppApiConfigured, sendWhatsAppNotification } from '@/lib/whatsapp';
 import type { UserRole } from '@/lib/types';
-import type { JenisSurat, SuratData } from '@/lib/surat-generator/types';
+import { type JenisSurat, type SuratData } from '@/lib/surat-generator/types';
 
 export const runtime = 'nodejs';
 
@@ -183,8 +183,9 @@ async function upsertSuratKeluarArchive(
                   status = 'aktif',
                   tanggal = ?,
                   updated_at = CURRENT_TIMESTAMP
-              WHERE nomor_surat = ?`,
-      values: [params.perihal, params.tujuan, params.filePath, params.tanggal, params.nomorSurat],
+              WHERE nomor_surat = ?
+                AND LOWER(TRIM(perihal)) = LOWER(TRIM(?))`,
+      values: [params.perihal, params.tujuan, params.filePath, params.tanggal, params.nomorSurat, params.perihal],
     },
     {
       query: `UPDATE surat_keluar
@@ -193,8 +194,9 @@ async function upsertSuratKeluarArchive(
                   file_path = ?,
                   status = 'aktif',
                   updated_at = CURRENT_TIMESTAMP
-              WHERE nomor_surat = ?`,
-      values: [params.perihal, params.tujuan, params.filePath, params.nomorSurat],
+              WHERE nomor_surat = ?
+                AND LOWER(TRIM(perihal)) = LOWER(TRIM(?))`,
+      values: [params.perihal, params.tujuan, params.filePath, params.nomorSurat, params.perihal],
     },
     {
       query: `UPDATE surat_keluar
@@ -202,8 +204,9 @@ async function upsertSuratKeluarArchive(
                   tujuan = ?,
                   file_path = ?,
                   updated_at = CURRENT_TIMESTAMP
-              WHERE nomor_surat = ?`,
-      values: [params.perihal, params.tujuan, params.filePath, params.nomorSurat],
+              WHERE nomor_surat = ?
+                AND LOWER(TRIM(perihal)) = LOWER(TRIM(?))`,
+      values: [params.perihal, params.tujuan, params.filePath, params.nomorSurat, params.perihal],
     },
   ];
 
@@ -485,27 +488,40 @@ async function createPermohonanQrCode(params: {
   return { dataUrl, verificationCode };
 }
 
-async function getNextNomorSuratWithLock(connection: any, tanggal: Date): Promise<string> {
+async function getNextNomorSuratWithLock(
+  connection: any,
+  tanggal: Date,
+  jenisSurat?: JenisSurat
+): Promise<string> {
   const bulan = String(tanggal.getMonth() + 1).padStart(2, '0');
   const tahun = String(tanggal.getFullYear());
   const suffix = `/${bulan}.${tahun}`;
-  const lockName = `permohonan_surat_nomor_${bulan}_${tahun}`;
+  const nomorScope = jenisSurat
+    ? jenisSurat.replace(/[^a-z0-9]+/gi, '_').toLowerCase()
+    : 'global';
+  const lockName = `permohonan_surat_nomor_${nomorScope}_${bulan}_${tahun}`;
 
   await connection.execute('SELECT GET_LOCK(?, 10)', [lockName]);
   try {
     const [rows]: any = await connection.execute(
-      `SELECT nomor_surat
+      `SELECT nomor_surat, jenis_surat
        FROM permohonan_surat
        WHERE nomor_surat LIKE ?
        ORDER BY id DESC
-       LIMIT 1
        FOR UPDATE`,
       [`%${suffix}`]
     );
 
+    const scopedRows = Array.isArray(rows)
+      ? rows.filter((row: any) => {
+          if (!jenisSurat) return true;
+          return normalizeSuratSlug(String(row?.jenis_surat || '')) === jenisSurat;
+        })
+      : [];
+
     let nomorUrut = 1;
-    if (rows?.length > 0 && typeof rows[0].nomor_surat === 'string') {
-      const parsed = parseInt(String(rows[0].nomor_surat).split('/')[0], 10);
+    if (scopedRows.length > 0 && typeof scopedRows[0].nomor_surat === 'string') {
+      const parsed = parseInt(String(scopedRows[0].nomor_surat).split('/')[0], 10);
       nomorUrut = Number.isFinite(parsed) ? parsed + 1 : 1;
     }
 
@@ -667,6 +683,319 @@ export async function PUT(
         'statusPerkawinanPemohon',
         'status',
       ]);
+      const namaAlmarhum = getTextWithDetail(undefined, detailData, [
+        'nama_almarhum',
+        'namaAlmarhum',
+      ]);
+      const nikAlmarhum = getTextWithDetail(undefined, detailData, [
+        'nik_almarhum',
+        'nikAlmarhum',
+      ]);
+      const tempatLahirAlmarhum = getTextWithDetail(undefined, detailData, [
+        'tempat_lahir_almarhum',
+        'tempatLahirAlmarhum',
+        'tempat_lahir',
+        'tempatLahir',
+      ]);
+      const tanggalLahirAlmarhum = getDateWithDetail(undefined, detailData, [
+        'tanggal_lahir_almarhum',
+        'tanggalLahirAlmarhum',
+        'tanggal_lahir',
+        'tanggalLahir',
+      ]);
+      const jenisKelaminAlmarhum = getGenderWithDetail(undefined, detailData, [
+        'jenis_kelamin_almarhum',
+        'jenisKelaminAlmarhum',
+        'jenis_kelamin',
+        'jenisKelamin',
+      ]);
+      const agamaAlmarhum = getTextWithDetail(undefined, detailData, [
+        'agama_almarhum',
+        'agamaAlmarhum',
+        'agama',
+      ]);
+      const pekerjaanAlmarhum = getTextWithDetail(undefined, detailData, [
+        'pekerjaan_almarhum',
+        'pekerjaanAlmarhum',
+        'pekerjaan',
+      ]);
+      const alamatTerakhir = getTextWithDetail(undefined, detailData, [
+        'alamat_terakhir',
+        'alamatTerakhir',
+        'alamat_almarhum',
+        'alamatAlmarhum',
+      ]);
+      const hubunganPelapor = getTextWithDetail(undefined, detailData, [
+        'hubungan_pelapor',
+        'hubunganPelapor',
+        'hubungan_dengan_almarhum',
+        'hubunganDenganAlmarhum',
+      ]);
+      const tanggalMeninggal = getDateWithDetail(undefined, detailData, [
+        'tanggal_meninggal',
+        'tanggalMeninggal',
+        'tanggal_kematian',
+      ]);
+      const waktuMeninggal = getTextWithDetail(undefined, detailData, [
+        'waktu_meninggal',
+        'waktuMeninggal',
+      ]);
+      const tempatMeninggal = getTextWithDetail(undefined, detailData, [
+        'tempat_meninggal',
+        'tempatMeninggal',
+      ]);
+      const sebabKematian = getTextWithDetail(undefined, detailData, [
+        'sebab_kematian',
+        'sebabKematian',
+        'sebabMeninggal',
+      ]);
+      const tanggalPemakaman = getDateWithDetail(undefined, detailData, [
+        'tanggal_pemakaman',
+        'tanggalPemakaman',
+      ]);
+      const waktuPemakaman = getTextWithDetail(undefined, detailData, [
+        'waktu_pemakaman',
+        'waktuPemakaman',
+      ]);
+      const tempatPemakaman = getTextWithDetail(undefined, detailData, [
+        'tempat_pemakaman',
+        'tempatPemakaman',
+      ]);
+      const namaMantan = getTextWithDetail(undefined, detailData, [
+        'nama_mantan',
+        'namaMantan',
+      ]);
+      const nikPasangan = getTextWithDetail(undefined, detailData, [
+        'nik_pasangan',
+        'nikPasangan',
+        'nik_mantan',
+        'nikMantan',
+      ]);
+      const tempatLahirPasangan = getTextWithDetail(undefined, detailData, [
+        'tempat_lahir_pasangan',
+        'tempatLahirPasangan',
+        'tempat_lahir_mantan',
+        'tempatLahirMantan',
+      ]);
+      const tanggalLahirPasangan = getDateWithDetail(undefined, detailData, [
+        'tanggal_lahir_pasangan',
+        'tanggalLahirPasangan',
+        'tanggal_lahir_mantan',
+        'tanggalLahirMantan',
+      ]);
+      const kewarganegaraanPasangan =
+        getTextWithDetail(undefined, detailData, ['kewarganegaraan_pasangan', 'kewarganegaraanPasangan']) ||
+        'Indonesia';
+      const agamaPasangan = getTextWithDetail(undefined, detailData, [
+        'agama_pasangan',
+        'agamaPasangan',
+        'agama_mantan',
+        'agamaMantan',
+      ]);
+      const pekerjaanPasangan = getTextWithDetail(undefined, detailData, [
+        'pekerjaan_pasangan',
+        'pekerjaanPasangan',
+        'pekerjaan_mantan',
+        'pekerjaanMantan',
+      ]);
+      const alamatPasangan = getTextWithDetail(undefined, detailData, [
+        'alamat_pasangan',
+        'alamatPasangan',
+        'alamat_mantan',
+        'alamatMantan',
+      ]);
+      const tanggalCerai = getDateWithDetail(undefined, detailData, [
+        'tanggal_cerai',
+        'tanggalCerai',
+      ]);
+      const nomorAktaCerai = getTextWithDetail(undefined, detailData, [
+        'nomor_akta_cerai',
+        'nomorAktaCerai',
+        'no_akta_cerai',
+        'noAktaCerai',
+      ]);
+      const tempatCerai = getTextWithDetail(undefined, detailData, [
+        'tempat_cerai',
+        'tempatCerai',
+        'pengadilanCerai',
+      ]);
+      const teleponPemohon = getTextWithDetail(undefined, detailData, [
+        'telepon',
+        'noTelp',
+        'no_telp',
+        'nomor_hp',
+        'no_hp',
+        'nomor_wa',
+        'no_wa',
+        'whatsapp',
+      ]);
+      const statusJanda = getTextWithDetail(undefined, detailData, [
+        'status_janda',
+        'statusJanda',
+      ]);
+      const alasanStatusJanda = getTextWithDetail(undefined, detailData, [
+        'alasan_status_janda',
+        'alasanStatusJanda',
+        'alasan_status',
+        'alasanStatus',
+        'sebab_status',
+        'sebabStatus',
+      ]);
+      const namaPasanganJanda = getTextWithDetail(undefined, detailData, [
+        'nama_pasangan',
+        'namaPasangan',
+      ]);
+      const tanggalKejadianJanda = getDateWithDetail(undefined, detailData, [
+        'tanggal_kejadian',
+        'tanggalKejadian',
+      ]);
+      const statusPemohonKehilangan = getTextWithDetail(permohonan.status_perkawinan, detailData, [
+        'statusPerkawinan',
+        'status_perkawinan',
+        'status',
+      ]);
+      const penyandangCacat = getTextWithDetail(undefined, detailData, [
+        'penyandangCacat',
+        'penyandang_cacat',
+      ]);
+      const jenisBarang = getTextWithDetail(undefined, detailData, [
+        'jenisBarang',
+        'jenis_barang',
+        'kategoriBarang',
+        'kategori_barang',
+      ]);
+      const barangHilang = getTextWithDetail(undefined, detailData, [
+        'barangHilang',
+        'barang_hilang',
+        'namaBarang',
+        'nama_barang',
+        'objekKehilangan',
+        'objek_kehilangan',
+      ]);
+      const asalBarang = getTextWithDetail(undefined, detailData, [
+        'asalBarang',
+        'asal_barang',
+        'instansiBarang',
+        'instansi_barang',
+      ]);
+      const labelNomorBarang = getTextWithDetail(undefined, detailData, [
+        'labelNomorBarang',
+        'label_nomor_barang',
+      ]);
+      const nomorBarang = getTextWithDetail(undefined, detailData, [
+        'nomorBarang',
+        'nomor_barang',
+      ]);
+      const ciriBarang = getTextWithDetail(undefined, detailData, [
+        'ciriBarang',
+        'ciri_barang',
+        'deskripsiBarang',
+        'deskripsi_barang',
+      ]);
+      const uraianKehilangan = getTextWithDetail(undefined, detailData, [
+        'keteranganKehilangan',
+        'keterangan_kehilangan',
+        'uraianKehilangan',
+        'uraian_kehilangan',
+        'keluhanPemohon',
+        'keluhan_pemohon',
+      ]);
+      const lokasiKehilangan = getTextWithDetail(undefined, detailData, [
+        'lokasiKehilangan',
+        'lokasi_kehilangan',
+      ]);
+      const tanggalKehilangan = getDateWithDetail(undefined, detailData, [
+        'tanggalKehilangan',
+        'tanggal_kehilangan',
+      ]);
+      const pendidikan = getTextWithDetail(undefined, detailData, [
+        'pendidikan',
+        'pendidikanTerakhir',
+        'pendidikan_terakhir',
+      ]);
+      const namaWali = getTextWithDetail(undefined, detailData, [
+        'nama_wali',
+        'namaWali',
+      ]);
+      const nikWali = getTextWithDetail(undefined, detailData, [
+        'nik_wali',
+        'nikWali',
+      ]);
+      const tempatLahirWali = getTextWithDetail(undefined, detailData, [
+        'tempat_lahir_wali',
+        'tempatLahirWali',
+      ]);
+      const tanggalLahirWali = getDateWithDetail(undefined, detailData, [
+        'tanggal_lahir_wali',
+        'tanggalLahirWali',
+      ]);
+      const jenisKelaminWali = getGenderWithDetail(undefined, detailData, [
+        'jenis_kelamin_wali',
+        'jenisKelaminWali',
+      ]);
+      const agamaWali = getTextWithDetail(undefined, detailData, [
+        'agama_wali',
+        'agamaWali',
+      ]);
+      const sumberPenghasilan = getTextWithDetail(undefined, detailData, [
+        'sumber_penghasilan',
+        'sumberPenghasilan',
+      ]);
+      const penghasilanPerBulan = getTextWithDetail(undefined, detailData, [
+        'penghasilan_per_bulan',
+        'penghasilanPerBulan',
+        'nominal_penghasilan',
+        'nominalPenghasilan',
+      ]);
+      const dasarKeterangan = getTextWithDetail(undefined, detailData, [
+        'dasar_keterangan',
+        'dasarKeterangan',
+      ]);
+      const statusTempatTinggal = getTextWithDetail(undefined, detailData, [
+        'status_tempat_tinggal',
+        'statusTempatTinggal',
+      ]);
+      const namaPemilikRumah = getTextWithDetail(undefined, detailData, [
+        'nama_pemilik_rumah',
+        'namaPemilikRumah',
+      ]);
+      const hubunganDenganPemilik = getTextWithDetail(undefined, detailData, [
+        'hubungan_dengan_pemilik',
+        'hubunganDenganPemilik',
+      ]);
+      const alamatTinggalSekarang = getTextWithDetail(undefined, detailData, [
+        'alamat_tinggal_sekarang',
+        'alamatTinggalSekarang',
+      ]);
+      const lamaMenempati = getTextWithDetail(undefined, detailData, [
+        'lama_menempati',
+        'lamaMenempati',
+      ]);
+      const jumlahTanggungan = getTextWithDetail(undefined, detailData, [
+        'jumlah_tanggungan',
+        'jumlahTanggungan',
+      ]);
+      const alasanTidakMemiliki = getTextWithDetail(undefined, detailData, [
+        'alasan_tidak_memiliki',
+        'alasanTidakMemiliki',
+      ]);
+      const mulaiUsaha = getTextWithDetail(undefined, detailData, [
+        'mulai_usaha',
+        'mulaiUsaha',
+      ]);
+      const jenisUsaha = getTextWithDetail(undefined, detailData, [
+        'jenis_usaha',
+        'jenisUsaha',
+        'nama_usaha',
+        'namaUsaha',
+      ]);
+      const isSuratKematian = jenisSurat === 'surat-kematian';
+      const isSuratCerai = jenisSurat === 'surat-cerai';
+      const isSuratJanda = jenisSurat === 'surat-janda';
+      const isSuratKehilangan = jenisSurat === 'surat-kehilangan';
+      const isSuratPenghasilan = jenisSurat === 'surat-penghasilan';
+      const isSuratTidakPunyaRumah = jenisSurat === 'surat-tidak-punya-rumah';
+      const isSuratUsaha = jenisSurat === 'surat-usaha';
       const kewarganegaraan =
         getTextWithDetail(permohonan.kewarganegaraan, detailData, ['kewarganegaraan']) || 'Indonesia';
       const masaBerlakuDari =
@@ -674,10 +1003,10 @@ export async function PUT(
         tanggalSurat;
       const masaBerlakuSampai =
         getDateWithDetail(permohonan.masa_berlaku_sampai, detailData, ['masa_berlaku_sampai', 'masaBerlakuSampai']) ||
-        new Date(masaBerlakuDari.getFullYear(), masaBerlakuDari.getMonth() + 5, masaBerlakuDari.getDate());
+        new Date(masaBerlakuDari.getFullYear(), masaBerlakuDari.getMonth() + 6, masaBerlakuDari.getDate());
 
       if (!nomorSurat) {
-        nomorSurat = await getNextNomorSuratWithLock(connection, tanggalSurat);
+        nomorSurat = await getNextNomorSuratWithLock(connection, tanggalSurat, jenisSurat);
       }
 
       const shouldEmbedSignature = ['ditandatangani', 'selesai'].includes(normalizedStatus);
@@ -708,21 +1037,128 @@ export async function PUT(
           jenisSurat,
           nomorSurat,
           tanggalSurat,
-          nama: permohonan.nama_pemohon,
-          nik: permohonan.nik,
-          tempatLahir,
-          tanggalLahir,
-          jeniKelamin: jenisKelamin,
-          agama,
-          pekerjaan,
+          nama: isSuratKematian ? (namaAlmarhum || permohonan.nama_pemohon) : permohonan.nama_pemohon,
+          nik: isSuratKematian ? (nikAlmarhum || permohonan.nik) : permohonan.nik,
+          tempatLahir: isSuratKematian ? (tempatLahirAlmarhum || tempatLahir) : tempatLahir,
+          tanggalLahir: isSuratKematian ? (tanggalLahirAlmarhum || tanggalLahir) : tanggalLahir,
+          jeniKelamin: isSuratKematian ? (jenisKelaminAlmarhum || jenisKelamin) : jenisKelamin,
+          agama: isSuratKematian ? (agamaAlmarhum || agama) : agama,
+          pekerjaan: isSuratKematian ? (pekerjaanAlmarhum || pekerjaan) : pekerjaan,
           statusPerkawinan,
           kewarganegaraan,
           tanggalBerlaku: {
             dari: masaBerlakuDari,
             sampai: masaBerlakuSampai,
           },
-          alamat: permohonan.alamat,
-          isiSurat: `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}. Surat keterangan ini dipergunakan untuk keperluan ${permohonan.keperluan}.`,
+          alamat: isSuratKematian ? (alamatTerakhir || permohonan.alamat) : permohonan.alamat,
+          isiSurat: isSuratCerai
+            ? `Bahwa berdasarkan data administrasi kependudukan yang ada, benar ${permohonan.nama_pemohon} telah bercerai secara sah dengan ${namaMantan || 'pasangannya'}. Surat keterangan ini dipergunakan untuk keperluan ${permohonan.keperluan}.`
+            : isSuratJanda
+              ? `Bahwa yang namanya tersebut diatas memang benar berstatus ${statusJanda || 'Janda/Duda'}${alasanStatusJanda ? ` (${alasanStatusJanda})` : ''}.`
+              : isSuratPenghasilan
+                ? `Bahwa yang namanya tersebut di atas merupakan penduduk Desa Aikmual dan merupakan anak/tanggungan dari ${namaWali || 'wali yang bersangkutan'}. Berdasarkan keterangan ${dasarKeterangan || 'Kepala Dusun setempat'}, penghasilan wali/orang tua yang bersangkutan sebesar ${penghasilanPerBulan || 'sesuai keterangan'} per bulan${sumberPenghasilan ? ` dari ${sumberPenghasilan}` : ''}. Surat ini dipergunakan untuk keperluan ${permohonan.keperluan}.`
+              : isSuratTidakPunyaRumah
+                ? `Orang tersebut adalah benar-benar warga Desa Aikmual dengan data seperti di atas, dan memang yang bersangkutan Belum Memiliki Rumah.`
+              : isSuratUsaha
+                ? `Menerangkan bahwa orang tersebut adalah benar-benar warga Desa Aikmual dengan data seperti di atas, yang memiliki usaha ${jenisUsaha || '-'}.`
+              : isSuratKehilangan
+                ? `Menerangkan bahwa orang tersebut adalah benar-benar warga Desa Aikmual dan telah kehilangan ${barangHilang || 'barang penting'}${jenisBarang ? ` yang tergolong ${jenisBarang}` : ''}${asalBarang ? ` milik/berasal dari ${asalBarang}` : ''}${nomorBarang ? ` dengan ${labelNomorBarang || 'Nomor'}: ${nomorBarang}` : ''}${lokasiKehilangan ? ` di ${lokasiKehilangan}` : ''}${uraianKehilangan ? `. Menurut keterangan pemohon ${uraianKehilangan}` : ''}${ciriBarang ? `. Barang tersebut memiliki ciri-ciri ${ciriBarang}` : ''}.`
+              : `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}. Surat keterangan ini dipergunakan untuk keperluan ${permohonan.keperluan}.`,
+          kematian: isSuratKematian
+            ? {
+                namaAlmarhum: namaAlmarhum || permohonan.nama_pemohon,
+                nikAlmarhum: nikAlmarhum || permohonan.nik,
+                tempatLahirAlmarhum: tempatLahirAlmarhum || tempatLahir,
+                tanggalLahirAlmarhum: tanggalLahirAlmarhum || tanggalLahir,
+                jenisKelaminAlmarhum: jenisKelaminAlmarhum || jenisKelamin,
+                agamaAlmarhum: agamaAlmarhum || agama,
+                pekerjaanAlmarhum: pekerjaanAlmarhum || pekerjaan,
+                alamatTerakhir: alamatTerakhir || permohonan.alamat,
+                hubunganPelapor,
+                tanggalMeninggal,
+                waktuMeninggal,
+                tempatMeninggal,
+                sebabKematian,
+                tanggalPemakaman,
+                waktuPemakaman,
+                tempatPemakaman,
+              }
+            : undefined,
+          cerai: isSuratCerai
+            ? {
+                namaMantan,
+                nikPasangan,
+                tempatLahirPasangan,
+                tanggalLahirPasangan,
+                kewarganegaraanPasangan,
+                agamaPasangan,
+                pekerjaanPasangan,
+                alamatPasangan,
+                tanggalCerai,
+                nomorAktaCerai,
+                tempatCerai,
+                teleponPemohon,
+              }
+            : undefined,
+          janda: isSuratJanda
+            ? {
+                statusJanda,
+                alasanStatus: alasanStatusJanda,
+                namaPasangan: namaPasanganJanda,
+                tanggalKejadian: tanggalKejadianJanda,
+              }
+            : undefined,
+          kehilangan: isSuratKehilangan
+            ? {
+                statusPemohon: statusPemohonKehilangan,
+                penyandangCacat,
+                jenisBarang,
+                barangHilang,
+                asalBarang,
+                labelNomorBarang,
+                nomorBarang,
+                ciriBarang,
+                uraianKehilangan,
+                lokasiKehilangan,
+                tanggalKehilangan,
+                keperluan: permohonan.keperluan,
+              }
+            : undefined,
+          penghasilan: isSuratPenghasilan
+            ? {
+                pendidikan,
+                namaWali,
+                nikWali,
+                tempatLahirWali,
+                tanggalLahirWali,
+                jenisKelaminWali,
+                agamaWali,
+                sumberPenghasilan,
+                penghasilanPerBulan,
+                dasarKeterangan,
+              }
+            : undefined,
+          rumah: isSuratTidakPunyaRumah
+            ? {
+                keperluan: permohonan.keperluan,
+                penyandangCacat,
+                statusTempatTinggal,
+                namaPemilikRumah,
+                hubunganDenganPemilik,
+                alamatTinggalSekarang,
+                lamaMenempati,
+                jumlahTanggungan,
+                alasanTidakMemiliki,
+              }
+            : undefined,
+          usaha: isSuratUsaha
+            ? {
+                keperluan: permohonan.keperluan,
+                penyandangCacat,
+                mulaiUsaha,
+                jenisUsaha,
+              }
+            : undefined,
           kepalaDesa: {
             nama: 'KEPALA DESA AIKMUAL',
             signatureImageUrl: shouldEmbedSignature ? signatureImageUrl : undefined,
@@ -745,7 +1181,8 @@ export async function PUT(
       id: params.id,
     });
 
-    if (normalizedStatus === 'selesai' && nomorSurat) {
+    const shouldSyncSuratKeluar = ['ditandatangani', 'selesai'].includes(normalizedStatus);
+    if (shouldSyncSuratKeluar && nomorSurat) {
       const tanggalArsip = new Date().toISOString().split('T')[0];
       const tujuan = permohonan.nama_pemohon || 'Pemohon';
       const perihal = `${permohonan.jenis_surat} - ${permohonan.keperluan}`;

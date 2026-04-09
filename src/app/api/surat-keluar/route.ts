@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/auth";
 import { RowDataPacket } from "mysql2";
+import { normalizeSuratSlug } from "@/lib/surat-data";
 
 function isUnknownColumnError(error: unknown): boolean {
   return String((error as any)?.message || "").toLowerCase().includes("unknown column");
@@ -22,6 +23,21 @@ function normalizeStatus(value: unknown): "Draft" | "Menunggu" | "Terkirim" {
   if (["draft", "draf"].includes(text)) return "Draft";
   if (["pending", "menunggu", "proses", "diproses"].includes(text)) return "Menunggu";
   return "Terkirim";
+}
+
+function getJenisKeyFromPerihal(value: unknown): string {
+  const text = String(value ?? "").trim();
+  if (!text) return "unknown";
+
+  const head = text.split(" - ")[0]?.trim() || text;
+  const normalized = normalizeSuratSlug(head) || normalizeSuratSlug(text);
+  return normalized || head.toLowerCase();
+}
+
+function createSyncKey(nomorSurat: unknown, jenisValue: unknown): string {
+  const nomor = String(nomorSurat ?? "").trim().toLowerCase();
+  const jenis = String(jenisValue ?? "").trim().toLowerCase();
+  return `${nomor}||${jenis}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -122,10 +138,128 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    const permohonanQueryVariants = [
+      `SELECT
+        p.id,
+        p.nomor_surat,
+        p.jenis_surat,
+        p.keperluan,
+        p.nama_pemohon,
+        p.file_path,
+        p.status,
+        p.updated_at,
+        p.created_at
+      FROM permohonan_surat p
+      WHERE p.nomor_surat IS NOT NULL
+        AND p.nomor_surat <> ''
+        AND p.status IN ('ditandatangani', 'selesai')`,
+      `SELECT
+        p.id,
+        p.nomor_surat,
+        p.jenis_surat,
+        p.keperluan,
+        p.nama_pemohon,
+        p.dokumen_path AS file_path,
+        p.status,
+        p.updated_at,
+        p.created_at
+      FROM permohonan_surat p
+      WHERE p.nomor_surat IS NOT NULL
+        AND p.nomor_surat <> ''
+        AND p.status IN ('ditandatangani', 'selesai')`,
+    ];
+
+    let permohonanRows: RowDataPacket[] = [];
+    let permohonanError: unknown = null;
+
+    for (const query of permohonanQueryVariants) {
+      try {
+        const [result] = await db.query<RowDataPacket[]>(query);
+        permohonanRows = result;
+        permohonanError = null;
+        break;
+      } catch (error) {
+        permohonanError = error;
+        if (!isUnknownColumnError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    if (permohonanError && !permohonanRows.length) {
+      throw permohonanError;
+    }
+
+    const merged = new Map<string, {
+      id: number;
+      nomor_surat: string;
+      tanggal_surat: unknown;
+      tujuan: string;
+      perihal: string;
+      file_path: string | null;
+      status: "Draft" | "Menunggu" | "Terkirim";
+      created_by_name: string | null;
+    }>();
+
+    data.forEach((item) => {
+      const key = createSyncKey(item.nomor_surat, getJenisKeyFromPerihal(item.perihal));
+      merged.set(key, item);
+    });
+
+    permohonanRows.forEach((row) => {
+      const nomorSurat = String((row as any).nomor_surat || "").trim();
+      if (!nomorSurat) return;
+
+      const jenisSurat = String((row as any).jenis_surat || "").trim();
+      const keperluan = String((row as any).keperluan || "").trim();
+      const perihal = `${jenisSurat || "surat"}${keperluan ? ` - ${keperluan}` : ""}`;
+      const filePath = normalizeFilePath((row as any).file_path);
+      const tujuan = String((row as any).nama_pemohon || "Pemohon").trim() || "Pemohon";
+      const tanggal = (row as any).updated_at ?? (row as any).created_at ?? null;
+      const key = createSyncKey(nomorSurat, normalizeSuratSlug(jenisSurat) || jenisSurat.toLowerCase());
+
+      const fallbackItem = {
+        id: Number((row as any).id) * -1,
+        nomor_surat: nomorSurat,
+        tanggal_surat: tanggal,
+        tujuan,
+        perihal,
+        file_path: filePath,
+        status: normalizeStatus((row as any).status),
+        created_by_name: null,
+      };
+
+      const existing = merged.get(key);
+      if (!existing) {
+        merged.set(key, fallbackItem);
+        return;
+      }
+
+      if (!existing.file_path && fallbackItem.file_path) {
+        existing.file_path = fallbackItem.file_path;
+      }
+
+      if (existing.status !== "Terkirim" && fallbackItem.status === "Terkirim") {
+        existing.status = "Terkirim";
+      }
+
+      if (!existing.tanggal_surat && fallbackItem.tanggal_surat) {
+        existing.tanggal_surat = fallbackItem.tanggal_surat;
+      }
+
+      merged.set(key, existing);
+    });
+
+    const mergedData = Array.from(merged.values()).sort((a, b) => {
+      const timeA = new Date(String(a.tanggal_surat || "1970-01-01")).getTime();
+      const timeB = new Date(String(b.tanggal_surat || "1970-01-01")).getTime();
+      return timeB - timeA;
+    });
+
     return NextResponse.json({
       success: true,
-      data,
-      total: data.length,
+      data: mergedData,
+      total: mergedData.length,
     });
   } catch (error) {
     console.error("Error fetching surat keluar:", error);

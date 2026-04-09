@@ -16,6 +16,7 @@ interface PermohonanItem {
   id: number;
   nomor_surat: string | null;
   file_path: string | null;
+  attachment_paths?: string[];
   created_at: string;
   nama_pemohon: string;
   nik: string;
@@ -52,12 +53,27 @@ function normalizeFilePath(rawValue: string | null): string | null {
 
 function isGeneratedSuratFile(pathValue: string | null): boolean {
   if (!pathValue) return false;
-  return pathValue.includes("/generated-surat/") || pathValue.toLowerCase().endsWith(".html");
+  const lowerPath = pathValue.toLowerCase();
+  return lowerPath.includes("/generated-surat/") || lowerPath.endsWith(".html") || lowerPath.includes(".html?");
 }
 
 function isAttachmentFile(pathValue: string | null): boolean {
   if (!pathValue) return false;
   return pathValue.includes("/uploads/");
+}
+
+function resolveAttachmentPaths(item: PermohonanItem): string[] {
+  const fromApi = Array.isArray(item.attachment_paths)
+    ? item.attachment_paths
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .map((value) => value.trim())
+    : [];
+
+  if (fromApi.length > 0) {
+    return Array.from(new Set(fromApi));
+  }
+
+  return isAttachmentFile(item.file_path) && item.file_path ? [item.file_path] : [];
 }
 
 function statusLabel(status: WorkflowStatus): string {
@@ -113,6 +129,11 @@ export default function KepalaDesaWorkflowClient() {
   const [showArchive, setShowArchive] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [revisionTargetId, setRevisionTargetId] = useState<number | null>(null);
+  const [revisionNote, setRevisionNote] = useState(
+    "Mohon perbaiki data permohonan sesuai catatan peninjauan Kepala Desa."
+  );
+  const [revisionError, setRevisionError] = useState<string | null>(null);
 
   const fetchPermohonan = async () => {
     try {
@@ -182,10 +203,10 @@ export default function KepalaDesaWorkflowClient() {
     catatan: string,
     successMessage: string,
     confirmMessage?: string
-  ) => {
+  ): Promise<boolean> => {
     try {
       if (confirmMessage && !window.confirm(confirmMessage)) {
-        return;
+        return false;
       }
 
       setActionId(id);
@@ -206,10 +227,51 @@ export default function KepalaDesaWorkflowClient() {
 
       setNotice(successMessage);
       await fetchPermohonan();
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan saat memperbarui status");
+      return false;
     } finally {
       setActionId(null);
+    }
+  };
+
+  const openRevisionModal = (id: number) => {
+    setRevisionTargetId(id);
+    setRevisionError(null);
+    setRevisionNote("Mohon perbaiki data permohonan sesuai catatan peninjauan Kepala Desa.");
+  };
+
+  const closeRevisionModal = () => {
+    if (actionId === revisionTargetId) {
+      return;
+    }
+
+    setRevisionTargetId(null);
+    setRevisionError(null);
+  };
+
+  const submitRevision = async () => {
+    if (revisionTargetId === null) {
+      return;
+    }
+
+    if (!revisionNote.trim()) {
+      setRevisionError("Catatan revisi tidak boleh kosong.");
+      return;
+    }
+
+    setRevisionError(null);
+    const success = await handleUpdate(
+      revisionTargetId,
+      "perlu_revisi",
+      revisionNote,
+      "Permohonan berhasil dikembalikan ke admin untuk revisi."
+    );
+
+    if (success) {
+      setRevisionTargetId(null);
+      setRevisionError(null);
     }
   };
 
@@ -219,15 +281,18 @@ export default function KepalaDesaWorkflowClient() {
   );
 
   const signedCount = useMemo(
-    () => data.filter((item) => item.status === "ditandatangani" || item.status === "selesai").length,
+    () =>
+      data.filter(
+        (item) => (item.status === "ditandatangani" || item.status === "selesai") && isGeneratedSuratFile(item.file_path)
+      ).length,
     [data]
   );
 
   const visibleData = useMemo(() => {
     if (showArchive) {
-      return data.filter((item) => isFinalizedStatus(item.status));
+      return data.filter((item) => isFinalizedStatus(item.status) && isGeneratedSuratFile(item.file_path));
     }
-    return data.filter((item) => !isFinalizedStatus(item.status));
+    return data.filter((item) => !(isFinalizedStatus(item.status) && isGeneratedSuratFile(item.file_path)));
   }, [data, showArchive]);
 
   return (
@@ -313,7 +378,16 @@ export default function KepalaDesaWorkflowClient() {
                 </td>
               </tr>
             ) : (
-              visibleData.map((item) => (
+              visibleData.map((item) => {
+                const attachmentLinks = resolveAttachmentPaths(item);
+                const hasFinalSignedFile = isGeneratedSuratFile(item.file_path);
+                const shouldOpenFinalFile = isFinalizedStatus(item.status) && hasFinalSignedFile;
+                const suratPreviewUrl = shouldOpenFinalFile
+                  ? (item.file_path as string)
+                  : `/api/admin/permohonan/${item.id}/preview`;
+                const suratPreviewLabel = shouldOpenFinalFile ? "Lihat Surat Final" : "Lihat Draft Surat";
+
+                return (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">
                     {item.nomor_surat || `REG-${item.id}/${new Date(item.created_at).getFullYear()}`}
@@ -334,21 +408,20 @@ export default function KepalaDesaWorkflowClient() {
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
                       <button
-                        onClick={() => window.open(`/api/admin/permohonan/${item.id}/preview`, "_blank")}
+                        onClick={() => window.open(suratPreviewUrl, "_blank")}
                         className="inline-flex items-center gap-1 text-blue-600 hover:underline"
                       >
                         <FiEye className="w-3.5 h-3.5" />
-                        Lihat Draft Surat
+                        {suratPreviewLabel}
                       </button>
 
-                      {isGeneratedSuratFile(item.file_path) && (
-                        <a href={item.file_path as string} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">
-                          Lihat File Final
-                        </a>
-                      )}
-
-                      {isAttachmentFile(item.file_path) && (
-                        <a href={item.file_path as string} target="_blank" rel="noreferrer" className="text-amber-700 hover:underline">
+                      {attachmentLinks.length > 0 && (
+                        <a
+                          href={`/api/admin/permohonan/${item.id}/preview?attachments=1`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-amber-700 hover:underline"
+                        >
                           Lihat Lampiran
                         </a>
                       )}
@@ -359,25 +432,7 @@ export default function KepalaDesaWorkflowClient() {
                       {item.status === "dikirim_ke_kepala_desa" && (
                         <>
                           <button
-                            onClick={() => {
-                              const revisiNote = window.prompt(
-                                "Masukkan catatan revisi untuk admin:",
-                                "Mohon perbaiki data permohonan sesuai catatan peninjauan Kepala Desa."
-                              );
-
-                              if (revisiNote === null) return;
-                              if (!revisiNote.trim()) {
-                                window.alert("Catatan revisi tidak boleh kosong.");
-                                return;
-                              }
-
-                              void handleUpdate(
-                                item.id,
-                                "perlu_revisi",
-                                revisiNote,
-                                "Permohonan berhasil dikembalikan ke admin untuk revisi."
-                              );
-                            }}
+                            onClick={() => openRevisionModal(item.id)}
                             disabled={actionId === item.id}
                             className="inline-flex items-center gap-1 bg-orange-500 text-white px-2 py-1 text-xs rounded hover:bg-orange-600 disabled:opacity-50"
                           >
@@ -472,11 +527,59 @@ export default function KepalaDesaWorkflowClient() {
                     </div>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
+
+      {revisionTargetId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white shadow-2xl">
+            <div className="border-b border-gray-100 px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Kirim Catatan Revisi</h3>
+              <p className="mt-1 text-sm text-gray-500">Tulis arahan revisi untuk admin agar perbaikan lebih jelas.</p>
+            </div>
+
+            <div className="px-6 py-4">
+              <label htmlFor="revision-note" className="mb-2 block text-sm font-medium text-gray-700">
+                Catatan Revisi
+              </label>
+              <textarea
+                id="revision-note"
+                value={revisionNote}
+                onChange={(event) => setRevisionNote(event.target.value)}
+                rows={5}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                placeholder="Contoh: Mohon perbaiki NIK almarhum dan lengkapi dokumen pendukung."
+                disabled={actionId === revisionTargetId}
+              />
+
+              {revisionError && <p className="mt-2 text-sm text-red-600">{revisionError}</p>}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={closeRevisionModal}
+                disabled={actionId === revisionTargetId}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitRevision()}
+                disabled={actionId === revisionTargetId}
+                className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {actionId === revisionTargetId ? "Mengirim..." : "Kirim Revisi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

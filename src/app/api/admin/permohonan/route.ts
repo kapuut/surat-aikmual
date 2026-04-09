@@ -40,9 +40,36 @@ function normalizeFilePath(rawValue: unknown): string | null {
   return candidate.startsWith('/') ? candidate : `/${candidate}`;
 }
 
+function normalizeFilePaths(rawValue: unknown): string[] {
+  if (typeof rawValue !== 'string') return [];
+  const trimmed = rawValue.trim();
+  if (!trimmed || trimmed === '[]') return [];
+
+  let candidates: unknown[] = [trimmed];
+  if (trimmed.startsWith('[') || trimmed.startsWith('"')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      candidates = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      // Keep original value when JSON parsing fails.
+    }
+  }
+
+  const normalized = candidates
+    .map((item) => normalizeFilePath(item))
+    .filter((item): item is string => Boolean(item));
+
+  return Array.from(new Set(normalized));
+}
+
 function isGeneratedSuratFile(pathValue: string | null): boolean {
   if (!pathValue) return false;
   return pathValue.includes('/generated-surat/') || pathValue.toLowerCase().endsWith('.html');
+}
+
+function isAttachmentFile(pathValue: string | null): boolean {
+  if (!pathValue) return false;
+  return pathValue.includes('/uploads/');
 }
 
 function inferStatusFromNote(note: unknown): WorkflowStatus | null {
@@ -121,10 +148,11 @@ export async function GET(request: NextRequest) {
         p.processed_by
       FROM permohonan_surat p
       LEFT JOIN (
-        SELECT nomor_surat, MAX(file_path) AS archived_file_path
+        SELECT nomor_surat, perihal, MAX(file_path) AS archived_file_path
         FROM surat_keluar
-        GROUP BY nomor_surat
-      ) sk ON sk.nomor_surat = p.nomor_surat
+        GROUP BY nomor_surat, perihal
+        ) sk ON sk.nomor_surat = p.nomor_surat
+          AND LOWER(TRIM(sk.perihal)) LIKE CONCAT(LOWER(TRIM(p.jenis_surat)), '%')
       ORDER BY p.created_at DESC
     `;
 
@@ -146,10 +174,11 @@ export async function GET(request: NextRequest) {
         p.processed_by
       FROM permohonan_surat p
       LEFT JOIN (
-        SELECT nomor_surat, MAX(file_path) AS archived_file_path
+        SELECT nomor_surat, perihal, MAX(file_path) AS archived_file_path
         FROM surat_keluar
-        GROUP BY nomor_surat
-      ) sk ON sk.nomor_surat = p.nomor_surat
+        GROUP BY nomor_surat, perihal
+        ) sk ON sk.nomor_surat = p.nomor_surat
+          AND LOWER(TRIM(sk.perihal)) LIKE CONCAT(LOWER(TRIM(p.jenis_surat)), '%')
       ORDER BY p.created_at DESC
     `;
 
@@ -165,14 +194,23 @@ export async function GET(request: NextRequest) {
       rows = result;
     }
 
-    const normalizedRows = rows.map((row) => ({
-      ...row,
-      status: normalizeWorkflowStatus((row as any).status, (row as any).nomor_surat, (row as any).catatan),
-      file_path:
-        (isGeneratedSuratFile(normalizeFilePath((row as any).archived_file_path))
-          ? normalizeFilePath((row as any).archived_file_path)
-          : null) || normalizeFilePath((row as any).file_path),
-    }));
+    const normalizedRows = rows.map((row) => {
+      const archivedFilePath = normalizeFilePath((row as any).archived_file_path);
+      const candidatePaths = normalizeFilePaths((row as any).file_path);
+      const generatedFromPermohonan = candidatePaths.find((pathValue) => isGeneratedSuratFile(pathValue)) || null;
+      const attachmentPaths = candidatePaths.filter((pathValue) => isAttachmentFile(pathValue));
+
+      return {
+        ...row,
+        status: normalizeWorkflowStatus((row as any).status, (row as any).nomor_surat, (row as any).catatan),
+        file_path:
+          (isGeneratedSuratFile(archivedFilePath) ? archivedFilePath : null) ||
+          generatedFromPermohonan ||
+          candidatePaths[0] ||
+          null,
+        attachment_paths: attachmentPaths,
+      };
+    });
 
     return NextResponse.json({
       success: true,

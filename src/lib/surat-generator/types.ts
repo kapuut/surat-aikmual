@@ -22,6 +22,101 @@ export interface SuratData {
   
   // Isi Surat
   isiSurat?: string;
+
+  // Detail khusus surat keterangan kematian
+  kematian?: {
+    namaAlmarhum?: string;
+    nikAlmarhum?: string;
+    tempatLahirAlmarhum?: string;
+    tanggalLahirAlmarhum?: Date;
+    jenisKelaminAlmarhum?: 'Laki-laki' | 'Perempuan';
+    agamaAlmarhum?: string;
+    pekerjaanAlmarhum?: string;
+    alamatTerakhir?: string;
+    hubunganPelapor?: string;
+    tanggalMeninggal?: Date;
+    waktuMeninggal?: string;
+    tempatMeninggal?: string;
+    sebabKematian?: string;
+    tanggalPemakaman?: Date;
+    waktuPemakaman?: string;
+    tempatPemakaman?: string;
+  };
+
+  // Detail khusus surat keterangan cerai
+  cerai?: {
+    namaMantan?: string;
+    nikPasangan?: string;
+    tempatLahirPasangan?: string;
+    tanggalLahirPasangan?: Date;
+    kewarganegaraanPasangan?: string;
+    agamaPasangan?: string;
+    pekerjaanPasangan?: string;
+    alamatPasangan?: string;
+    tanggalCerai?: Date;
+    nomorAktaCerai?: string;
+    tempatCerai?: string;
+    teleponPemohon?: string;
+  };
+
+  // Detail khusus surat keterangan janda/duda
+  janda?: {
+    statusJanda?: string;
+    alasanStatus?: string;
+    namaPasangan?: string;
+    tanggalKejadian?: Date;
+  };
+
+  // Detail khusus surat keterangan kehilangan
+  kehilangan?: {
+    statusPemohon?: string;
+    penyandangCacat?: string;
+    jenisBarang?: string;
+    barangHilang?: string;
+    asalBarang?: string;
+    labelNomorBarang?: string;
+    nomorBarang?: string;
+    ciriBarang?: string;
+    uraianKehilangan?: string;
+    lokasiKehilangan?: string;
+    tanggalKehilangan?: Date;
+    keperluan?: string;
+  };
+
+  // Detail khusus surat keterangan penghasilan
+  penghasilan?: {
+    pendidikan?: string;
+    namaWali?: string;
+    nikWali?: string;
+    tempatLahirWali?: string;
+    tanggalLahirWali?: Date;
+    jenisKelaminWali?: 'Laki-laki' | 'Perempuan';
+    agamaWali?: string;
+    sumberPenghasilan?: string;
+    penghasilanPerBulan?: string;
+    dasarKeterangan?: string;
+  };
+
+  // Detail khusus surat keterangan tidak memiliki rumah
+  rumah?: {
+    keperluan?: string;
+    penyandangCacat?: string;
+    statusTempatTinggal?: string;
+    namaPemilikRumah?: string;
+    hubunganDenganPemilik?: string;
+    alamatTinggalSekarang?: string;
+    lamaMenempati?: string;
+    jumlahTanggungan?: string;
+    alasanTidakMemiliki?: string;
+  };
+
+  // Detail khusus surat keterangan usaha
+  usaha?: {
+    keperluan?: string;
+    penyandangCacat?: string;
+    mulaiUsaha?: string;
+    jenisUsaha?: string;
+  };
   
   // Tanda Tangan
   kepalaDesa?: {

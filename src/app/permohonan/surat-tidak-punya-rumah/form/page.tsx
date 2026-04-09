@@ -3,46 +3,85 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiSend, FiMapPin } from "react-icons/fi";
+import { FiArrowLeft, FiCheckCircle, FiMapPin, FiSend, FiUpload } from "react-icons/fi";
+
+function normalizeSpacing(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function toTitleCase(value: string): string {
+  const cleaned = normalizeSpacing(value);
+  if (!cleaned) return "";
+
+  return cleaned
+    .toLowerCase()
+    .split(" ")
+    .map((word) => (word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : ""))
+    .join(" ");
+}
 
 export default function SuratTidakPunyaRumahPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const showFeedback = () => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     const formData = new FormData(e.currentTarget);
-    const data = {
-      jenisSurat: "Surat Keterangan Tidak Memiliki Rumah",
-      namaLengkap: formData.get("namaLengkap"),
-      nik: formData.get("nik"),
-      tempatLahir: formData.get("tempatLahir"),
-      tanggalLahir: formData.get("tanggalLahir"),
-      jenisKelamin: formData.get("jenisKelamin"),
-      statusPerkawinan: formData.get("statusPerkawinan"),
-      pekerjaan: formData.get("pekerjaan"),
-      alamat: formData.get("alamat"),
-      noTelp: formData.get("noTelp"),
-      statusTempaTinggal: formData.get("statusTempaTinggal"),
-      namaPemilikRumah: formData.get("namaPemilikRumah"),
-      hubunganDenganPemilik: formData.get("hubunganDenganPemilik"),
-      alamatTinggalSekarang: formData.get("alamatTinggalSekarang"),
-      lamaMenempati: formData.get("lamaMenempati"),
-      penghasilanPerBulan: formData.get("penghasilanPerBulan"),
-      jumlahTanggungan: formData.get("jumlahTanggungan"),
-      alasanTidakMemiliki: formData.get("alasanTidakMemiliki"),
-      keperluan: formData.get("keperluan"),
-    };
+    const asString = (name: string) => String(formData.get(name) || "");
+
+    const dokumenKTP = formData.get("dokumenKTP");
+    const dokumenKK = formData.get("dokumenKK");
+    const hasKtp = dokumenKTP instanceof File && dokumenKTP.size > 0;
+    const hasKk = dokumenKK instanceof File && dokumenKK.size > 0;
+
+    if (!hasKtp || !hasKk) {
+      setLoading(false);
+      setError("Upload KTP dan Kartu Keluarga (KK) wajib diisi.");
+      showFeedback();
+      return;
+    }
+
+    formData.set("jenisSurat", "Surat Keterangan Tidak Memiliki Rumah");
+    formData.set("nama", toTitleCase(asString("nama")));
+    formData.set("nik", normalizeSpacing(asString("nik")));
+    formData.set("tempatLahir", toTitleCase(asString("tempatLahir")));
+    formData.set("agama", toTitleCase(asString("agama")));
+    formData.set("statusPerkawinan", toTitleCase(asString("statusPerkawinan")));
+    formData.set("pekerjaan", toTitleCase(asString("pekerjaan")));
+    formData.set("kewarganegaraan", toTitleCase(asString("kewarganegaraan")) || "Indonesia");
+    formData.set("noTelp", normalizeSpacing(asString("noTelp")));
+
+    formData.set("dusun", toTitleCase(asString("dusun")));
+    formData.set("desa", toTitleCase(asString("desa")));
+    formData.set("kecamatan", toTitleCase(asString("kecamatan")));
+    formData.set("kabupaten", toTitleCase(asString("kabupaten")));
+
+    formData.set("penyandangCacat", toTitleCase(asString("penyandangCacat")) || "Tidak");
+    formData.set("statusTempatTinggal", toTitleCase(asString("statusTempatTinggal")));
+    formData.set("namaPemilikRumah", toTitleCase(asString("namaPemilikRumah")));
+    formData.set("hubunganDenganPemilik", toTitleCase(asString("hubunganDenganPemilik")));
+    formData.set("alamatTinggalSekarang", toTitleCase(asString("alamatTinggalSekarang")));
+    formData.set("lamaMenempati", normalizeSpacing(asString("lamaMenempati")));
+    formData.set("jumlahTanggungan", normalizeSpacing(asString("jumlahTanggungan")));
+    formData.set("alasanTidakMemiliki", normalizeSpacing(asString("alasanTidakMemiliki")));
+    formData.set("keperluan", normalizeSpacing(asString("keperluan")));
 
     try {
-      const response = await fetch("/api/permohonan/submit", {
+      const response = await fetch("/api/permohonan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -50,10 +89,14 @@ export default function SuratTidakPunyaRumahPage() {
         throw new Error(errorData.error || "Gagal mengajukan permohonan");
       }
 
-      alert("Permohonan berhasil diajukan!");
-      router.push("/permohonan/riwayat");
+      setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      showFeedback();
+      window.setTimeout(() => {
+        router.push("/tracking");
+      }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      showFeedback();
     } finally {
       setLoading(false);
     }
@@ -63,7 +106,7 @@ export default function SuratTidakPunyaRumahPage() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="mb-6">
-          <Link href="/" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4">
+          <Link href="/permohonan/surat-tidak-punya-rumah" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4">
             <FiArrowLeft /> Kembali
           </Link>
           <div className="bg-white rounded-lg shadow-sm p-6">
@@ -80,12 +123,28 @@ export default function SuratTidakPunyaRumahPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-start gap-3">
+              <FiCheckCircle className="w-5 h-5 mt-0.5 text-green-600" />
+              <div>
+                <p className="font-semibold">Permohonan Berhasil</p>
+                <p className="text-sm">{successMessage}</p>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Data Pemohon</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
-                <input type="text" name="namaLengkap" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <input type="text" name="nama" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">NIK *</label>
@@ -108,6 +167,18 @@ export default function SuratTidakPunyaRumahPage() {
                 </select>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Agama *</label>
+                <select name="agama" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Pilih Agama</option>
+                  <option value="Islam">Islam</option>
+                  <option value="Kristen">Kristen</option>
+                  <option value="Katolik">Katolik</option>
+                  <option value="Hindu">Hindu</option>
+                  <option value="Buddha">Buddha</option>
+                  <option value="Konghucu">Konghucu</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Status Perkawinan *</label>
                 <select name="statusPerkawinan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">Pilih Status</option>
@@ -122,12 +193,39 @@ export default function SuratTidakPunyaRumahPage() {
                 <input type="text" name="pekerjaan" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kewarganegaraan *</label>
+                <input type="text" name="kewarganegaraan" defaultValue="Indonesia" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">No. Telepon *</label>
                 <input type="tel" name="noTelp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
+
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Alamat KTP *</label>
-                <textarea name="alamat" required rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Alamat KTP (Isi Per Kolom) *</label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dusun *</label>
+                <input type="text" name="dusun" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Desa *</label>
+                <input type="text" name="desa" defaultValue="Aikmual" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kecamatan *</label>
+                <input type="text" name="kecamatan" defaultValue="Praya" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kabupaten *</label>
+                <input type="text" name="kabupaten" defaultValue="Lombok Tengah" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Penyandang Cacat</label>
+                <select name="penyandangCacat" defaultValue="Tidak" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="Tidak">Tidak</option>
+                  <option value="Ya">Ya</option>
+                </select>
               </div>
             </div>
           </div>
@@ -147,12 +245,12 @@ export default function SuratTidakPunyaRumahPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nama Pemilik Rumah *</label>
-                <input type="text" name="namaPemilikRumah" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nama Pemilik Rumah</label>
+                <input type="text" name="namaPemilikRumah" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Hubungan dengan Pemilik *</label>
-                <select name="hubunganDenganPemilik" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hubungan dengan Pemilik</label>
+                <select name="hubunganDenganPemilik" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                   <option value="">Pilih Hubungan</option>
                   <option value="Orang Tua">Orang Tua</option>
                   <option value="Mertua">Mertua</option>
@@ -164,8 +262,8 @@ export default function SuratTidakPunyaRumahPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Lama Menempati *</label>
-                <input type="text" name="lamaMenempati" required placeholder="Contoh: 2 tahun" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Lama Menempati</label>
+                <input type="text" name="lamaMenempati" placeholder="Contoh: 2 tahun" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Alamat Tinggal Sekarang *</label>
@@ -175,19 +273,15 @@ export default function SuratTidakPunyaRumahPage() {
           </div>
 
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Data Ekonomi</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Data Tambahan</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Penghasilan per Bulan *</label>
-                <input type="number" name="penghasilanPerBulan" required placeholder="Dalam Rupiah" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Jumlah Tanggungan *</label>
-                <input type="number" name="jumlahTanggungan" required placeholder="Jumlah orang" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Jumlah Tanggungan</label>
+                <input type="number" name="jumlahTanggungan" min={0} placeholder="Jumlah orang" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Alasan Tidak Memiliki Rumah *</label>
-                <textarea name="alasanTidakMemiliki" required rows={3} placeholder="Jelaskan alasan..." className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Alasan Tidak Memiliki Rumah</label>
+                <textarea name="alasanTidakMemiliki" rows={3} placeholder="Jelaskan alasan..." className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
           </div>
@@ -200,12 +294,30 @@ export default function SuratTidakPunyaRumahPage() {
             </div>
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">{error}</div>
-          )}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FiUpload className="w-5 h-5 text-blue-600" />
+              Upload Dokumen
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">KTP dan KK wajib diunggah. Dokumen pendukung lainnya opsional.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Upload KTP *</label>
+                <input type="file" name="dokumenKTP" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-blue-100 file:text-blue-700" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Upload Kartu Keluarga (KK) *</label>
+                <input type="file" name="dokumenKK" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-blue-100 file:text-blue-700" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dokumen Pendukung Lainnya (Opsional)</label>
+                <input type="file" name="dokumenTambahan" multiple accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-gray-100 file:text-gray-700" />
+              </div>
+            </div>
+          </div>
 
           <div className="flex gap-4">
-            <Link href="/" className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-center">
+            <Link href="/permohonan/surat-tidak-punya-rumah" className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-center">
               Batal
             </Link>
             <button type="submit" disabled={loading} className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-blue-400 flex items-center justify-center gap-2">

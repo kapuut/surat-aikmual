@@ -8,9 +8,6 @@ import {
   FiInbox, 
   FiSend, 
   FiFileText, 
-  FiBarChart, 
-  FiTrendingUp,
-  FiTrendingDown,
   FiLock, 
   FiUser,
   FiFolder,
@@ -58,18 +55,13 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
   },
   '/kepala-desa/laporan/surat-masuk': {
     eyebrow: 'Portal Administrasi Terpadu',
-    title: 'Laporan Surat Masuk',
-    description: 'Analisis tren surat masuk untuk pengambilan keputusan cepat.',
+    title: 'Surat Masuk',
+    description: 'Pantau ringkasan surat masuk untuk pengambilan keputusan cepat.',
   },
   '/kepala-desa/laporan/surat-keluar': {
     eyebrow: 'Portal Administrasi Terpadu',
-    title: 'Laporan Surat Keluar',
+    title: 'Surat Keluar',
     description: 'Tinjau performa distribusi surat keluar kantor desa.',
-  },
-  '/kepala-desa/laporan/grafik': {
-    eyebrow: 'Portal Administrasi Terpadu',
-    title: 'Grafik Analisis',
-    description: 'Lihat visualisasi data layanan surat untuk evaluasi berkala.',
   },
   '/kepala-desa/change-password': {
     eyebrow: 'Portal Administrasi Terpadu',
@@ -191,9 +183,9 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
           <div>
             <p className="text-xs uppercase text-gray-400 mt-4 mb-2 font-semibold tracking-wider">Manajemen Surat</p>
             <Link
-              href="/kepala-desa/surat-masuk"
+              href="/kepala-desa/laporan/surat-masuk"
               className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/kepala-desa/surat-masuk' 
+                pathname === '/kepala-desa/surat-masuk' || pathname === '/kepala-desa/laporan/surat-masuk'
                   ? 'bg-slate-800 text-white font-semibold' 
                   : 'text-gray-300 hover:bg-slate-800 hover:text-white'
               }`}
@@ -202,9 +194,9 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
               <span>Surat Masuk</span>
             </Link>
             <Link
-              href="/kepala-desa/surat-keluar"
+              href="/kepala-desa/laporan/surat-keluar"
               className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/kepala-desa/surat-keluar' 
+                pathname === '/kepala-desa/surat-keluar' || pathname === '/kepala-desa/laporan/surat-keluar'
                   ? 'bg-slate-800 text-white font-semibold' 
                   : 'text-gray-300 hover:bg-slate-800 hover:text-white'
               }`}
@@ -224,43 +216,6 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
             >
               <FiFileText className="w-4 h-4" />
               <span>Permohonan Warga</span>
-            </Link>
-          </div>
-
-          <div>
-            <p className="text-xs uppercase text-gray-400 mt-4 mb-2 font-semibold tracking-wider">Laporan & Analisis</p>
-            <Link
-              href="/kepala-desa/laporan/surat-masuk"
-              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/kepala-desa/laporan/surat-masuk' 
-                  ? 'bg-slate-800 text-white font-semibold' 
-                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <FiBarChart className="w-4 h-4" />
-              <span>Laporan Surat Masuk</span>
-            </Link>
-            <Link
-              href="/kepala-desa/laporan/surat-keluar"
-              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/kepala-desa/laporan/surat-keluar' 
-                  ? 'bg-slate-800 text-white font-semibold' 
-                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <FiTrendingUp className="w-4 h-4" />
-              <span>Laporan Surat Keluar</span>
-            </Link>
-            <Link
-              href="/kepala-desa/laporan/grafik"
-              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/kepala-desa/laporan/grafik' 
-                  ? 'bg-slate-800 text-white font-semibold' 
-                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <FiTrendingDown className="w-4 h-4" />
-              <span>Grafik Analisis</span>
             </Link>
           </div>
 

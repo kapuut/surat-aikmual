@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FiArchive, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 
 type WorkflowStatus =
@@ -21,7 +21,9 @@ interface PermohonanItem {
   jenis_surat: string;
   keperluan: string;
   status: WorkflowStatus;
+  catatan: string | null;
   file_path: string | null;
+  attachment_paths?: string[];
 }
 
 function statusLabel(status: WorkflowStatus): string {
@@ -65,7 +67,7 @@ function statusClass(status: WorkflowStatus): string {
   }
 }
 
-function processNote(status: WorkflowStatus): string {
+function processNote(status: WorkflowStatus, catatan?: string | null): string {
   if (status === "dikirim_ke_kepala_desa") {
     return "Menunggu verifikasi/tanda tangan Kepala Desa";
   }
@@ -75,17 +77,30 @@ function processNote(status: WorkflowStatus): string {
   if (status === "perlu_revisi") {
     return "Menunggu perbaikan dari admin";
   }
+  if (status === "ditolak") {
+    const note = (catatan || "").trim();
+    return note ? `Alasan penolakan: ${note}` : "Permohonan ditolak";
+  }
   return "";
-}
-
-function isGeneratedSuratFile(pathValue: string | null): boolean {
-  if (!pathValue) return false;
-  return pathValue.includes('/generated-surat/') || pathValue.toLowerCase().endsWith('.html');
 }
 
 function isAttachmentFile(pathValue: string | null): boolean {
   if (!pathValue) return false;
   return pathValue.includes('/uploads/');
+}
+
+function resolveAttachmentPaths(item: PermohonanItem): string[] {
+  const normalizedFromArray = Array.isArray(item.attachment_paths)
+    ? item.attachment_paths
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map((value) => value.trim())
+    : [];
+
+  if (normalizedFromArray.length > 0) {
+    return Array.from(new Set(normalizedFromArray));
+  }
+
+  return isAttachmentFile(item.file_path) && item.file_path ? [item.file_path] : [];
 }
 
 function isFinalizedStatus(status: WorkflowStatus): boolean {
@@ -102,6 +117,10 @@ export default function PermohonanAdminPage() {
   const [showArchive, setShowArchive] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rejectTargetId, setRejectTargetId] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState("Data permohonan belum sesuai persyaratan.");
+  const [rejectFormError, setRejectFormError] = useState<string | null>(null);
+  const rejectReasonRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [permohonan, setPermohonan] = useState<PermohonanItem[]>([]);
 
@@ -127,6 +146,11 @@ export default function PermohonanAdminPage() {
   useEffect(() => {
     fetchPermohonan();
   }, []);
+
+  useEffect(() => {
+    if (rejectTargetId === null) return;
+    rejectReasonRef.current?.focus();
+  }, [rejectTargetId]);
 
   const handleUpdateStatus = async (
     id: number,
@@ -196,6 +220,41 @@ export default function PermohonanAdminPage() {
     } finally {
       setDeleteId(null);
     }
+  };
+
+  const openRejectDialog = (id: number) => {
+    setRejectTargetId(id);
+    setRejectReason("Data permohonan belum sesuai persyaratan.");
+    setRejectFormError(null);
+  };
+
+  const closeRejectDialog = () => {
+    if (rejectTargetId !== null && actionId === rejectTargetId) {
+      return;
+    }
+    setRejectTargetId(null);
+    setRejectFormError(null);
+  };
+
+  const submitReject = async () => {
+    if (rejectTargetId === null) return;
+
+    const alasanTrimmed = rejectReason.trim();
+    if (!alasanTrimmed) {
+      setRejectFormError("Alasan penolakan wajib diisi.");
+      return;
+    }
+
+    setRejectFormError(null);
+    await handleUpdateStatus(
+      rejectTargetId,
+      "ditolak",
+      alasanTrimmed,
+      "Permohonan berhasil ditolak."
+    );
+
+    setRejectTargetId(null);
+    setRejectFormError(null);
   };
 
   const filteredPermohonan = useMemo(() => {
@@ -391,7 +450,10 @@ export default function PermohonanAdminPage() {
                 <td className="px-4 py-5 text-center text-gray-500" colSpan={10}>Belum ada data permohonan</td>
               </tr>
             ) : (
-              filteredPermohonan.map((p, i) => (
+              filteredPermohonan.map((p, i) => {
+                const attachmentLinks = resolveAttachmentPaths(p);
+
+                return (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">{i + 1}</td>
                   <td className="px-4 py-3 font-medium">{p.nomor_surat || `REG-${p.id}/${new Date(p.created_at).getFullYear()}`}</td>
@@ -405,8 +467,8 @@ export default function PermohonanAdminPage() {
                       <span className={`inline-flex w-fit px-2 py-1 rounded-full text-xs font-medium ${statusClass(p.status)}`}>
                         {statusLabel(p.status)}
                       </span>
-                      {processNote(p.status) && (
-                        <span className="text-[11px] text-gray-500">{processNote(p.status)}</span>
+                      {processNote(p.status, p.catatan) && (
+                        <span className="text-[11px] text-gray-500 whitespace-pre-wrap break-words">{processNote(p.status, p.catatan)}</span>
                       )}
                     </div>
                   </td>
@@ -421,36 +483,13 @@ export default function PermohonanAdminPage() {
                         Lihat Draft Surat
                       </a>
 
-                      <a
-                        href={`/api/admin/permohonan/${p.id}/preview?download=doc`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-indigo-700 hover:underline"
-                      >
-                        Unduh DOC
-                      </a>
-
-                      <a
-                        href={
-                          isGeneratedSuratFile(p.file_path)
-                            ? `${p.file_path as string}?print=1`
-                            : `/api/admin/permohonan/${p.id}/preview?mode=admin&print=1`
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-emerald-700 hover:underline"
-                      >
-                        Unduh PDF
-                      </a>
-
-                      {isGeneratedSuratFile(p.file_path) && (
-                        <a href={p.file_path as string} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">
-                          Lihat File Final
-                        </a>
-                      )}
-
-                      {isAttachmentFile(p.file_path) && (
-                        <a href={p.file_path as string} target="_blank" rel="noreferrer" className="text-amber-700 hover:underline">
+                      {attachmentLinks.length > 0 && (
+                        <a
+                          href={`/api/admin/permohonan/${p.id}/preview?mode=admin&attachments=1`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-amber-700 hover:underline"
+                        >
                           Lihat Lampiran
                         </a>
                       )}
@@ -483,14 +522,7 @@ export default function PermohonanAdminPage() {
                             Kirim ke Kepala Desa
                           </button>
                           <button
-                            onClick={() =>
-                              handleUpdateStatus(
-                                p.id,
-                                "ditolak",
-                                "Permohonan ditolak oleh admin karena data tidak sesuai.",
-                                "Permohonan berhasil ditolak."
-                              )
-                            }
+                            onClick={() => openRejectDialog(p.id)}
                             disabled={actionId === p.id}
                             className="bg-red-500 text-white px-2 py-1 text-xs rounded hover:bg-red-600 disabled:opacity-50"
                           >
@@ -536,11 +568,67 @@ export default function PermohonanAdminPage() {
                     </div>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
+
+      {rejectTargetId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Tutup dialog"
+            onClick={closeRejectDialog}
+            className="absolute inset-0 bg-white/70"
+          />
+
+          <div className="relative z-10 w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-2xl">
+            <div className="px-5 py-4 border-b border-slate-200">
+              <h3 className="text-base font-semibold text-slate-900">Tolak Permohonan</h3>
+              <p className="text-sm text-slate-500 mt-1">Masukkan keterangan penolakan agar pemohon mengetahui alasan secara jelas.</p>
+            </div>
+
+            <div className="px-5 py-4">
+              <label className="block text-sm font-medium text-slate-700 mb-2">Keterangan Penolakan</label>
+              <textarea
+                ref={rejectReasonRef}
+                value={rejectReason}
+                onChange={(e) => {
+                  setRejectReason(e.target.value);
+                  if (rejectFormError) setRejectFormError(null);
+                }}
+                rows={4}
+                className="w-full rounded-lg border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-400"
+                placeholder="Contoh: Foto KTP tidak terbaca, mohon upload ulang dokumen yang jelas."
+              />
+              {rejectFormError && (
+                <p className="mt-2 text-xs text-red-600">{rejectFormError}</p>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeRejectDialog}
+                disabled={actionId === rejectTargetId}
+                className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={submitReject}
+                disabled={actionId === rejectTargetId}
+                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {actionId === rejectTargetId ? "Menyimpan..." : "Tolak Permohonan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

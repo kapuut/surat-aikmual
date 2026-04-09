@@ -1,43 +1,64 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { AuthUser } from '@/lib/types';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import type { AuthUser } from '@/lib/types';
 import { useRequireRole, useSharedStats } from '@/lib/hooks';
 import { 
-  FiSend, 
-  FiFileText, 
-  FiCheckCircle, 
-  FiTrendingUp, 
-  FiActivity,
   FiArrowRight,
+  FiBarChart2,
+  FiCheckCircle,
   FiClock,
-  FiAlertCircle
+  FiFileText,
+  FiInbox,
+  FiSend, 
+  FiTrendingUp
 } from 'react-icons/fi';
 
+type ChartGroupBy = 'tanggal' | 'bulan' | 'tahun';
+type ChartSortDirection = 'desc' | 'asc';
+
+interface SuratMasukDateRow {
+  tanggal_terima?: string;
+  tanggal_surat?: string;
+}
+
+interface SuratKeluarDateRow {
+  tanggal_surat?: string;
+  status?: string;
+}
+
+function parseDate(value?: string): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function monthLabel(monthNumber: string): string {
+  const month = Number(monthNumber);
+  if (month === 1) return 'Jan';
+  if (month === 2) return 'Feb';
+  if (month === 3) return 'Mar';
+  if (month === 4) return 'Apr';
+  if (month === 5) return 'Mei';
+  if (month === 6) return 'Jun';
+  if (month === 7) return 'Jul';
+  if (month === 8) return 'Agu';
+  if (month === 9) return 'Sep';
+  if (month === 10) return 'Okt';
+  if (month === 11) return 'Nov';
+  return 'Des';
+}
+
 export default function HeadVillageDashboardPage() {
-  // Ensure only kepala_desa users can access this page
   const { user: authorizedUser, loading, isAuthenticated } = useRequireRole(['kepala_desa']);
-
-  // All hooks must be called unconditionally, before any early returns
-  const [user, setUser] = useState<AuthUser | null>(null);
   const { stats, loading: statsLoading } = useSharedStats();
-
-  const pendingApproval = stats?.permohonan.menunggu_tanda_tangan ?? stats?.permohonan.pending ?? 0;
-  const pendingSignature = 5; // Placeholder
-
-  // Dummy data for pending approvals
-  const [pendingApprovals] = useState([
-    { id: 'P-001/2025', jenisSurat: 'Surat Keterangan Tidak Mampu', pemohon: 'Budi Santoso', tanggal: '2025-01-10', priority: 'high' },
-    { id: 'P-002/2025', jenisSurat: 'Surat Keterangan Domisili', pemohon: 'Ani Wijaya', tanggal: '2025-01-09', priority: 'normal' },
-    { id: 'P-003/2025', jenisSurat: 'Surat Pengantar KTP', pemohon: 'Citra Dewi', tanggal: '2025-01-08', priority: 'normal' }
-  ]);
-
-  // Dummy data for recent approvals
-  const [recentApprovals] = useState([
-    { id: 'P-098/2024', jenisSurat: 'Surat Keterangan Usaha', pemohon: 'Dedi Hartono', tglDisetujui: '2025-01-09', status: 'Disetujui' },
-    { id: 'P-099/2024', jenisSurat: 'Surat Keterangan Domisili', pemohon: 'Eka Putri', tglDisetujui: '2025-01-08', status: 'Disetujui' },
-    { id: 'P-100/2024', jenisSurat: 'Surat Pengantar Nikah', pemohon: 'Fajar Ramadhan', tglDisetujui: '2025-01-07', status: 'Disetujui' }
-  ]);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [suratMasukRows, setSuratMasukRows] = useState<SuratMasukDateRow[]>([]);
+  const [suratKeluarRows, setSuratKeluarRows] = useState<SuratKeluarDateRow[]>([]);
+  const [chartLoading, setChartLoading] = useState(true);
+  const [chartGroupBy, setChartGroupBy] = useState<ChartGroupBy>('bulan');
+  const [chartSortDirection, setChartSortDirection] = useState<ChartSortDirection>('desc');
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -57,6 +78,102 @@ export default function HeadVillageDashboardPage() {
     fetchUser();
   }, []);
 
+  useEffect(() => {
+    const fetchChartData = async () => {
+      try {
+        setChartLoading(true);
+
+        const [masukResponse, keluarResponse] = await Promise.all([
+          fetch('/api/admin/surat-masuk', { credentials: 'include' }),
+          fetch('/api/surat-keluar', { credentials: 'include' }),
+        ]);
+
+        const masukResult = await masukResponse.json();
+        const keluarResult = await keluarResponse.json();
+
+        if (masukResponse.ok && masukResult?.success) {
+          setSuratMasukRows((masukResult.data || []) as SuratMasukDateRow[]);
+        }
+
+        if (keluarResponse.ok && keluarResult?.success) {
+          setSuratKeluarRows((keluarResult.data || []) as SuratKeluarDateRow[]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch chart data:', error);
+      } finally {
+        setChartLoading(false);
+      }
+    };
+
+    fetchChartData();
+  }, []);
+
+  const pendingApproval = stats?.permohonan.menunggu_tanda_tangan ?? stats?.permohonan.pending ?? 0;
+  const totalApproved = stats?.permohonan.selesai_ditandatangani ?? stats?.permohonan.disetujui ?? 0;
+  const totalSuratMasuk = stats?.suratMasuk.total ?? 0;
+  const hasSuratKeluarRows = suratKeluarRows.length > 0;
+  const suratKeluarBulanIniFromRows = suratKeluarRows.filter((item) => {
+    const parsed = parseDate(item.tanggal_surat);
+    if (!parsed) return false;
+    const now = new Date();
+    return parsed.getMonth() === now.getMonth() && parsed.getFullYear() === now.getFullYear();
+  }).length;
+  const totalSuratKeluar = hasSuratKeluarRows ? suratKeluarRows.length : (stats?.suratKeluar.total ?? 0);
+  const totalDraftKeluar = hasSuratKeluarRows
+    ? suratKeluarRows.filter((item) => String(item.status || '').trim().toLowerCase() === 'draft').length
+    : (stats?.suratKeluar.draft ?? 0);
+  const totalSuratKeluarBulanIni = hasSuratKeluarRows
+    ? suratKeluarBulanIniFromRows
+    : (stats?.suratKeluar.bulanIni ?? 0);
+  const totalBulanIni = (stats?.suratMasuk.bulanIni ?? 0) + totalSuratKeluarBulanIni;
+  const totalBelumDibacaMasuk = stats?.suratMasuk.belumDibaca ?? 0;
+
+  const chartData = useMemo(() => {
+    const bucketMap = new Map<string, number>();
+
+    const addDateToBucket = (dateValue?: string) => {
+      const date = parseDate(dateValue);
+      if (!date) return;
+
+      const year = String(date.getFullYear());
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+
+      const key =
+        chartGroupBy === 'tanggal'
+          ? `${year}-${month}-${day}`
+          : chartGroupBy === 'bulan'
+            ? `${year}-${month}`
+            : year;
+
+      bucketMap.set(key, (bucketMap.get(key) || 0) + 1);
+    };
+
+    suratMasukRows.forEach((item) => addDateToBucket(item.tanggal_terima || item.tanggal_surat));
+    suratKeluarRows.forEach((item) => addDateToBucket(item.tanggal_surat));
+
+    const rows = Array.from(bucketMap.entries()).map(([key, count]) => ({ key, count }));
+    rows.sort((a, b) => (chartSortDirection === 'asc' ? a.key.localeCompare(b.key) : b.key.localeCompare(a.key)));
+
+    const limitedRows = chartGroupBy === 'tanggal' ? rows.slice(0, 20) : rows;
+
+    return limitedRows.map((item) => {
+      if (chartGroupBy === 'tahun') {
+        return { label: item.key, count: item.count };
+      }
+
+      if (chartGroupBy === 'bulan') {
+        const [year, month] = item.key.split('-');
+        return { label: `${monthLabel(month)} ${year.slice(2)}`, count: item.count };
+      }
+
+      const [year, month, day] = item.key.split('-');
+      return { label: `${day}/${month}/${year.slice(2)}`, count: item.count };
+    });
+  }, [suratMasukRows, suratKeluarRows, chartGroupBy, chartSortDirection]);
+
+  const maxChartValue = Math.max(1, ...chartData.map((item) => item.count));
+
   if (loading || !isAuthenticated || !authorizedUser || statsLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -69,33 +186,24 @@ export default function HeadVillageDashboardPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-7">
-      {pendingApproval > 0 && (
-        <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 rounded-lg bg-orange-100 p-2 text-orange-600">
-                <FiAlertCircle className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-orange-800">
-                  Ada {pendingApproval} permohonan yang menunggu persetujuan Anda.
-                </p>
-                <p className="text-sm text-orange-700">Silakan tinjau agar layanan warga tetap cepat.</p>
-              </div>
-            </div>
-            <a
-              href="/kepala-desa/approval"
-              className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-orange-700"
-            >
-              Tinjau Sekarang
-            </a>
+    <div className="mx-auto w-full max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Ringkasan Layanan Surat</p>
+            <h2 className="text-2xl font-bold text-gray-800 mt-1">Dashboard Kepala Desa</h2>
+            <p className="text-gray-500 mt-2 text-sm">
+              Pantau performa surat masuk, surat keluar, dan permohonan warga dalam satu tampilan.
+            </p>
+          </div>
+          <div className="inline-flex items-center rounded-lg bg-blue-50 text-blue-700 px-3 py-2 text-sm font-medium">
+            Pengguna aktif: {user?.nama || 'Kepala Desa'}
           </div>
         </div>
-      )}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-600 mb-1">Menunggu Persetujuan</p>
@@ -111,14 +219,14 @@ export default function HeadVillageDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 mb-1">Telah Disetujui</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{stats?.permohonan.disetujui ?? 0}</p>
+              <p className="text-sm font-medium text-gray-600 mb-1">Disetujui / Selesai</p>
+              <p className="text-3xl font-bold text-gray-900 mb-1">{totalApproved}</p>
               <div className="flex items-center text-sm text-green-600">
                 <FiTrendingUp className="w-4 h-4 mr-1" />
-                <span>Bulan ini</span>
+                <span>Proses selesai</span>
               </div>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
@@ -127,30 +235,30 @@ export default function HeadVillageDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 mb-1">Perlu Tanda Tangan</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{pendingSignature}</p>
+              <p className="text-sm font-medium text-gray-600 mb-1">Total Surat Masuk</p>
+              <p className="text-3xl font-bold text-gray-900 mb-1">{totalSuratMasuk}</p>
               <div className="flex items-center text-sm text-blue-600">
-                <FiFileText className="w-4 h-4 mr-1" />
-                <span>Siap ditandatangani</span>
+                <FiInbox className="w-4 h-4 mr-1" />
+                <span>Belum dibaca: {totalBelumDibacaMasuk}</span>
               </div>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <FiFileText className="w-6 h-6 text-blue-600" />
+              <FiInbox className="w-6 h-6 text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 mb-1">Total Surat</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{(stats?.suratMasuk.bulanIni ?? 0) + (stats?.suratKeluar.bulanIni ?? 0)}</p>
+              <p className="text-sm font-medium text-gray-600 mb-1">Total Surat Keluar</p>
+              <p className="text-3xl font-bold text-gray-900 mb-1">{totalSuratKeluar}</p>
               <div className="flex items-center text-sm text-purple-600">
-                <FiActivity className="w-4 h-4 mr-1" />
-                <span>Bulan ini</span>
+                <FiSend className="w-4 h-4 mr-1" />
+                <span>Draft: {totalDraftKeluar}</span>
               </div>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
@@ -160,175 +268,151 @@ export default function HeadVillageDashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.6fr_1fr] xl:items-start">
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <FiClock className="w-5 h-5 text-orange-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">Menunggu Persetujuan</h3>
-                </div>
-                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
-                  {pendingApprovals.length} item
-                </span>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {pendingApprovals.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <p className="font-medium text-gray-900">{item.id}</p>
-                          {item.priority === 'high' && (
-                            <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded-full text-xs font-medium">
-                              Priority
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-700 mt-1">{item.jenisSurat}</p>
-                        <p className="text-xs text-gray-500 mt-1">Pemohon: {item.pemohon}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs text-gray-500">{item.tanggal}</span>
-                        <div className="mt-1">
-                          <button className="text-xs bg-orange-600 text-white px-2 py-1 rounded hover:bg-orange-700 transition-colors">
-                            Review
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <a href="/kepala-desa/approval" className="text-orange-600 text-sm hover:underline inline-flex items-center gap-1">
-                  Lihat semua permohonan
-                  <FiArrowRight className="w-4 h-4" />
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <FiCheckCircle className="w-5 h-5 text-green-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">Persetujuan Terbaru</h3>
-                </div>
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
-                  {recentApprovals.length} item
-                </span>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {recentApprovals.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-900">{item.id}</p>
-                        <p className="text-sm text-gray-700">{item.jenisSurat}</p>
-                        <p className="text-xs text-gray-500 mt-1">Pemohon: {item.pemohon}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs text-gray-500">Disetujui: {item.tglDisetujui}</span>
-                        <div className="mt-1">
-                          <span className="inline-flex px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                            {item.status}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <a href="/kepala-desa/laporan" className="text-green-600 text-sm hover:underline inline-flex items-center gap-1">
-                  Lihat laporan lengkap
-                  <FiArrowRight className="w-4 h-4" />
-                </a>
-              </div>
-            </div>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-2">
+            <FiBarChart2 className="text-indigo-600" /> Diagram Batang Aktivitas Surat
+          </h3>
+          <div className="flex gap-2 flex-wrap">
+            <select
+              value={chartGroupBy}
+              onChange={(e) => setChartGroupBy(e.target.value as ChartGroupBy)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="tanggal">Grouping: Tanggal</option>
+              <option value="bulan">Grouping: Bulan</option>
+              <option value="tahun">Grouping: Tahun</option>
+            </select>
+            <select
+              value={chartSortDirection}
+              onChange={(e) => setChartSortDirection(e.target.value as ChartSortDirection)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="desc">Urut: Terbaru</option>
+              <option value="asc">Urut: Terlama</option>
+            </select>
           </div>
         </div>
 
-        <div className="space-y-6 xl:sticky xl:top-6">
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <FiFileText className="h-5 w-5 text-blue-600" /> Tindakan Cepat
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">Akses menu utama kepala desa untuk menindaklanjuti layanan.</p>
-            <div className="mt-4 space-y-3">
-              <a
-                href="/kepala-desa/approval"
-                className="group flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 transition hover:border-blue-200 hover:bg-blue-50"
-              >
-                <span className="mt-1 rounded-lg bg-blue-600/10 p-2 text-blue-600">
-                  <FiClock className="h-5 w-5" />
-                </span>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-800 group-hover:text-blue-600">Review permohonan</p>
-                  <p className="text-xs text-gray-500">Periksa berkas warga yang menunggu persetujuan.</p>
+        {chartLoading ? (
+          <p className="text-sm text-gray-500">Memuat data diagram...</p>
+        ) : chartData.length === 0 ? (
+          <p className="text-sm text-gray-500">Data diagram belum tersedia.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="min-w-[680px] h-64 flex items-end gap-3">
+              {chartData.map((item) => (
+                <div key={item.label} className="flex-1 flex flex-col items-center gap-2">
+                  <span className="text-xs text-gray-600 font-medium">{item.count}</span>
+                  <div className="w-full rounded-md bg-indigo-100 h-44 flex items-end">
+                    <div
+                      className="w-full rounded-md bg-indigo-500 transition-all"
+                      style={{ height: `${(item.count / maxChartValue) * 100}%` }}
+                      title={`${item.label}: ${item.count}`}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-500 text-center">{item.label}</span>
                 </div>
-              </a>
-              <a
-                href="/kepala-desa/penandatanganan"
-                className="group flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 transition hover:border-emerald-200 hover:bg-emerald-50"
-              >
-                <span className="mt-1 rounded-lg bg-emerald-600/10 p-2 text-emerald-600">
-                  <FiCheckCircle className="h-5 w-5" />
-                </span>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-800 group-hover:text-emerald-600">Tanda tangani surat</p>
-                  <p className="text-xs text-gray-500">Selesaikan dokumen yang siap diterbitkan.</p>
-                </div>
-              </a>
-              <a
-                href="/kepala-desa/laporan/grafik"
-                className="group flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 transition hover:border-purple-200 hover:bg-purple-50"
-              >
-                <span className="mt-1 rounded-lg bg-purple-600/10 p-2 text-purple-600">
-                  <FiActivity className="h-5 w-5" />
-                </span>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-800 group-hover:text-purple-600">Pantau laporan</p>
-                  <p className="text-xs text-gray-500">Lihat ringkasan performa layanan surat desa.</p>
-                </div>
-              </a>
+              ))}
             </div>
           </div>
+        )}
+      </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <FiActivity className="h-5 w-5 text-slate-600" /> Ringkasan Aktivitas
-              </h2>
-              <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700">
-                Hari ini
-              </span>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <FiInbox className="w-5 h-5 text-blue-600" /> Surat Masuk
+            </h3>
+            <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2.5 py-1 rounded-full">
+              Ringkasan
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Total</p>
+              <p className="text-2xl font-bold text-gray-900">{totalSuratMasuk}</p>
             </div>
-            <p className="mt-1 text-sm text-gray-500">Status kerja utama untuk menjaga SLA pelayanan warga.</p>
-            <div className="mt-4 space-y-3">
-              <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Permohonan pending</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{pendingApproval}</p>
-                <p className="text-xs text-gray-500">Perlu approval kepala desa.</p>
-              </div>
-              <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Surat perlu tanda tangan</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{pendingSignature}</p>
-                <p className="text-xs text-gray-500">Siap ditandatangani hari ini.</p>
-              </div>
-              <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Total surat bulan ini</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{(stats?.suratMasuk.bulanIni ?? 0) + (stats?.suratKeluar.bulanIni ?? 0)}</p>
-                <p className="text-xs text-gray-500">Gabungan surat masuk dan keluar.</p>
-              </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Bulan Ini</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.suratMasuk.bulanIni ?? 0}</p>
             </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Belum Dibaca</p>
+              <p className="text-2xl font-bold text-gray-900">{totalBelumDibacaMasuk}</p>
+            </div>
+          </div>
+          <Link
+            href="/kepala-desa/laporan/surat-masuk"
+            className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+          >
+            Buka Surat Masuk
+            <FiArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <FiSend className="w-5 h-5 text-purple-600" /> Surat Keluar
+            </h3>
+            <span className="text-xs font-medium text-purple-700 bg-purple-100 px-2.5 py-1 rounded-full">
+              Ringkasan
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Total</p>
+              <p className="text-2xl font-bold text-gray-900">{totalSuratKeluar}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Bulan Ini</p>
+              <p className="text-2xl font-bold text-gray-900">{totalSuratKeluarBulanIni}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Draft</p>
+              <p className="text-2xl font-bold text-gray-900">{totalDraftKeluar}</p>
+            </div>
+          </div>
+          <Link
+            href="/kepala-desa/laporan/surat-keluar"
+            className="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700"
+          >
+            Buka Surat Keluar
+            <FiArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <FiFileText className="w-5 h-5 text-orange-600" /> Tindak Lanjut Permohonan
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Saat ini ada {pendingApproval} permohonan menunggu persetujuan. Total surat bulan ini: {totalBulanIni}.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/kepala-desa/approval"
+              className="inline-flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-700"
+            >
+              Review Approval
+              <FiArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              href="/kepala-desa/permohonan"
+              className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm hover:bg-slate-200"
+            >
+              Lihat Permohonan
+            </Link>
           </div>
         </div>
       </div>

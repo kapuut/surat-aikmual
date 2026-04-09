@@ -25,6 +25,11 @@ function valueOrDash(value: string | undefined): string {
   return cleaned ? escapeHtml(cleaned) : '-';
 }
 
+function valueOrDashUpper(value: string | undefined): string {
+  const cleaned = (value || '').trim();
+  return cleaned ? escapeHtml(cleaned.toLocaleUpperCase('id-ID')) : '-';
+}
+
 function formatTanggalLahirDisplay(value?: Date): string {
   if (!value || Number.isNaN(value.getTime())) {
     return '-';
@@ -45,9 +50,56 @@ function formatAlamatDisplay(value: string): string {
   return escapeHtml(cleaned).replace(/\r?\n/g, '<br>');
 }
 
+function formatHariTanggal(value?: Date): string {
+  if (!value || Number.isNaN(value.getTime())) {
+    return '-';
+  }
+
+  const hari = new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(value);
+  const hariCapitalized = hari.charAt(0).toUpperCase() + hari.slice(1);
+  return `${hariCapitalized}, ${formatTanggalSurat(value)}`;
+}
+
+function formatWaktu(value?: string): string {
+  const cleaned = (value || '').trim();
+  if (!cleaned) return '-';
+
+  const compact = cleaned.replace(/\s+/g, ' ');
+  if (/wib|wita|wit|wib\.|wita\.|wit\./i.test(compact)) {
+    return escapeHtml(compact.replace(':', '.'));
+  }
+
+  if (/^\d{1,2}:\d{2}$/.test(compact)) {
+    return `${escapeHtml(compact.replace(':', '.'))} Wita`;
+  }
+
+  return escapeHtml(compact);
+}
+
+function formatNominalRupiah(value?: string): string {
+  const cleaned = (value || '').trim();
+  if (!cleaned) return '-';
+
+  const onlyDigits = cleaned.replace(/[^\d]/g, '');
+  if (!onlyDigits) return escapeHtml(cleaned);
+
+  const nominal = Number(onlyDigits);
+  if (Number.isNaN(nominal)) return escapeHtml(cleaned);
+
+  return `Rp ${new Intl.NumberFormat('id-ID').format(nominal)}`;
+}
+
+function formatTanggalSuratDisplay(value?: Date): string {
+  if (!value || Number.isNaN(value.getTime())) {
+    return '-';
+  }
+
+  return escapeHtml(formatTanggalSurat(value));
+}
+
 /**
  * Generate HTML template surat resmi Indonesia
- * Format formal dengan Times New Roman, spacing 1.5, margin A4 standar
+ * Format formal dengan Bookman Old Style, font 12pt, spacing 1.5, margin A4 standar
  */
 export function generateSuratTemplate(
   data: SuratData,
@@ -72,31 +124,260 @@ export function generateSuratTemplate(
       ? `${valueOrDash(data.tempatLahir)}${data.tanggalLahir ? `, ${formatTanggalLahirDisplay(data.tanggalLahir)}` : ''}`
       : '-';
 
+  const kematianData = data.kematian || {};
+  const ceraiData = data.cerai || {};
+  const rumahData = data.rumah || {};
+  const usahaData = data.usaha || {};
+  const tempatTanggalLahirAlmarhum =
+    kematianData.tempatLahirAlmarhum || kematianData.tanggalLahirAlmarhum
+      ? `${valueOrDash(kematianData.tempatLahirAlmarhum)}${kematianData.tanggalLahirAlmarhum ? `, ${formatTanggalLahirDisplay(kematianData.tanggalLahirAlmarhum)}` : ''}`
+      : '-';
+
   const masaBerlaku =
     data.tanggalBerlaku && data.tanggalBerlaku.dari && data.tanggalBerlaku.sampai
       ? `${escapeHtml(formatTanggalSurat(data.tanggalBerlaku.dari))} sampai ${escapeHtml(formatTanggalSurat(data.tanggalBerlaku.sampai))}`
       : '-';
 
-  const rows: string[] = data.jenisSurat === 'surat-masih-hidup'
-    ? [
-        `<tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
-        `<tr><td class="label">TTL</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
-        `<tr><td class="label">Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
-        `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
-        `<tr><td class="label">Alamat Terakhir</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
-      ]
-    : [
-        `<tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
-        `<tr><td class="label">NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
-        `<tr><td class="label">Tempat&nbsp;Tanggal&nbsp;Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
-        `<tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
-        `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
-        `<tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
-        `<tr><td class="label">Status</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.statusPerkawinan)}</td></tr>`,
-        `<tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan)}</td></tr>`,
-        `<tr><td class="label">Alamat</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
-        `<tr><td class="label">Masa Berlaku</td><td class="colon">:</td><td class="nilai">${masaBerlaku}</td></tr>`,
-      ];
+  let rows: string[];
+  let isiSuratBodyHtml: string;
+  const penutupText =
+    data.jenisSurat === 'surat-kematian'
+      ? 'Demikian surat keterangan ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestinya.'
+      : 'Demikian surat keterangan ini kami buat dengan sebenarnya agar dapat dipergunakan sebagaimana mestinya.';
+
+  if (data.jenisSurat === 'surat-masih-hidup') {
+    rows = [
+      `<tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
+      `<tr><td class="label">TTL</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+      `<tr><td class="label">Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
+      `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
+      `<tr><td class="label">Alamat Terakhir</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
+    ];
+    isiSuratBodyHtml = `<p>${escapeHtml(isiSurat)}</p>`;
+  } else if (data.jenisSurat === 'surat-kematian') {
+    rows = [
+      `<tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDashUpper(kematianData.namaAlmarhum || data.nama)}</td></tr>`,
+      `<tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(kematianData.nikAlmarhum || data.nik)}</td></tr>`,
+      `<tr><td class="label">3. Tempat/Tanggal Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahirAlmarhum}</td></tr>`,
+      `<tr><td class="label">4. Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(kematianData.jenisKelaminAlmarhum || data.jeniKelamin)}</td></tr>`,
+      `<tr><td class="label">5. Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(kematianData.pekerjaanAlmarhum || data.pekerjaan)}</td></tr>`,
+      `<tr><td class="label">6. Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(kematianData.agamaAlmarhum || data.agama)}</td></tr>`,
+      `<tr><td class="label">7. Alamat Terakhir</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(kematianData.alamatTerakhir || data.alamat)}</td></tr>`,
+    ];
+
+    const detailRows = [
+      `<tr><td class="label">1. Hari/Tanggal/Tahun</td><td class="colon">:</td><td class="nilai">${escapeHtml(formatHariTanggal(kematianData.tanggalMeninggal))}</td></tr>`,
+      `<tr><td class="label">2. Waktu</td><td class="colon">:</td><td class="nilai">${formatWaktu(kematianData.waktuMeninggal)}</td></tr>`,
+      `<tr><td class="label">3. Tempat di</td><td class="colon">:</td><td class="nilai">${valueOrDash(kematianData.tempatMeninggal)}</td></tr>`,
+      `<tr><td class="label">4. Hari/Tanggal Pemakaman</td><td class="colon">:</td><td class="nilai">${escapeHtml(formatHariTanggal(kematianData.tanggalPemakaman))}</td></tr>`,
+      `<tr><td class="label">5. Waktu Pemakaman</td><td class="colon">:</td><td class="nilai">${formatWaktu(kematianData.waktuPemakaman)}</td></tr>`,
+      `<tr><td class="label">6. Tempat Pemakaman</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(kematianData.tempatPemakaman || '')}</td></tr>`,
+    ].join('');
+
+    const sebabKematianHtml = kematianData.sebabKematian
+      ? `<p>Keterangan sebab kematian: ${escapeHtml(kematianData.sebabKematian)}</p>`
+      : '';
+
+    isiSuratBodyHtml = `
+      <p>Bahwa yang namanya tersebut di atas menurut Kepala Dusun setempat dan hasil pengecekan kami memang benar telah meninggal dunia pada :</p>
+      <table>
+        ${detailRows}
+      </table>
+      ${sebabKematianHtml}
+    `;
+  } else if (data.jenisSurat === 'surat-cerai') {
+    const tempatTanggalLahirPasangan =
+      ceraiData.tempatLahirPasangan || ceraiData.tanggalLahirPasangan
+        ? `${valueOrDash(ceraiData.tempatLahirPasangan)}${ceraiData.tanggalLahirPasangan ? `, ${formatTanggalLahirDisplay(ceraiData.tanggalLahirPasangan)}` : ''}`
+        : '-';
+
+    rows = [
+      `<tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
+      `<tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
+      `<tr><td class="label">3. Tempat / Tanggal Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+      `<tr><td class="label">4. Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan || 'Indonesia')}</td></tr>`,
+      `<tr><td class="label">5. Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
+      `<tr><td class="label">6. Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
+      `<tr><td class="label">7. Alamat / Tempat Tinggal</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
+    ];
+
+    const pasanganRows = [
+      `<tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(ceraiData.namaMantan)}</td></tr>`,
+      `<tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(ceraiData.nikPasangan)}</td></tr>`,
+      `<tr><td class="label">3. Tempat / Tanggal Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahirPasangan}</td></tr>`,
+      `<tr><td class="label">4. Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(ceraiData.kewarganegaraanPasangan || 'Indonesia')}</td></tr>`,
+      `<tr><td class="label">5. Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(ceraiData.agamaPasangan)}</td></tr>`,
+      `<tr><td class="label">6. Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(ceraiData.pekerjaanPasangan)}</td></tr>`,
+      `<tr><td class="label">7. Alamat / Tempat Tinggal</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(ceraiData.alamatPasangan || '')}</td></tr>`,
+    ].join('');
+
+    const tanggalCeraiText = formatTanggalSuratDisplay(ceraiData.tanggalCerai);
+
+    isiSuratBodyHtml = `
+      <p>Bahwa yang namanya tersebut di atas memang benar warga kami dan yang bersangkutan telah bercerai pada tanggal ${tanggalCeraiText} dengan pasangan sebagai berikut:</p>
+      <table>
+        ${pasanganRows}
+      </table>
+    `;
+  } else if (data.jenisSurat === 'surat-janda') {
+    const jandaData = data.janda || {};
+    const statusJandaDisplay = valueOrDash(jandaData.statusJanda || (data.jeniKelamin === 'Laki-laki' ? 'Duda' : 'Janda'));
+    const alasanStatusDisplay = valueOrDash(jandaData.alasanStatus);
+    const statusFinalHtml =
+      alasanStatusDisplay === '-'
+        ? `${statusJandaDisplay}`
+        : `${statusJandaDisplay} ( ${alasanStatusDisplay} )`;
+
+    rows = [
+      `<tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDashUpper(data.nama)}</td></tr>`,
+      `<tr><td class="label">NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
+      `<tr><td class="label">Tempat tgl lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+      `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
+      `<tr><td class="label">JenisKelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
+      `<tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan || 'Indonesia')}</td></tr>`,
+      `<tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
+      `<tr><td class="label">Alamat</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
+    ];
+
+    isiSuratBodyHtml = `
+      <p>Bahwa yang namanya tersebut diatas yang bertempat tinggal di ${formatAlamatDisplay(data.alamat)} memang benar berstatus <strong>${statusFinalHtml}</strong>.</p>
+    `;
+  } else if (data.jenisSurat === 'surat-penghasilan') {
+    const penghasilanData = data.penghasilan || {};
+    const tempatTanggalLahirWali =
+      penghasilanData.tempatLahirWali || penghasilanData.tanggalLahirWali
+        ? `${valueOrDash(penghasilanData.tempatLahirWali)}${penghasilanData.tanggalLahirWali ? `, ${formatTanggalLahirDisplay(penghasilanData.tanggalLahirWali)}` : ''}`
+        : '-';
+    const dasarKeterangan = (penghasilanData.dasarKeterangan || '').trim();
+    const nominalPenghasilan = formatNominalRupiah(penghasilanData.penghasilanPerBulan);
+
+    rows = [
+      `<tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDashUpper(data.nama)}</td></tr>`,
+      `<tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
+      `<tr><td class="label">3. Tempat / Tanggal Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+      `<tr><td class="label">4. Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
+      `<tr><td class="label">5. Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
+      `<tr><td class="label">6. Status</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.statusPerkawinan)}</td></tr>`,
+      `<tr><td class="label">7. Pendidikan</td><td class="colon">:</td><td class="nilai">${valueOrDash(penghasilanData.pendidikan)}</td></tr>`,
+      `<tr><td class="label">8. Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
+      `<tr><td class="label">9. Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan || 'Indonesia')}</td></tr>`,
+      `<tr><td class="label">10. Alamat</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
+    ];
+
+    const waliRows = [
+      `<tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDashUpper(penghasilanData.namaWali)}</td></tr>`,
+      `<tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(penghasilanData.nikWali)}</td></tr>`,
+      `<tr><td class="label">3. Tempat / Tanggal Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahirWali}</td></tr>`,
+      `<tr><td class="label">4. Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(penghasilanData.jenisKelaminWali)}</td></tr>`,
+      `<tr><td class="label">5. Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(penghasilanData.agamaWali)}</td></tr>`,
+    ].join('');
+
+    isiSuratBodyHtml = `
+      <p>Bahwa nama tersebut di atas adalah benar penduduk Desa Aikmual. Menurut keterangan ${escapeHtml(dasarKeterangan || 'Kepala Dusun setempat')}, yang bersangkutan merupakan anak/tanggungan dari:</p>
+      <table>
+        ${waliRows}
+      </table>
+      <p>Wali/orang tua tersebut memiliki penghasilan rata-rata sebesar <strong>${escapeHtml(nominalPenghasilan)}</strong> per bulan yang bersumber dari <strong>${valueOrDash(penghasilanData.sumberPenghasilan)}</strong>.</p>
+    `;
+  } else if (data.jenisSurat === 'surat-kehilangan') {
+    const kehilanganData = data.kehilangan || {};
+    const statusPemohon = kehilanganData.statusPemohon || data.statusPerkawinan;
+    const penyandangCacat = kehilanganData.penyandangCacat || '-';
+    const jenisBarang = (kehilanganData.jenisBarang || '').trim();
+    const barangHilangRaw = (kehilanganData.barangHilang || '').trim();
+    const asalBarangRaw = (kehilanganData.asalBarang || '').trim();
+    const labelNomorBarangRaw = (kehilanganData.labelNomorBarang || 'Nomor').trim() || 'Nomor';
+    const nomorBarangRaw = (kehilanganData.nomorBarang || '').trim();
+    const ciriBarangRaw = (kehilanganData.ciriBarang || '').trim();
+    const uraianKehilanganRaw = (kehilanganData.uraianKehilangan || '').trim();
+    const lokasiKehilanganRaw = (kehilanganData.lokasiKehilangan || '').trim();
+    const tanggalKehilangan = formatTanggalSuratDisplay(kehilanganData.tanggalKehilangan);
+    const keperluanKehilangan = kehilanganData.keperluan || '-';
+    const objekKehilangan = barangHilangRaw || jenisBarang || 'barang/dokumen penting';
+    const uraianAkhir = uraianKehilanganRaw && /[.!?]$/.test(uraianKehilanganRaw) ? '' : '.';
+
+    const berlakuMulai =
+      data.tanggalBerlaku && data.tanggalBerlaku.dari && data.tanggalBerlaku.sampai
+        ? `${escapeHtml(formatTanggalSurat(data.tanggalBerlaku.dari))} - ${escapeHtml(formatTanggalSurat(data.tanggalBerlaku.sampai))}`
+        : '-';
+
+    rows = [
+      `<tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDashUpper(data.nama)}</td></tr>`,
+      `<tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
+      `<tr><td class="label">3. Tempat/Tanggal Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+      `<tr><td class="label">4. Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
+      `<tr><td class="label">5. Alamat/Tempat Tinggal</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
+      `<tr><td class="label">6. Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
+      `<tr><td class="label">7. Status</td><td class="colon">:</td><td class="nilai">${valueOrDash(statusPemohon)}</td></tr>`,
+      `<tr><td class="label">8. Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan || 'Indonesia')}</td></tr>`,
+      `<tr><td class="label">9. Penyandang Cacat</td><td class="colon">:</td><td class="nilai">${valueOrDash(penyandangCacat)}</td></tr>`,
+      `<tr><td class="label">10. Keperluan</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(keperluanKehilangan)}</td></tr>`,
+      `<tr><td class="label">11. Berlaku mulai</td><td class="colon">:</td><td class="nilai">${berlakuMulai}</td></tr>`,
+    ];
+
+    isiSuratBodyHtml = `
+      <p>Menerangkan bahwa orang tersebut adalah benar-benar warga Desa Aikmual dengan data seperti di atas, dan telah hilang/jatuh <strong>${escapeHtml(objekKehilangan)}</strong>${jenisBarang ? ` yang tergolong ${escapeHtml(jenisBarang)}` : ''}${asalBarangRaw ? ` milik/berasal dari <strong>${escapeHtml(asalBarangRaw)}</strong>` : ''}${nomorBarangRaw ? ` dengan <strong>${escapeHtml(labelNomorBarangRaw)}: ${escapeHtml(nomorBarangRaw)}</strong>` : ''}${tanggalKehilangan !== '-' ? ` pada tanggal <strong>${tanggalKehilangan}</strong>` : ''}${lokasiKehilanganRaw ? ` di <strong>${escapeHtml(lokasiKehilanganRaw)}</strong>` : ''}.${uraianKehilanganRaw ? ` Menurut keterangan pemohon ${escapeHtml(uraianKehilanganRaw)}${uraianAkhir}` : ''}${ciriBarangRaw ? ` Barang tersebut memiliki ciri-ciri ${escapeHtml(ciriBarangRaw)}.` : ''}</p>
+    `;
+  } else if (data.jenisSurat === 'surat-tidak-punya-rumah') {
+    const penyandangCacat = (rumahData.penyandangCacat || '').trim() || '-';
+    const alamatTinggal = rumahData.alamatTinggalSekarang || data.alamat;
+
+    rows = [
+      `<tr><td class="label">Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDashUpper(data.nama)}</td></tr>`,
+      `<tr><td class="label">NIK / No KTP</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
+      `<tr><td class="label">Tempat/Tanggal Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+      `<tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
+      `<tr><td class="label">Alamat/Tempat Tinggal</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(alamatTinggal)}</td></tr>`,
+      `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
+      `<tr><td class="label">Status</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.statusPerkawinan)}</td></tr>`,
+      `<tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
+      `<tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan || 'Indonesia')}</td></tr>`,
+      `<tr><td class="label">Penyandang Cacat</td><td class="colon">:</td><td class="nilai">${valueOrDash(penyandangCacat)}</td></tr>`,
+      `<tr><td class="label">Keperluan</td><td class="colon">:</td><td class="nilai">${valueOrDash(rumahData.keperluan)}</td></tr>`,
+      `<tr><td class="label">Masa Berlaku</td><td class="colon">:</td><td class="nilai">${masaBerlaku}</td></tr>`,
+    ];
+
+    isiSuratBodyHtml = `
+      <p>Orang tersebut adalah benar-benar warga Desa Aikmual dengan data seperti di atas, dan memang yang bersangkutan <strong>Belum Memiliki Rumah</strong>.</p>
+    `;
+  } else if (data.jenisSurat === 'surat-usaha') {
+    const penyandangCacat = (usahaData.penyandangCacat || '').trim() || '-';
+    const mulaiUsaha = (usahaData.mulaiUsaha || '').trim() || '-';
+    const jenisUsaha = (usahaData.jenisUsaha || '').trim();
+
+    rows = [
+      `<tr><td class="label">Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDashUpper(data.nama)}</td></tr>`,
+      `<tr><td class="label">NIK / No KTP</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
+      `<tr><td class="label">Tempat/Tanggal Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+      `<tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
+      `<tr><td class="label">Alamat/Tempat Tinggal</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
+      `<tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
+      `<tr><td class="label">Status</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.statusPerkawinan)}</td></tr>`,
+      `<tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan || 'Indonesia')}</td></tr>`,
+      `<tr><td class="label">Penyandang Cacat</td><td class="colon">:</td><td class="nilai">${valueOrDash(penyandangCacat)}</td></tr>`,
+      `<tr><td class="label">Mulai Usaha</td><td class="colon">:</td><td class="nilai">${valueOrDash(mulaiUsaha)}</td></tr>`,
+      `<tr><td class="label">Keperluan</td><td class="colon">:</td><td class="nilai">${valueOrDash(usahaData.keperluan)}</td></tr>`,
+      `<tr><td class="label">Berlaku mulai</td><td class="colon">:</td><td class="nilai">${masaBerlaku}</td></tr>`,
+    ];
+
+    isiSuratBodyHtml = `
+      <p>Menerangkan bahwa orang tersebut adalah benar-benar warga Desa Aikmual dengan data seperti di atas, yang memiliki usaha <strong>${valueOrDash(jenisUsaha || '-')}</strong>.</p>
+    `;
+  } else {
+    rows = [
+      `<tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
+      `<tr><td class="label">NIK</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.nik)}</td></tr>`,
+      `<tr><td class="label">Tempat&nbsp;Tanggal&nbsp;Lahir</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+      `<tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
+      `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
+      `<tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
+      `<tr><td class="label">Status</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.statusPerkawinan)}</td></tr>`,
+      `<tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan)}</td></tr>`,
+      `<tr><td class="label">Alamat</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
+      `<tr><td class="label">Masa Berlaku</td><td class="colon">:</td><td class="nilai">${masaBerlaku}</td></tr>`,
+    ];
+    isiSuratBodyHtml = `<p>${escapeHtml(isiSurat)}</p>`;
+  }
 
   const toolbarHtml = showToolbar
     ? `
@@ -190,8 +471,9 @@ export function generateSuratTemplate(
     }
     
     body {
-      font-family: 'Times New Roman', serif;
-      line-height: 1.45;
+      font-family: 'Bookman Old Style', 'Book Antiqua', serif;
+      font-size: 12pt;
+      line-height: 1.5;
       color: #000;
       background-color: #efefef;
       padding: 16px;
@@ -209,6 +491,8 @@ export function generateSuratTemplate(
       height: 29.7cm;
       margin: 0 auto;
       padding: 1.2cm 1.3cm 1.2cm 1.3cm;
+      font-size: 12pt;
+      line-height: 1.5;
       background: white;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     }
@@ -285,17 +569,18 @@ export function generateSuratTemplate(
     .kop-text {
       text-align: center;
       padding-right: 98px;
+      font-family: 'Times New Roman', serif;
     }
 
     .kop-text .kabupaten {
-      font-size: 13pt;
+      font-size: 14pt;
       font-weight: bold;
       letter-spacing: 0.03em;
       text-transform: uppercase;
     }
 
     .kop-text .kecamatan {
-      font-size: 12pt;
+      font-size: 14pt;
       font-weight: bold;
       text-transform: uppercase;
     }
@@ -304,15 +589,16 @@ export function generateSuratTemplate(
       font-size: 14pt;
       font-weight: bold;
       text-transform: uppercase;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
     }
 
     .kop-text .alamat {
-      font-size: 10.5pt;
+      font-size: 9pt;
       border: 1px solid #111;
-      padding: 2px 8px;
+      padding: 2px 6px;
       display: inline-block;
       min-width: 86%;
+      white-space: nowrap;
     }
 
     .kop-divider {
@@ -325,8 +611,8 @@ export function generateSuratTemplate(
     /* Judul Surat */
     .judul-surat {
       text-align: center;
-      margin: 0.2cm 0 0.15cm 0;
-      font-size: 14pt;
+      margin: 0.1cm 0 0.02cm 0;
+      font-size: 12pt;
       font-weight: bold;
       text-decoration: underline;
       text-transform: uppercase;
@@ -335,13 +621,14 @@ export function generateSuratTemplate(
     /* Nomor Surat */
     .nomor-surat {
       text-align: center;
-      margin-bottom: 0.55cm;
+      margin-bottom: 0.32cm;
       font-size: 12pt;
+      line-height: 1.2;
     }
     
     /* Isi Surat - Tabel */
     .isi-surat {
-      font-size: 14pt;
+      font-size: 12pt;
       margin: 0.2cm 0 0.6cm 0;
     }
     
@@ -356,7 +643,7 @@ export function generateSuratTemplate(
       width: 100%;
       border-collapse: collapse;
       margin: 0.15cm 0 0.35cm 1.1cm;
-      font-size: 14pt;
+      font-size: 12pt;
     }
     
     .isi-surat td {
@@ -385,7 +672,7 @@ export function generateSuratTemplate(
     
     /* Penutup */
     .penutup {
-      font-size: 14pt;
+      font-size: 12pt;
       margin: 0.25cm 0 0.6cm 0;
       text-align: justify;
       text-indent: 1.1cm;
@@ -397,7 +684,7 @@ export function generateSuratTemplate(
       margin-top: 0.25cm;
       display: flex;
       justify-content: flex-end;
-      font-size: 14pt;
+      font-size: 12pt;
     }
     
     .tanda-tangan .pejabat {
@@ -454,7 +741,7 @@ export function generateSuratTemplate(
     }
     
     .tanda-tangan .nip {
-      font-size: 11pt;
+      font-size: 12pt;
       margin-top: 0.25rem;
     }
 
@@ -540,7 +827,7 @@ export function generateSuratTemplate(
           <div class="kabupaten">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
           <div class="kecamatan">KECAMATAN PRAYA</div>
           <div class="desa">DESA AIKMUAL</div>
-          <div class="alamat">Sekretariat : Jln raya Praya - Mantang KM. 07 Aikmual Praya</div>
+          <div class="alamat">Alamat : Jln raya Praya – Mantang KM 07 Aikmual Praya Phone 08175726709 / 08175790747 Kode Post 83500</div>
         </div>
       </div>
       <div class="kop-divider"></div>
@@ -550,7 +837,7 @@ export function generateSuratTemplate(
     <div class="judul-surat">${escapeHtml(suratType.judul)}</div>
 
     <!-- NOMOR SURAT -->
-    <div class="nomor-surat">No: ${escapeHtml(nomorSurat)}</div>
+    <div class="nomor-surat">Nomor : ${escapeHtml(nomorSurat)}</div>
 
     <!-- ISI SURAT -->
     <div class="isi-surat">
@@ -560,12 +847,12 @@ export function generateSuratTemplate(
         ${rows.join('')}
       </table>
 
-      <p>${escapeHtml(isiSurat)}</p>
+      ${isiSuratBodyHtml}
     </div>
 
     <!-- PENUTUP -->
     <div class="penutup">
-      Demikian surat keterangan ini kami buat dengan sebenarnya agar dapat dipergunakan sebagaimana mestinya.
+      ${escapeHtml(penutupText)}
     </div>
 
     <!-- TANDA TANGAN -->

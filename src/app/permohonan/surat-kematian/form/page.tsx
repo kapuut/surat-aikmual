@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiSend, FiHeart } from "react-icons/fi";
+import { FiArrowLeft, FiSend, FiHeart, FiCheckCircle, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
@@ -11,45 +11,113 @@ export default function SuratKematianFormPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const showFeedback = () => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const form = e.currentTarget;
+    setSuccessMessage(null);
+
+    // Provide explicit feedback instead of silently blocking submit on invalid fields.
+    if (!form.checkValidity()) {
+      const invalidElements = Array.from(form.elements).filter(
+        (el): el is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+          (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) &&
+          !el.checkValidity()
+      );
+
+      const invalidLabels = invalidElements
+        .map((el) => {
+          const id = el.id;
+          if (id) {
+            const directLabel = form.querySelector(`label[for="${id}"]`);
+            if (directLabel) return directLabel.textContent?.replace('*', '').trim() || null;
+          }
+
+          const wrapperLabel = el.closest('div')?.querySelector('label');
+          return wrapperLabel?.textContent?.replace('*', '').trim() || null;
+        })
+        .filter((label): label is string => Boolean(label));
+
+      form.reportValidity();
+      setLoading(false);
+      if (invalidLabels.length > 0) {
+        setError(`Data belum valid pada: ${invalidLabels.slice(0, 3).join(', ')}${invalidLabels.length > 3 ? ', ...' : ''}.`);
+      } else {
+        setError('Form belum lengkap atau ada data yang belum valid. Cek kembali semua field bertanda *.');
+      }
+      showFeedback();
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      jenisSurat: "Surat Keterangan Kematian",
-      // Data Pemohon
-      namaPemohon: formData.get("namaPemohon"),
-      nikPemohon: formData.get("nikPemohon"),
-      tempatLahirPemohon: formData.get("tempatLahirPemohon"),
-      tanggalLahirPemohon: formData.get("tanggalLahirPemohon"),
-      pekerjaanPemohon: formData.get("pekerjaanPemohon"),
-      alamatPemohon: formData.get("alamatPemohon"),
-      noTelpPemohon: formData.get("noTelpPemohon"),
-      hubunganDenganAlmarhum: formData.get("hubunganDenganAlmarhum"),
-      // Data Almarhum
-      namaAlmarhum: formData.get("namaAlmarhum"),
-      nikAlmarhum: formData.get("nikAlmarhum"),
-      tempatLahirAlmarhum: formData.get("tempatLahirAlmarhum"),
-      tanggalLahirAlmarhum: formData.get("tanggalLahirAlmarhum"),
-      jenisKelamin: formData.get("jenisKelamin"),
-      agama: formData.get("agama"),
-      pekerjaanAlmarhum: formData.get("pekerjaanAlmarhum"),
-      alamatAlmarhum: formData.get("alamatAlmarhum"),
-      tanggalMeninggal: formData.get("tanggalMeninggal"),
-      tempatMeninggal: formData.get("tempatMeninggal"),
-      sebabMeninggal: formData.get("sebabMeninggal"),
-      tempatPemakaman: formData.get("tempatPemakaman"),
-      keperluan: formData.get("keperluan"),
-    };
+    const formData = new FormData(form);
+
+    const nikPemohonRaw = String(formData.get('nik') || '');
+    const nikAlmarhumRaw = String(formData.get('nikAlmarhum') || '');
+    const nikPemohon = nikPemohonRaw.replace(/\D/g, '').slice(0, 16);
+    const nikAlmarhum = nikAlmarhumRaw.replace(/\D/g, '').slice(0, 16);
+
+    formData.set('nik', nikPemohon);
+    formData.set('nikAlmarhum', nikAlmarhum);
+
+    if (nikPemohon.length !== 16) {
+      setLoading(false);
+      setError('NIK Pemohon harus terdiri dari 16 digit angka.');
+      showFeedback();
+      return;
+    }
+
+    if (nikAlmarhum.length !== 16) {
+      setLoading(false);
+      setError('NIK Almarhum/Almarhumah harus terdiri dari 16 digit angka.');
+      showFeedback();
+      return;
+    }
+
+    const dokumenKTP = formData.get('dokumenKTP');
+    const dokumenKK = formData.get('dokumenKK');
+    const dokumenTambahan = formData
+      .getAll('dokumenTambahan')
+      .filter((item): item is File => item instanceof File && item.size > 0);
+
+    const hasKtp = dokumenKTP instanceof File && dokumenKTP.size > 0;
+    const hasKk = dokumenKK instanceof File && dokumenKK.size > 0;
+
+    if (!hasKtp || !hasKk) {
+      setLoading(false);
+      setError("Upload KTP Pemohon dan Kartu Keluarga (KK) wajib diisi.");
+      showFeedback();
+      return;
+    }
+
+    // Keep existing backend compatibility by also checking total uploaded files.
+    const uploadedFiles = [dokumenKTP, dokumenKK, ...dokumenTambahan].filter(
+      (item): item is File => item instanceof File && item.size > 0
+    );
+
+    if (uploadedFiles.length < 2) {
+      setLoading(false);
+      setError('Dokumen tidak terbaca. Silakan unggah ulang KTP dan KK.');
+      showFeedback();
+      return;
+    }
+
+    formData.set("jenisSurat", "Surat Keterangan Kematian");
 
     try {
-      const response = await fetch("/api/permohonan/submit", {
+      const response = await fetch("/api/permohonan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -57,10 +125,19 @@ export default function SuratKematianFormPage() {
         throw new Error(errorData.error || "Gagal mengajukan permohonan");
       }
 
-      alert("Permohonan berhasil diajukan!");
-      router.push("/permohonan/riwayat");
+      setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      showFeedback();
+      window.setTimeout(() => {
+        router.push("/tracking");
+      }, 1200);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      const message = err instanceof Error ? err.message : "Terjadi kesalahan";
+      setError(
+        message.toLowerCase().includes("failed to fetch")
+          ? "Koneksi ke server terputus. Coba refresh halaman, lalu ajukan lagi."
+          : message
+      );
+      showFeedback();
     } finally {
       setLoading(false);
     }
@@ -69,128 +146,107 @@ export default function SuratKematianFormPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50 py-8 pt-20">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white pt-20 pb-8">
         <div className="max-w-4xl mx-auto px-4">
           {/* Header */}
           <div className="mb-6">
             <Link
               href="/permohonan/surat-kematian"
-              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4"
+              className="inline-flex items-center gap-2 text-slate-700 hover:text-slate-900 mb-4"
             >
               <FiArrowLeft /> Kembali
             </Link>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gray-500 rounded-lg flex items-center justify-center text-white">
-                <FiHeart className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Surat Keterangan Kematian
-                </h1>
-                <p className="text-gray-600">
-                  Silakan lengkapi formulir di bawah ini
-                </p>
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-slate-600 rounded-lg flex items-center justify-center text-white">
+                  <FiHeart className="w-6 h-6" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    Formulir Surat Keterangan Kematian
+                  </h1>
+                  <p className="text-gray-600">
+                    Isi data sesuai identitas almarhum/almarhumah dan detail kejadian kematian
+                  </p>
+                </div>
               </div>
             </div>
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6 flex items-start gap-3">
+              <FiCheckCircle className="w-5 h-5 mt-0.5 text-green-600" />
+              <div>
+                <p className="font-semibold">Permohonan Berhasil</p>
+                <p className="text-sm">{successMessage}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Data Pemohon */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Data Pemohon
+        <form noValidate onSubmit={handleSubmit} className="space-y-6">
+          {/* Data Pelapor */}
+          <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
+              Data Pelapor/Pemohon
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nama Lengkap Pemohon *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nama Lengkap Pemohon <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  name="namaPemohon"
+                  name="nama"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                  placeholder="Nama pelapor"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  NIK Pemohon *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  NIK Pemohon <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  name="nikPemohon"
+                  name="nik"
                   required
                   maxLength={16}
-                  pattern="[0-9]{16}"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  inputMode="numeric"
+                  onInput={(event) => {
+                    event.currentTarget.value = event.currentTarget.value.replace(/\D/g, '').slice(0, 16);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                  placeholder="16 digit NIK"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tempat Lahir Pemohon *
-                </label>
-                <input
-                  type="text"
-                  name="tempatLahirPemohon"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tanggal Lahir Pemohon *
-                </label>
-                <input
-                  type="date"
-                  name="tanggalLahirPemohon"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pekerjaan Pemohon *
-                </label>
-                <input
-                  type="text"
-                  name="pekerjaanPemohon"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  No. Telepon Pemohon *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nomor Telepon/WhatsApp <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"
-                  name="noTelpPemohon"
+                  name="noTelp"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                  placeholder="08xxxxxxxxxx"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Alamat Lengkap Pemohon *
-                </label>
-                <textarea
-                  name="alamatPemohon"
-                  required
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hubungan dengan Almarhum/Almarhumah *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hubungan dengan Almarhum/Almarhumah <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="hubunganDenganAlmarhum"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 >
                   <option value="">Pilih Hubungan</option>
                   <option value="Anak">Anak</option>
@@ -202,69 +258,84 @@ export default function SuratKematianFormPage() {
                   <option value="Lainnya">Lainnya</option>
                 </select>
               </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Alamat Pemohon <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  name="alamatSekarang"
+                  required
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                  placeholder="Dusun, RT/RW, Desa, Kecamatan, Kabupaten"
+                />
+              </div>
             </div>
           </div>
 
           {/* Data Almarhum */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
               Data Almarhum/Almarhumah
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nama Lengkap Almarhum/Almarhumah *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nama Lengkap Almarhum/Almarhumah <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="namaAlmarhum"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  NIK Almarhum/Almarhumah *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  NIK Almarhum/Almarhumah <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="nikAlmarhum"
                   required
                   maxLength={16}
-                  pattern="[0-9]{16}"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  inputMode="numeric"
+                  onInput={(event) => {
+                    event.currentTarget.value = event.currentTarget.value.replace(/\D/g, '').slice(0, 16);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tempat Lahir *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tempat Lahir <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="tempatLahirAlmarhum"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tanggal Lahir *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tanggal Lahir <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   name="tanggalLahirAlmarhum"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Jenis Kelamin *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Jenis Kelamin <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="jenisKelamin"
+                  name="jenisKelaminAlmarhum"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 >
                   <option value="">Pilih Jenis Kelamin</option>
                   <option value="Laki-laki">Laki-laki</option>
@@ -272,13 +343,13 @@ export default function SuratKematianFormPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Agama *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Agama <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="agama"
+                  name="agamaAlmarhum"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 >
                   <option value="">Pilih Agama</option>
                   <option value="Islam">Islam</option>
@@ -290,127 +361,203 @@ export default function SuratKematianFormPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pekerjaan *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Pekerjaan <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="pekerjaanAlmarhum"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Alamat Lengkap *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Alamat Terakhir <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  name="alamatAlmarhum"
+                  name="alamatTerakhir"
                   required
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 />
               </div>
             </div>
           </div>
 
-          {/* Data Kematian */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Data Kematian
+          {/* Data Wafat dan Pemakaman */}
+          <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
+              Data Wafat dan Pemakaman
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tanggal Meninggal *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hari/Tanggal/Tahun Meninggal <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   name="tanggalMeninggal"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tempat Meninggal *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Waktu Meninggal <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  name="waktuMeninggal"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tempat Meninggal <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="tempatMeninggal"
                   required
-                  placeholder="Contoh: Rumah Sakit, Rumah, dll"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Contoh: Rumah Sakit Umum Provinsi NTB"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 />
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sebab Meninggal *
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hari/Tanggal Pemakaman <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="text"
-                  name="sebabMeninggal"
+                  type="date"
+                  name="tanggalPemakaman"
                   required
-                  placeholder="Contoh: Sakit, Kecelakaan, dll"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Waktu Pemakaman <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  name="waktuPemakaman"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tempat Pemakaman *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tempat Pemakaman <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <textarea
                   name="tempatPemakaman"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={2}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sebab Kematian (opsional)
+                </label>
+                <input
+                  type="text"
+                  name="sebabKematian"
+                  placeholder="Contoh: Sakit"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
                 />
               </div>
             </div>
           </div>
 
           {/* Keperluan */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
               Keperluan
             </h2>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Untuk Keperluan *
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Untuk Keperluan <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="keperluan"
                 required
                 rows={3}
-                placeholder="Jelaskan keperluan surat ini..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Contoh: Pengurusan akta kematian, administrasi bank, dan keperluan waris"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
               />
             </div>
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
-              {error}
+          <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
+              <FiUpload className="text-slate-600" /> Upload Dokumen
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              KTP Pemohon dan KK wajib diunggah. Dokumen pendukung kematian dapat ditambahkan bila tersedia.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Upload KTP Pemohon <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="file"
+                  name="dokumenKTP"
+                  required
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-slate-100 file:text-slate-700"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Upload Kartu Keluarga (KK) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="file"
+                  name="dokumenKK"
+                  required
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-slate-100 file:text-slate-700"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dokumen Pendukung Kematian (opsional)
+                </label>
+                <input
+                  type="file"
+                  name="dokumenTambahan"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-slate-100 file:text-slate-700"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Contoh: surat keterangan RS/dokter, surat pengantar RT/RW, atau dokumen pendukung lain.
+                </p>
+              </div>
             </div>
-          )}
+          </div>
 
           {/* Submit Button */}
-          <div className="flex gap-4">
+          <div className="flex gap-4 max-w-4xl mx-auto">
             <Link
               href="/permohonan/surat-kematian"
-              className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-center"
+              className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition duration-200 text-center"
             >
               Batal
             </Link>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-blue-400 flex items-center justify-center gap-2"
+              className="flex-1 bg-slate-700 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  Memproses...
+                  Mengirim...
                 </>
               ) : (
                 <>
@@ -420,10 +567,19 @@ export default function SuratKematianFormPage() {
               )}
             </button>
           </div>
+
+          {loading && (
+            <p className="text-sm text-gray-600 text-center">Permohonan sedang diproses...</p>
+          )}
+
+          {!loading && (
+            <p className="text-xs text-gray-500 text-center">
+              Pastikan dokumen KTP dan KK sudah terunggah sebelum klik Ajukan Permohonan.
+            </p>
+          )}
         </form>
       </div>
-    </div>
-    <Footer />
+      <Footer />
     </>
   );
 }

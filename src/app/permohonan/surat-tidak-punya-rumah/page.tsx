@@ -11,17 +11,14 @@ export default function SuratTidakPunyaRumahInfoPage() {
   const persyaratan = [
     "Scan/foto KTP yang masih berlaku",
     "Scan/foto Kartu Keluarga (KK)",
-    "Scan/foto Surat Pengantar dari RT/RW",
-    "Upload pas foto 3x4",
-    "Scan/foto surat keterangan kontrak/sewa rumah (jika mengontrak)",
-    "Scan/foto surat keterangan menumpang (jika menumpang)",
+    "Dokumen pendukung tambahan (opsional): surat pengantar RT/RW, bukti kontrak/sewa, atau surat keterangan menumpang",
   ];
 
   const prosedur = [
     {
       step: 1,
       title: "Persiapan Dokumen",
-      desc: "Siapkan semua persyaratan dokumen yang diperlukan",
+      desc: "Siapkan KTP dan KK, serta dokumen pendukung tambahan bila ada",
     },
     {
       step: 2,
@@ -41,7 +38,7 @@ export default function SuratTidakPunyaRumahInfoPage() {
     {
       step: 5,
       title: "Pengambilan Surat",
-      desc: "Surat dapat diambil setelah mendapat persetujuan (3-5 hari kerja)",
+      desc: "Surat dapat diunduh setelah status selesai/ditandatangani",
     },
   ];
 

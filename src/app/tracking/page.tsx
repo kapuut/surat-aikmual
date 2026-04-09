@@ -3,7 +3,7 @@
 import { useRequireAuth } from '@/lib/hooks';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiDownload, FiClock } from 'react-icons/fi';
+import { FiDownload, FiClock, FiEye } from 'react-icons/fi';
 import SimpleLayout from '@/components/layout/SimpleLayout';
 import Card, { CardHeader, CardBody } from '@/components/ui/Card';
 import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell, StatusBadge, EmptyState } from '@/components/ui/Table';
@@ -33,6 +33,13 @@ export default function TrackingPage() {
   const [permohonan, setPermohonan] = useState<Permohonan[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const summarizeReason = (reason: string | null): string => {
+    const text = (reason || '').trim();
+    if (!text) return '-';
+    if (text.length <= 80) return text;
+    return `${text.slice(0, 80)}...`;
+  };
 
   useEffect(() => {
     fetchPermohonan();
@@ -128,6 +135,7 @@ export default function TrackingPage() {
                     <TableHeaderCell>Tanggal Pengajuan</TableHeaderCell>
                     <TableHeaderCell>Nomor Surat</TableHeaderCell>
                     <TableHeaderCell>Status</TableHeaderCell>
+                    <TableHeaderCell align="center">Aksi</TableHeaderCell>
                     <TableHeaderCell align="center">Dokumen</TableHeaderCell>
                   </TableRow>
                 </TableHead>
@@ -166,6 +174,18 @@ export default function TrackingPage() {
                               | 'ditolak'
                           }
                         />
+                        {(item.status === 'ditolak' || item.status === 'perlu_revisi') && item.alasan_penolakan && (
+                          <p className="mt-1 text-xs text-red-600">{summarizeReason(item.alasan_penolakan)}</p>
+                        )}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Link
+                          href={`/tracking/${item.id}`}
+                          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
+                        >
+                          <FiEye className="w-4 h-4" />
+                          Lihat Detail
+                        </Link>
                       </TableCell>
                       <TableCell align="center">
                         {item.status === 'selesai' || item.status === 'ditandatangani' ? (

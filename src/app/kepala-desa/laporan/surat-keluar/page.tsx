@@ -1,19 +1,366 @@
 "use client";
 
-import { FiBarChart2 } from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { FiCalendar, FiDownload, FiRefreshCw, FiSend } from "react-icons/fi";
+
+type SuratKeluarStatus = "Draft" | "Menunggu" | "Terkirim";
+
+interface SuratKeluarItem {
+  id: number;
+  nomor_surat: string;
+  tanggal_surat: string;
+  tujuan: string;
+  perihal: string;
+  status: SuratKeluarStatus;
+  file_path: string | null;
+  created_by_name?: string | null;
+}
+
+function parseDate(value?: string): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDate(value?: string): string {
+  const parsed = parseDate(value);
+  if (!parsed) return "-";
+  return parsed.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function normalizeCsvCell(value: string): string {
+  const text = value.replace(/\r?\n/g, " ").replace(/"/g, '""');
+  return `"${text}"`;
+}
 
 export default function KepalaDesaLaporanSuratKeluarPage() {
+  const [data, setData] = useState<SuratKeluarItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterYear, setFilterYear] = useState("");
+  const [sortBy, setSortBy] = useState<
+    "tanggal-desc" | "tanggal-asc" | "bulan-desc" | "bulan-asc" | "tahun-desc" | "tahun-asc"
+  >("tanggal-desc");
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch("/api/surat-keluar", { credentials: "include" });
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Gagal memuat data laporan surat keluar");
+      }
+
+      setData((result.data || []) as SuratKeluarItem[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan saat memuat data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const values = new Set<number>([currentYear]);
+
+    data.forEach((item) => {
+      const parsed = parseDate(item.tanggal_surat);
+      if (parsed) values.add(parsed.getFullYear());
+    });
+
+    return Array.from(values).sort((a, b) => b - a);
+  }, [data]);
+
+  const filteredData = useMemo(() => {
+    return data.filter((item) => {
+      const searchPool = [
+        item.nomor_surat,
+        item.tujuan,
+        item.perihal,
+        item.created_by_name || "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch = !searchTerm.trim() || searchPool.includes(searchTerm.trim().toLowerCase());
+
+      const dateSource = parseDate(item.tanggal_surat);
+      const matchesMonth = !filterMonth || (dateSource ? dateSource.getMonth() + 1 === Number(filterMonth) : false);
+      const matchesYear = !filterYear || (dateSource ? dateSource.getFullYear() === Number(filterYear) : false);
+
+      return matchesSearch && matchesMonth && matchesYear;
+    });
+  }, [data, searchTerm, filterMonth, filterYear]);
+
+  const sortedData = useMemo(() => {
+    const rows = [...filteredData];
+
+    rows.sort((a, b) => {
+      const dateA = parseDate(a.tanggal_surat);
+      const dateB = parseDate(b.tanggal_surat);
+
+      const timeA = dateA?.getTime() ?? 0;
+      const timeB = dateB?.getTime() ?? 0;
+      const monthA = dateA ? dateA.getMonth() + 1 : 0;
+      const monthB = dateB ? dateB.getMonth() + 1 : 0;
+      const yearA = dateA?.getFullYear() ?? 0;
+      const yearB = dateB?.getFullYear() ?? 0;
+
+      switch (sortBy) {
+        case "tanggal-asc":
+          return timeA - timeB;
+        case "tanggal-desc":
+          return timeB - timeA;
+        case "bulan-asc":
+          return monthA - monthB || yearA - yearB || timeA - timeB;
+        case "bulan-desc":
+          return monthB - monthA || yearB - yearA || timeB - timeA;
+        case "tahun-asc":
+          return yearA - yearB || monthA - monthB || timeA - timeB;
+        case "tahun-desc":
+          return yearB - yearA || monthB - monthA || timeB - timeA;
+        default:
+          return timeB - timeA;
+      }
+    });
+
+    return rows;
+  }, [filteredData, sortBy]);
+
+  const totalSuratKeluar = data.length;
+  const totalFiltered = sortedData.length;
+  const totalTerkirim = data.filter((item) => item.status === "Terkirim").length;
+  const totalMenunggu = data.filter((item) => item.status === "Menunggu" || item.status === "Draft").length;
+
+  const bulanIniCount = data.filter((item) => {
+    const parsed = parseDate(item.tanggal_surat);
+    if (!parsed) return false;
+    const now = new Date();
+    return parsed.getMonth() === now.getMonth() && parsed.getFullYear() === now.getFullYear();
+  }).length;
+
+  const downloadCsv = () => {
+    const header = ["No", "Nomor Surat", "Tanggal Surat", "Tujuan", "Perihal", "Status", "Pembuat", "File"];
+    const rows = sortedData.map((item, index) => [
+      String(index + 1),
+      item.nomor_surat || "-",
+      formatDate(item.tanggal_surat),
+      item.tujuan || "-",
+      item.perihal || "-",
+      item.status || "-",
+      item.created_by_name || "-",
+      item.file_path || "-",
+    ]);
+
+    const csvContent = [header, ...rows]
+      .map((row) => row.map((cell) => normalizeCsvCell(cell)).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `laporan-surat-keluar-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <section>
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <FiBarChart2 className="text-purple-600" /> Laporan Surat Keluar
+          <FiSend className="text-purple-600" /> Surat Keluar
         </h2>
-        <p className="text-gray-500 mt-1">Laporan dan statistik surat keluar</p>
+        <p className="text-gray-500 mt-1">Ringkasan surat keluar berdasarkan filter periode dan pencarian.</p>
       </div>
 
-      <div className="bg-white rounded-lg border p-6">
-        <p>Laporan Surat Keluar - Dalam Pengembangan</p>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Pencarian</label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Cari nomor surat, tujuan, perihal, atau pembuat..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Bulan</label>
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">Semua Bulan</option>
+              <option value="1">Januari</option>
+              <option value="2">Februari</option>
+              <option value="3">Maret</option>
+              <option value="4">April</option>
+              <option value="5">Mei</option>
+              <option value="6">Juni</option>
+              <option value="7">Juli</option>
+              <option value="8">Agustus</option>
+              <option value="9">September</option>
+              <option value="10">Oktober</option>
+              <option value="11">November</option>
+              <option value="12">Desember</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
+            <select
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">Semua Tahun</option>
+              {years.map((year) => (
+                <option key={year} value={String(year)}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Sorting</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="tanggal-desc">Tanggal Terbaru</option>
+              <option value="tanggal-asc">Tanggal Terlama</option>
+              <option value="bulan-desc">Bulan Terbesar ke Kecil</option>
+              <option value="bulan-asc">Bulan Terkecil ke Besar</option>
+              <option value="tahun-desc">Tahun Terbaru</option>
+              <option value="tahun-asc">Tahun Terlama</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="text-sm text-gray-600 inline-flex items-center gap-2">
+          <FiCalendar className="text-gray-500" />
+          Menampilkan {totalFiltered} dari {totalSuratKeluar} surat keluar
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchData}
+            className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm hover:bg-slate-200"
+          >
+            <FiRefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+          <button
+            onClick={downloadCsv}
+            className="inline-flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700"
+          >
+            <FiDownload className="w-4 h-4" />
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <p className="text-sm text-gray-500">Total Surat Keluar</p>
+          <p className="text-2xl font-bold text-blue-700">{totalSuratKeluar}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <p className="text-sm text-gray-500">Data Ditampilkan</p>
+          <p className="text-2xl font-bold text-emerald-700">{totalFiltered}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <p className="text-sm text-gray-500">Terkirim</p>
+          <p className="text-2xl font-bold text-green-700">{totalTerkirim}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <p className="text-sm text-gray-500">Menunggu / Draft</p>
+          <p className="text-2xl font-bold text-orange-700">{totalMenunggu}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <p className="text-sm text-gray-500">Bulan Ini</p>
+          <p className="text-2xl font-bold text-purple-700">{bulanIniCount}</p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+        {loading ? (
+          <div className="p-8 text-center text-gray-500">Memuat data laporan surat keluar...</div>
+        ) : error ? (
+          <div className="p-8 text-center text-red-600">{error}</div>
+        ) : sortedData.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">Tidak ada data yang sesuai filter.</div>
+        ) : (
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor Surat</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal Surat</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tujuan</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Perihal</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Pembuat</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-700">File</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {sortedData.map((item, index) => (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">{index + 1}</td>
+                  <td className="px-4 py-3 font-medium">{item.nomor_surat || "-"}</td>
+                  <td className="px-4 py-3">{formatDate(item.tanggal_surat)}</td>
+                  <td className="px-4 py-3">{item.tujuan || "-"}</td>
+                  <td className="px-4 py-3">{item.perihal || "-"}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        item.status === "Terkirim"
+                          ? "bg-green-100 text-green-800"
+                          : item.status === "Menunggu"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {item.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">{item.created_by_name || "-"}</td>
+                  <td className="px-4 py-3 text-center">
+                    {item.file_path ? (
+                      <a href={item.file_path} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                        Lihat File
+                      </a>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </section>
   );
