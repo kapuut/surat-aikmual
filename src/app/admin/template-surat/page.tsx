@@ -1,7 +1,11 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { ALLOWED_SURAT_TYPES } from "@/lib/surat-data";
+import DynamicTemplateForm from "@/components/surat/DynamicTemplateForm";
+import { createInitialFormValues } from "@/lib/template-surat/render-template";
+import { DYNAMIC_SURAT_TEMPLATES, getTemplateById } from "@/lib/template-surat/templates";
+import type { TemplateFormValues } from "@/lib/template-surat/types";
 
 type TemplateItem = {
   id: number;
@@ -16,17 +20,29 @@ type TemplateItem = {
 };
 
 export default function TemplateSuratPage() {
+  const initialTemplateId = DYNAMIC_SURAT_TEMPLATES[0]?.id ?? "";
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [selectedDynamicTemplateId, setSelectedDynamicTemplateId] = useState<string>(initialTemplateId);
+  const [dynamicValues, setDynamicValues] = useState<TemplateFormValues>(() => {
+    const initialTemplate = getTemplateById(initialTemplateId);
+    if (!initialTemplate) return {};
+    return createInitialFormValues(initialTemplate.fields);
+  });
   const [formData, setFormData] = useState({
     nama: "",
     deskripsi: "",
     jenisSurat: ALLOWED_SURAT_TYPES[0]?.title || "",
     file: null as File | null,
   });
+
+  const selectedDynamicTemplate = useMemo(() => {
+    if (!selectedDynamicTemplateId) return undefined;
+    return getTemplateById(selectedDynamicTemplateId);
+  }, [selectedDynamicTemplateId]);
 
   const fetchTemplates = async () => {
     try {
@@ -51,6 +67,19 @@ export default function TemplateSuratPage() {
   useEffect(() => {
     fetchTemplates();
   }, []);
+
+  useEffect(() => {
+    if (!selectedDynamicTemplate) {
+      setDynamicValues({});
+      return;
+    }
+
+    setDynamicValues(createInitialFormValues(selectedDynamicTemplate.fields));
+  }, [selectedDynamicTemplate]);
+
+  const handleDynamicFieldChange = (fieldName: string, value: string) => {
+    setDynamicValues((prev) => ({ ...prev, [fieldName]: value }));
+  };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files?.[0] || null;
@@ -127,6 +156,49 @@ export default function TemplateSuratPage() {
 
   return (
     <section>
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50/40 p-4">
+          <h3 className="text-lg font-semibold text-blue-900">Template Surat Dinamis (Placeholder)</h3>
+          <p className="mt-1 text-sm text-blue-800">
+            Template disimpan sebagai HTML string dengan placeholder seperti {"{{nama}}"}, {"{{nik}}"}, {"{{alamat}}"}, dan dirender otomatis dari field schema.
+          </p>
+
+          <div className="mt-4">
+            <label className="mb-1 block text-sm font-medium text-gray-700">Pilih Template Dinamis</label>
+            <select
+              value={selectedDynamicTemplateId}
+              onChange={(event) => setSelectedDynamicTemplateId(event.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {DYNAMIC_SURAT_TEMPLATES.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.nama}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selectedDynamicTemplate && (
+            <>
+              <div className="mt-4 rounded-lg border border-blue-100 bg-white p-3">
+                <h4 className="font-semibold text-gray-800">Metadata Template</h4>
+                <p className="mt-1 text-sm text-gray-600">{selectedDynamicTemplate.deskripsi}</p>
+                <p className="mt-1 text-sm text-gray-600">
+                  Jenis Surat: <span className="font-medium text-gray-800">{selectedDynamicTemplate.jenisSurat}</span>
+                </p>
+              </div>
+
+              <div className="mt-4 rounded-lg border border-gray-200 bg-white p-4">
+                <h4 className="mb-3 font-semibold text-gray-800">Form Dinamis Berdasarkan Field</h4>
+                <DynamicTemplateForm
+                  fields={selectedDynamicTemplate.fields}
+                  values={dynamicValues}
+                  onFieldChange={handleDynamicFieldChange}
+                />
+              </div>
+            </>
+          )}
+        </div>
+
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-4 mb-6 space-y-4">
           <h3 className="text-lg font-semibold text-gray-800">Upload Template Surat</h3>
 

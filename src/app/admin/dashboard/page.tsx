@@ -7,10 +7,6 @@ import { AdminStats } from "@/components/dashboard/SharedStats";
 import {
   FiActivity,
   FiAlertCircle,
-  FiCheckCircle,
-  FiInbox,
-  FiSend,
-  FiTrendingUp,
 } from "react-icons/fi";
 
 const BAR_COLOR_PALETTE = [
@@ -45,56 +41,6 @@ export default function AdminDashboardPage() {
   const draftSuratKeluar = stats?.suratKeluar.draft ?? 0;
   const unreadSuratMasuk = stats?.suratMasuk.belumDibaca ?? 0;
 
-  const staffHighlights = useMemo(
-    () => [
-      {
-        role: "Sekretaris Desa",
-        description:
-          "Mengelola surat masuk dan keluar serta memverifikasi permohonan warga sebelum diajukan ke kepala desa.",
-        accent: "text-blue-600",
-        background: "bg-blue-50",
-        icon: FiInbox,
-        metrics: [
-          {
-            label: "Surat masuk bulan ini",
-            value: stats?.suratMasuk.bulanIni ?? 0,
-          },
-          {
-            label: "Surat keluar bulan ini",
-            value: stats?.suratKeluar.bulanIni ?? 0,
-          },
-          {
-            label: "Permohonan menunggu verifikasi",
-            value: pendingCount,
-          },
-        ],
-      },
-      {
-        role: "Kepala Desa",
-        description:
-          "Mereview dan menyetujui permohonan yang sudah diverifikasi serta memantau laporan layanan warga.",
-        accent: "text-emerald-600",
-        background: "bg-emerald-50",
-        icon: FiCheckCircle,
-        metrics: [
-          {
-            label: "Menunggu tanda tangan",
-            value: pendingCount,
-          },
-          {
-            label: "Surat disetujui bulan ini",
-            value: approvedCount,
-          },
-          {
-            label: "Surat keluar draft",
-            value: draftSuratKeluar,
-          },
-        ],
-      },
-    ],
-    [stats, pendingCount, approvedCount, draftSuratKeluar]
-  );
-
   const oversightAlerts = useMemo(
     () => [
       {
@@ -119,27 +65,10 @@ export default function AdminDashboardPage() {
     [draftSuratKeluar, pendingCount, unreadSuratMasuk]
   );
 
-  const maxChartValue = useMemo(() => {
-    if (chartData.length === 0) return 1;
-    return Math.max(...chartData.map((item) => item.jumlah), 1);
+  const chartAxisMax = useMemo(() => {
+    if (chartData.length === 0) return 0;
+    return Math.max(...chartData.map((item) => item.jumlah), 0);
   }, [chartData]);
-
-  const chartAxisMax = useMemo(() => Math.max(1, maxChartValue), [maxChartValue]);
-
-  const chartTicks = useMemo(() => {
-    if (chartAxisMax <= 8) {
-      return Array.from({ length: chartAxisMax + 1 }, (_, idx) => idx);
-    }
-
-    const divisions = 4;
-    const ticks = Array.from({ length: divisions + 1 }, (_, idx) => {
-      const value = Math.round((idx / divisions) * chartAxisMax);
-      return value;
-    });
-
-    ticks[ticks.length - 1] = chartAxisMax;
-    return Array.from(new Set(ticks));
-  }, [chartAxisMax]);
 
   const fetchJenisSuratChart = async () => {
     try {
@@ -208,13 +137,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <FiTrendingUp className="h-5 w-5 text-indigo-600" /> Diagram Batang Jenis Surat
-                </h2>
-                <p className="text-sm text-gray-500">Distribusi jenis surat permohonan dengan filter bulan dan tahun.</p>
-              </div>
+            <div className="flex flex-wrap items-start justify-end gap-3">
               <button
                 onClick={fetchJenisSuratChart}
                 className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -306,83 +229,46 @@ export default function AdminDashboardPage() {
 
               {!chartLoading && !chartError && chartData.length > 0 && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
-                  <div className="mb-4 flex items-center justify-between">
+                  <div className="mb-4">
                     <p className="text-sm font-medium text-gray-700">Perbandingan Jumlah Surat per Jenis</p>
-                    <div className="text-xs text-gray-500">Skala otomatis (maksimum: {chartAxisMax})</div>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <div
-                      className="grid min-w-[780px] gap-3"
-                      style={{ gridTemplateColumns: `52px repeat(${chartData.length}, minmax(76px, 1fr))` }}
-                    >
-                      <div className="relative h-72 border-r border-gray-300">
-                        {chartTicks.map((tick) => {
-                          const bottomPercent = (tick / chartAxisMax) * 100;
-                          return (
-                            <div
-                              key={`tick-${tick}`}
-                              className="absolute left-0 right-0"
-                              style={{ bottom: `${bottomPercent}%`, transform: 'translateY(50%)' }}
-                            >
-                              <span className="-translate-y-1/2 block pr-2 text-right text-[11px] font-medium text-gray-500">
-                                {tick}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
+                  <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
+                    <div className="mb-3 flex items-center justify-between text-[11px] text-gray-500">
+                      <span>Jenis Surat</span>
+                      <span>Skala 0 - {chartAxisMax}</span>
+                    </div>
 
+                    <div className="space-y-2.5">
                       {chartData.map((item, index) => {
-                        const barHeightPercent = (item.jumlah / chartAxisMax) * 100;
+                        const scaleBase = chartAxisMax > 0 ? chartAxisMax : 1;
+                        const barWidthPercent = (item.jumlah / scaleBase) * 100;
                         const barColor = BAR_COLOR_PALETTE[index % BAR_COLOR_PALETTE.length];
 
                         return (
-                          <div key={item.jenis_surat} className="flex flex-col items-center gap-2">
-                            <div className="relative h-72 w-full rounded-lg border border-gray-200 bg-white">
-                              {chartTicks.map((tick) => {
-                                const bottomPercent = (tick / chartAxisMax) * 100;
-                                return (
-                                  <div
-                                    key={`${item.jenis_surat}-grid-${tick}`}
-                                    className="absolute left-0 right-0 border-t border-dashed border-gray-200"
-                                    style={{ bottom: `${bottomPercent}%` }}
-                                  />
-                                );
-                              })}
-
-                              <div className="absolute inset-0 flex items-end justify-center px-2 pb-2 pt-2">
-                                <div
-                                  className="relative w-11 rounded-t-md shadow-sm transition-all duration-500"
-                                  style={{
-                                    height: `${barHeightPercent}%`,
-                                    minHeight: item.jumlah > 0 ? '12px' : '0px',
-                                  }}
-                                >
-                                  <div
-                                    className="h-full w-full rounded-t-md"
-                                    style={{
-                                      background: `linear-gradient(to top, ${barColor} 0%, ${barColor} 70%, rgba(255,255,255,0.35) 100%)`,
-                                      border: `1px solid ${barColor}`,
-                                      boxShadow: `0 6px 14px rgba(0,0,0,0.12)`,
-                                    }}
-                                  />
-                                  <span
-                                    className="absolute -top-6 left-1/2 -translate-x-1/2 rounded px-1.5 py-0.5 text-[10px] font-semibold text-white"
-                                    style={{ backgroundColor: barColor }}
-                                  >
-                                    {item.jumlah}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <p
-                              className="w-full max-w-[90px] truncate text-center text-xs font-medium text-gray-700"
-                              title={item.jenis_surat}
-                            >
+                          <div
+                            key={item.jenis_surat}
+                            className="grid items-center gap-3"
+                            style={{ gridTemplateColumns: 'minmax(130px, 220px) minmax(220px, 1fr) 34px' }}
+                          >
+                            <p className="truncate text-xs sm:text-sm font-medium text-gray-700" title={item.jenis_surat}>
                               {item.jenis_surat}
                             </p>
+
+                            <div className="h-8 rounded-lg border border-gray-200 bg-gray-50 p-1">
+                              <div
+                                className="h-full rounded-md transition-all duration-500"
+                                title={`Jumlah: ${item.jumlah} (${item.jenis_surat})`}
+                                style={{
+                                  width: `${barWidthPercent}%`,
+                                  background: `linear-gradient(to right, ${barColor} 0%, ${barColor} 70%, rgba(255,255,255,0.35) 100%)`,
+                                  border: `1px solid ${barColor}`,
+                                  boxShadow: `0 4px 10px rgba(0,0,0,0.08)`,
+                                }}
+                              />
+                            </div>
+
+                            <span className="text-right text-xs font-semibold text-gray-700">{item.jumlah}</span>
                           </div>
                         );
                       })}
@@ -418,39 +304,6 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <FiSend className="h-5 w-5 text-blue-600" /> Ringkasan Kinerja Peran
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">Ikhtisar tugas dan progres setiap peran dalam sistem.</p>
-            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {staffHighlights.map((highlight) => {
-                const Icon = highlight.icon;
-                return (
-                  <div key={highlight.role} className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                    <div className="flex items-center gap-3">
-                      <span className={`rounded-xl ${highlight.background} p-3 text-2xl text-gray-700`}>
-                        <Icon className="h-5 w-5" />
-                      </span>
-                      <div>
-                        <p className={`text-sm font-semibold uppercase tracking-wide ${highlight.accent}`}>{highlight.role}</p>
-                        <p className="text-xs text-gray-500">Aktif dalam koordinasi harian</p>
-                      </div>
-                    </div>
-                    <p className="mt-4 text-sm text-gray-600">{highlight.description}</p>
-                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      {highlight.metrics.map((metric) => (
-                        <div key={metric.label} className="rounded-xl bg-white p-3 text-center shadow-sm">
-                          <p className="text-2xl font-bold text-gray-900">{metric.value}</p>
-                          <p className="text-xs text-gray-500">{metric.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
     </div>
   );
 }

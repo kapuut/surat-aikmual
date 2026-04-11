@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
-import { readFile } from 'fs/promises';
+import { readdir } from 'fs/promises';
 import path from 'path';
 import { generateSuratTemplate } from '@/lib/surat-generator/template';
 import { normalizeSuratSlug } from '@/lib/surat-data';
 import type { JenisSurat, SuratData } from '@/lib/surat-generator/types';
+
+type WorkflowStatus =
+  | 'pending'
+  | 'diproses'
+  | 'dikirim_ke_kepala_desa'
+  | 'perlu_revisi'
+  | 'ditandatangani'
+  | 'selesai'
+  | 'ditolak';
 
 type PermohonanRow = RowDataPacket & {
   id: number;
@@ -29,9 +38,77 @@ type PermohonanRow = RowDataPacket & {
   kewarganegaraan?: string | null;
   masa_berlaku_dari?: string | Date | null;
   masa_berlaku_sampai?: string | Date | null;
+  catatan?: string | null;
+  processed_by?: number | null;
 };
 
 type DetailData = Record<string, unknown>;
+
+function normalizeStatus(value: unknown): WorkflowStatus | null {
+  const normalized = String(value || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+  const known: WorkflowStatus[] = [
+    'pending',
+    'diproses',
+    'dikirim_ke_kepala_desa',
+    'perlu_revisi',
+    'ditandatangani',
+    'selesai',
+    'ditolak',
+  ];
+
+  if ((known as string[]).includes(normalized)) {
+    return normalized as WorkflowStatus;
+  }
+
+  return null;
+}
+
+function inferStatusFromNote(note: unknown): WorkflowStatus | null {
+  const text = String(note || '').trim().toLowerCase();
+  if (!text) return null;
+
+  if (text.includes('ditolak') || text.includes('tolak')) return 'ditolak';
+  if (text.includes('revisi')) return 'perlu_revisi';
+  if (text.includes('kepala desa') && (text.includes('dikirim') || text.includes('tanda tangan'))) {
+    return 'dikirim_ke_kepala_desa';
+  }
+  if (text.includes('ditandatangani')) return 'ditandatangani';
+  if (text.includes('selesai') || text.includes('final')) return 'selesai';
+
+  return null;
+}
+
+function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown, note?: unknown): WorkflowStatus {
+  const normalized = normalizeStatus(rawStatus);
+  if (normalized) return normalized;
+
+  const inferred = inferStatusFromNote(note);
+  if (inferred) return inferred;
+
+  if (typeof nomorSurat === 'string' && nomorSurat.trim()) {
+    return 'selesai';
+  }
+
+  return 'pending';
+}
+
+async function resolveKepalaDesaSignatureUrl(processedBy: unknown): Promise<string> {
+  const fallback = '/images/sample-ttd.png';
+  const userId = Number(processedBy);
+  if (!Number.isFinite(userId) || userId <= 0) return fallback;
+
+  const signaturesDir = path.join(process.cwd(), 'public', 'uploads', 'signatures');
+  const prefix = `kepala-desa-${userId}.`;
+
+  try {
+    const entries = await readdir(signaturesDir, { withFileTypes: true });
+    const matched = entries.find((entry) => entry.isFile() && entry.name.startsWith(prefix));
+    if (!matched) return fallback;
+    return `/uploads/signatures/${matched.name}`;
+  } catch {
+    return fallback;
+  }
+}
 
 function asText(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -90,6 +167,46 @@ function normalizeFilePaths(rawValue: unknown): string[] {
     .filter((item): item is string => Boolean(item));
 
   return Array.from(new Set(normalized));
+}
+
+function isGeneratedSuratFile(pathValue: string | null): boolean {
+  if (!pathValue) return false;
+  return pathValue.includes('/generated-surat/') || pathValue.toLowerCase().endsWith('.html');
+}
+
+async function resolveFinalSuratKeluarPath(nomorSurat: string | null, jenisSurat: string): Promise<string | null> {
+  if (!nomorSurat || !nomorSurat.trim()) return null;
+
+  try {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT file_path
+       FROM surat_keluar
+       WHERE nomor_surat = ?
+         AND LOWER(TRIM(perihal)) LIKE CONCAT(LOWER(TRIM(?)), '%')
+       ORDER BY id DESC
+       LIMIT 1`,
+      [nomorSurat, jenisSurat]
+    );
+
+    const strictPath = rows && rows.length > 0 ? normalizeFilePath((rows[0] as any).file_path) : null;
+    if (strictPath) return strictPath;
+
+    const [fallbackRows] = await db.query<RowDataPacket[]>(
+      `SELECT file_path
+       FROM surat_keluar
+       WHERE nomor_surat = ?
+         AND file_path IS NOT NULL
+         AND TRIM(file_path) <> ''
+       ORDER BY id DESC
+       LIMIT 1`,
+      [nomorSurat]
+    );
+
+    if (!fallbackRows || fallbackRows.length === 0) return null;
+    return normalizeFilePath((fallbackRows[0] as any).file_path);
+  } catch {
+    return null;
+  }
 }
 
 function isAttachmentFile(pathValue: string): boolean {
@@ -176,11 +293,6 @@ function renderAttachmentsPage(attachmentPaths: string[]): string {
   </div>
 </body>
 </html>`;
-}
-
-function isGeneratedSuratFile(pathValue: string | null): boolean {
-  if (!pathValue) return false;
-  return pathValue.includes('/generated-surat/') || pathValue.toLowerCase().endsWith('.html');
 }
 
 function normalizeGender(value: unknown): 'Laki-laki' | 'Perempuan' | undefined {
@@ -277,9 +389,24 @@ export async function GET(
     }
 
     const permohonan = rows[0];
-    const normalizedStatus = String(permohonan.status || '').trim().toLowerCase();
-    const normalizedFilePath = normalizeFilePath(permohonan.file_path);
+    const normalizedStatus = normalizeWorkflowStatus(permohonan.status, permohonan.nomor_surat, permohonan.catatan);
+    const isFinalized = ['ditandatangani', 'selesai'].includes(normalizedStatus);
+    const shouldEmbedSignature = isFinalized && mode !== 'admin';
     const attachmentPaths = normalizeFilePaths(permohonan.file_path).filter((pathValue) => isAttachmentFile(pathValue));
+
+    const suratKeluarFinalPath = isFinalized
+      ? await resolveFinalSuratKeluarPath(permohonan.nomor_surat, permohonan.jenis_surat)
+      : null;
+    const permohonanFinalPath = normalizeFilePath(permohonan.file_path);
+    const preferredFinalPath = suratKeluarFinalPath || permohonanFinalPath;
+
+    if (isFinalized && mode !== 'admin' && isGeneratedSuratFile(preferredFinalPath)) {
+      const targetUrl = new URL(preferredFinalPath as string, request.url);
+      if (printFlag) {
+        targetUrl.searchParams.set('print', '1');
+      }
+      return NextResponse.redirect(targetUrl);
+    }
 
     if (wantsAttachments) {
       return new NextResponse(renderAttachmentsPage(attachmentPaths), {
@@ -287,37 +414,6 @@ export async function GET(
           'Content-Type': 'text/html; charset=utf-8',
         },
       });
-    }
-
-    // If the letter is already finalized/signed, show the final generated HTML directly.
-    if (
-      ['ditandatangani', 'selesai'].includes(normalizedStatus) &&
-      isGeneratedSuratFile(normalizedFilePath)
-    ) {
-      if (wantsDoc) {
-        try {
-          const absolutePath = path.join(process.cwd(), 'public', String(normalizedFilePath).replace(/^\//, ''));
-          const finalHtml = await readFile(absolutePath, 'utf-8');
-          const fileBaseName = (permohonan.nomor_surat || `surat-${params.id}`).replace(/[^a-zA-Z0-9.-]+/g, '-');
-
-          return new NextResponse(`\ufeff${finalHtml}`, {
-            headers: {
-              'Content-Type': 'application/msword; charset=utf-8',
-              'Content-Disposition': `attachment; filename="${fileBaseName}.doc"`,
-            },
-          });
-        } catch {
-          // Fall through to generated preview document when final HTML cannot be read.
-        }
-      }
-
-      if (mode !== 'admin') {
-        const targetUrl = new URL(normalizedFilePath as string, request.url);
-        if (printFlag) {
-          targetUrl.searchParams.set('print', '1');
-        }
-        return NextResponse.redirect(targetUrl);
-      }
     }
 
     const detailData = parseDetailData(permohonan.data_detail);
@@ -812,14 +908,22 @@ export async function GET(
         : undefined,
       kepalaDesa: {
         nama: 'KEPALA DESA AIKMUAL',
+        signatureImageUrl: shouldEmbedSignature
+          ? await resolveKepalaDesaSignatureUrl(permohonan.processed_by)
+          : undefined,
       },
     };
 
-    const html = generateSuratTemplate(suratData, {
-      editable: true,
-      showToolbar: true,
-      logoUrl: '/images/logo-loteng.png',
-    });
+    const html = generateSuratTemplate(
+      suratData,
+      mode === 'admin'
+        ? {
+            editable: true,
+            showToolbar: true,
+            logoUrl: '/images/logo-loteng.png',
+          }
+        : undefined
+    );
 
     if (wantsDoc) {
       const fileBaseName = (permohonan.nomor_surat || `surat-${params.id}`).replace(/[^a-zA-Z0-9.-]+/g, '-');

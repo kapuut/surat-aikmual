@@ -1,50 +1,171 @@
 "use client";
 
-import { useState } from "react";
-import { FiFileText, FiEye, FiCheck, FiX, FiFilter } from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { FiFileText, FiEye, FiCheck, FiX, FiFilter, FiRefreshCw } from "react-icons/fi";
+
+type WorkflowStatus =
+  | "pending"
+  | "diproses"
+  | "dikirim_ke_kepala_desa"
+  | "perlu_revisi"
+  | "ditandatangani"
+  | "selesai"
+  | "ditolak";
+
+interface PermohonanItem {
+  id: number;
+  nomor_surat: string | null;
+  created_at: string;
+  nama_pemohon: string;
+  jenis_surat: string;
+  status: WorkflowStatus;
+}
+
+function statusLabel(status: WorkflowStatus): string {
+  switch (status) {
+    case "pending":
+      return "Menunggu Verifikasi";
+    case "diproses":
+      return "Diproses";
+    case "dikirim_ke_kepala_desa":
+      return "Menunggu Konfirmasi Kepala Desa";
+    case "perlu_revisi":
+      return "Perlu Revisi";
+    case "ditandatangani":
+      return "Ditandatangani";
+    case "selesai":
+      return "Selesai";
+    case "ditolak":
+      return "Ditolak";
+    default:
+      return status;
+  }
+}
+
+function statusClass(status: WorkflowStatus): string {
+  switch (status) {
+    case "pending":
+      return "bg-orange-100 text-orange-800";
+    case "diproses":
+      return "bg-blue-100 text-blue-800";
+    case "dikirim_ke_kepala_desa":
+      return "bg-indigo-100 text-indigo-800";
+    case "perlu_revisi":
+      return "bg-yellow-100 text-yellow-800";
+    case "ditandatangani":
+    case "selesai":
+      return "bg-green-100 text-green-800";
+    case "ditolak":
+      return "bg-red-100 text-red-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+}
+
+function nomorPermohonan(item: PermohonanItem): string {
+  if (item.nomor_surat && item.nomor_surat.trim()) {
+    return item.nomor_surat.trim();
+  }
+
+  const year = new Date(item.created_at).getFullYear();
+  return `REG-${item.id}/${year}`;
+}
+
+function isFinalizedStatus(status: WorkflowStatus): boolean {
+  return status === "ditandatangani" || status === "selesai";
+}
 
 export default function SekretarisPermohonanPage() {
-  const [permohonan] = useState([
-    {
-      id: 1,
-      noPermohonan: "PRM001/I/2025",
-      tanggal: "2025-01-10",
-      pemohon: "Ahmad Suryadi",
-      jenisSurat: "Surat Keterangan Domisili",
-      status: "Menunggu Verifikasi",
-      prioritas: "Normal"
-    },
-    {
-      id: 2,
-      noPermohonan: "PRM002/I/2025",
-      tanggal: "2025-01-09",
-      pemohon: "Siti Nurhaliza",
-      jenisSurat: "Surat Keterangan Tidak Mampu",
-      status: "Disetujui",
-      prioritas: "Urgent"
-    },
-    {
-      id: 3,
-      noPermohonan: "PRM003/I/2025",
-      tanggal: "2025-01-08",
-      pemohon: "Budi Santoso",
-      jenisSurat: "Surat Pengantar KTP",
-      status: "Ditolak",
-      prioritas: "Normal"
-    },
-    {
-      id: 4,
-      noPermohonan: "PRM004/I/2025",
-      tanggal: "2025-01-07",
-      pemohon: "Dewi Lestari",
-      jenisSurat: "Surat Keterangan Usaha",
-      status: "Dalam Proses",
-      prioritas: "Normal"
-    },
-  ]);
+  const [permohonan, setPermohonan] = useState<PermohonanItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState("Semua Status");
+  const [filterJenisSurat, setFilterJenisSurat] = useState("Semua Jenis Surat");
+
+  const fetchPermohonan = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch("/api/admin/permohonan", {
+        credentials: "include",
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Gagal mengambil data permohonan");
+      }
+
+      setPermohonan(Array.isArray(data.data) ? data.data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan saat memuat data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPermohonan();
+  }, []);
+
+  const statusOptions = [
+    "Semua Status",
+    "Menunggu Verifikasi",
+    "Diproses",
+    "Menunggu Konfirmasi Kepala Desa",
+    "Perlu Revisi",
+    "Ditandatangani",
+    "Selesai",
+    "Ditolak",
+  ];
+
+  const jenisSuratOptions = useMemo(() => {
+    const uniqueJenis = Array.from(
+      new Set(
+        permohonan
+          .map((item) => String(item.jenis_surat || "").trim())
+          .filter((value) => value.length > 0)
+      )
+    ).sort((a, b) => a.localeCompare(b, "id"));
+
+    return ["Semua Jenis Surat", ...uniqueJenis];
+  }, [permohonan]);
+
+  const filteredPermohonan = useMemo(() => {
+    return permohonan.filter((item) => {
+      const statusMatch =
+        filterStatus === "Semua Status" || statusLabel(item.status) === filterStatus;
+
+      const jenisMatch =
+        filterJenisSurat === "Semua Jenis Surat" || item.jenis_surat === filterJenisSurat;
+
+      return statusMatch && jenisMatch;
+    });
+  }, [permohonan, filterJenisSurat, filterStatus]);
+
+  const totalMenungguVerifikasi = permohonan.filter((item) => {
+    return (
+      item.status === "pending" ||
+      item.status === "diproses" ||
+      item.status === "dikirim_ke_kepala_desa" ||
+      item.status === "perlu_revisi"
+    );
+  }).length;
+
+  const totalDisetujui = permohonan.filter((item) => {
+    return item.status === "ditandatangani" || item.status === "selesai";
+  }).length;
+
+  const totalDitolak = permohonan.filter((item) => item.status === "ditolak").length;
 
   return (
     <section>
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
@@ -58,24 +179,35 @@ export default function SekretarisPermohonanPage() {
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-2">
-          <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option>Semua Status</option>
-            <option>Menunggu Verifikasi</option>
-            <option>Dalam Proses</option>
-            <option>Disetujui</option>
-            <option>Ditolak</option>
+          <select
+            value={filterStatus}
+            onChange={(event) => setFilterStatus(event.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {statusOptions.map((option) => (
+              <option key={option}>{option}</option>
+            ))}
           </select>
-          <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option>Semua Jenis Surat</option>
-            <option>Surat Keterangan Domisili</option>
-            <option>Surat Keterangan Tidak Mampu</option>
-            <option>Surat Pengantar KTP</option>
-            <option>Surat Keterangan Usaha</option>
+          <select
+            value={filterJenisSurat}
+            onChange={(event) => setFilterJenisSurat(event.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {jenisSuratOptions.map((option) => (
+              <option key={option}>{option}</option>
+            ))}
           </select>
-          <button className="flex items-center gap-2 border rounded-lg px-3 py-2 text-sm hover:bg-gray-50">
-            <FiFilter className="w-4 h-4" />
-            Filter
+          <button
+            onClick={fetchPermohonan}
+            className="flex items-center gap-2 border rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+          >
+            <FiRefreshCw className="w-4 h-4" />
+            Muat Ulang
           </button>
+          <div className="hidden items-center rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-500 md:flex">
+            <FiFilter className="mr-2 h-4 w-4" />
+            Filter aktif: {filteredPermohonan.length} data
+          </div>
         </div>
       </div>
 
@@ -98,7 +230,7 @@ export default function SekretarisPermohonanPage() {
             <div>
               <p className="text-sm font-medium text-gray-500">Menunggu Verifikasi</p>
               <p className="text-2xl font-bold text-orange-600">
-                {permohonan.filter(p => p.status === "Menunggu Verifikasi").length}
+                {totalMenungguVerifikasi}
               </p>
             </div>
             <div className="bg-orange-100 p-2 rounded-full">
@@ -112,7 +244,7 @@ export default function SekretarisPermohonanPage() {
             <div>
               <p className="text-sm font-medium text-gray-500">Disetujui</p>
               <p className="text-2xl font-bold text-green-600">
-                {permohonan.filter(p => p.status === "Disetujui").length}
+                {totalDisetujui}
               </p>
             </div>
             <div className="bg-green-100 p-2 rounded-full">
@@ -126,7 +258,7 @@ export default function SekretarisPermohonanPage() {
             <div>
               <p className="text-sm font-medium text-gray-500">Ditolak</p>
               <p className="text-2xl font-bold text-red-600">
-                {permohonan.filter(p => p.status === "Ditolak").length}
+                {totalDitolak}
               </p>
             </div>
             <div className="bg-red-100 p-2 rounded-full">
@@ -146,60 +278,57 @@ export default function SekretarisPermohonanPage() {
               <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal</th>
               <th className="px-4 py-3 text-left font-semibold text-gray-700">Pemohon</th>
               <th className="px-4 py-3 text-left font-semibold text-gray-700">Jenis Surat</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Prioritas</th>
               <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
               <th className="px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {permohonan.map((item, i) => (
-              <tr key={item.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">{i + 1}</td>
-                <td className="px-4 py-3 font-medium">{item.noPermohonan}</td>
-                <td className="px-4 py-3">{item.tanggal}</td>
-                <td className="px-4 py-3">{item.pemohon}</td>
-                <td className="px-4 py-3">{item.jenisSurat}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    item.prioritas === 'Urgent' 
-                      ? 'bg-red-100 text-red-800' 
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {item.prioritas}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    item.status === 'Menunggu Verifikasi' 
-                      ? 'bg-orange-100 text-orange-800' 
-                      : item.status === 'Dalam Proses'
-                      ? 'bg-blue-100 text-blue-800'
-                      : item.status === 'Disetujui'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {item.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <div className="flex gap-2 justify-center">
-                    <button className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600">
-                      <FiEye className="w-4 h-4" />
-                    </button>
-                    {item.status === 'Menunggu Verifikasi' && (
-                      <>
-                        <button className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600">
-                          <FiCheck className="w-4 h-4" />
-                        </button>
-                        <button className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">
-                          <FiX className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
+            {loading ? (
+              <tr>
+                <td className="px-4 py-5 text-center text-gray-500" colSpan={7}>
+                  Memuat data permohonan...
                 </td>
               </tr>
-            ))}
+            ) : filteredPermohonan.length === 0 ? (
+              <tr>
+                <td className="px-4 py-5 text-center text-gray-500" colSpan={7}>
+                  Belum ada data permohonan
+                </td>
+              </tr>
+            ) : (
+              filteredPermohonan.map((item, i) => {
+                const isFinalized = isFinalizedStatus(item.status);
+                const previewUrl = isFinalized
+                  ? `/api/admin/permohonan/${item.id}/preview`
+                  : `/api/admin/permohonan/${item.id}/preview?mode=admin`;
+
+                return (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">{i + 1}</td>
+                  <td className="px-4 py-3 font-medium">{nomorPermohonan(item)}</td>
+                  <td className="px-4 py-3">{new Date(item.created_at).toLocaleDateString("id-ID")}</td>
+                  <td className="px-4 py-3">{item.nama_pemohon}</td>
+                  <td className="px-4 py-3">{item.jenis_surat}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusClass(item.status)}`}>
+                      {statusLabel(item.status)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="flex gap-2 justify-center">
+                      <button
+                        onClick={() => window.open(previewUrl, "_blank")}
+                        className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                        title={isFinalized ? "Lihat surat final" : "Lihat draft surat"}
+                      >
+                        <FiEye className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

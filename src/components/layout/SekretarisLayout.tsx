@@ -9,9 +9,7 @@ import {
   FiSend, 
   FiFileText, 
   FiFile, 
-  FiBarChart, 
-  FiTrendingUp, 
-  FiLock, 
+  FiUser,
   FiFolder,
   FiEdit,
   FiLogOut,
@@ -51,16 +49,6 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
     title: 'Template Surat',
     description: 'Perbarui format surat resmi agar sesuai standar administrasi.',
   },
-  '/sekretaris/laporan/surat-masuk': {
-    eyebrow: 'Portal Administrasi Terpadu',
-    title: 'Laporan Surat Masuk',
-    description: 'Analisis tren surat masuk untuk evaluasi layanan surat.',
-  },
-  '/sekretaris/laporan/surat-keluar': {
-    eyebrow: 'Portal Administrasi Terpadu',
-    title: 'Laporan Surat Keluar',
-    description: 'Pantau performa surat keluar berdasarkan periode layanan.',
-  },
   '/sekretaris/disposisi': {
     eyebrow: 'Portal Administrasi Terpadu',
     title: 'Disposisi Surat',
@@ -68,8 +56,8 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
   },
   '/sekretaris/change-password': {
     eyebrow: 'Portal Administrasi Terpadu',
-    title: 'Ganti Password',
-    description: 'Perbarui keamanan akun sekretaris secara berkala.',
+    title: 'Profil Akun',
+    description: 'Kelola data profil, ubah password, dan pengaturan akun Sekretaris.',
   },
 };
 
@@ -78,6 +66,14 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
   const [userName, setUserName] = useState('Sekretaris Desa');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const isSuratMasukActive =
+    pathname === '/sekretaris/surat-masuk' ||
+    pathname.startsWith('/sekretaris/surat-masuk/') ||
+    pathname === '/sekretaris/laporan/surat-masuk';
+  const isSuratKeluarActive =
+    pathname === '/sekretaris/surat-keluar' ||
+    pathname.startsWith('/sekretaris/surat-keluar/') ||
+    pathname === '/sekretaris/laporan/surat-keluar';
 
   const headerContent = (() => {
     if (pathname === '/sekretaris/dashboard') {
@@ -91,19 +87,11 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
       return HEADER_BY_PATH[pathname];
     }
 
-    if (pathname.startsWith('/sekretaris/laporan/')) {
-      return {
-        eyebrow: 'Portal Administrasi Terpadu',
-        title: 'Laporan Sekretaris',
-        description: 'Pantau ringkasan performa administrasi harian secara real-time.',
-      };
-    }
-
     if (pathname.startsWith('/sekretaris/')) {
       return {
         eyebrow: 'Portal Administrasi Terpadu',
         title: 'Panel Sekretaris',
-        description: 'Kelola proses surat desa dari verifikasi hingga pelaporan.',
+        description: 'Kelola proses surat desa dari verifikasi hingga arsip final.',
       };
     }
 
@@ -188,7 +176,7 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
             <Link
               href="/sekretaris/surat-masuk"
               className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/sekretaris/surat-masuk' 
+                isSuratMasukActive
                   ? 'bg-slate-800 text-white font-semibold' 
                   : 'text-gray-300 hover:bg-slate-800 hover:text-white'
               }`}
@@ -199,7 +187,7 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
             <Link
               href="/sekretaris/surat-keluar"
               className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/sekretaris/surat-keluar' 
+                isSuratKeluarActive
                   ? 'bg-slate-800 text-white font-semibold' 
                   : 'text-gray-300 hover:bg-slate-800 hover:text-white'
               }`}
@@ -232,32 +220,6 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
           </div>
           
           <div>
-            <p className="text-xs uppercase text-gray-400 mt-4 mb-2 font-semibold tracking-wider">Laporan</p>
-            <Link
-              href="/sekretaris/laporan/surat-masuk"
-              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/sekretaris/laporan/surat-masuk' 
-                  ? 'bg-slate-800 text-white font-semibold' 
-                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <FiBarChart className="w-4 h-4" />
-              <span>Laporan Surat Masuk</span>
-            </Link>
-            <Link
-              href="/sekretaris/laporan/surat-keluar"
-              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/sekretaris/laporan/surat-keluar' 
-                  ? 'bg-slate-800 text-white font-semibold' 
-                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <FiTrendingUp className="w-4 h-4" />
-              <span>Laporan Surat Keluar</span>
-            </Link>
-          </div>
-
-          <div>
             <p className="text-xs uppercase text-gray-400 mt-4 mb-2 font-semibold tracking-wider">Pengaturan</p>
             <Link
               href="/sekretaris/disposisi"
@@ -278,8 +240,8 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
                   : 'text-gray-300 hover:bg-slate-800 hover:text-white'
               }`}
             >
-              <FiLock className="w-4 h-4" />
-              <span>Ganti Password</span>
+              <FiUser className="w-4 h-4" />
+              <span>Profil Akun</span>
             </Link>
           </div>
         </nav>

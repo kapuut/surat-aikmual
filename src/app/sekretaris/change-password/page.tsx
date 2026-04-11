@@ -66,18 +66,16 @@ export default function SekretarisChangePasswordPage() {
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <FiLock className="text-blue-600" /> Ubah Password
+          <FiLock className="text-blue-600" /> Profil Akun
         </h2>
         <p className="text-gray-500 mt-1">
-          Ubah password akun Anda untuk keamanan yang lebih baik
+          Kelola keamanan akun Anda dan ubah password secara berkala
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Form */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-            <form onSubmit={handleSubmit}>
+      <div className="max-w-4xl">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          <form onSubmit={handleSubmit}>
               {/* Password Lama */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -88,7 +86,7 @@ export default function SekretarisChangePasswordPage() {
                     type={showOldPassword ? "text" : "password"}
                     value={formData.oldPassword}
                     onChange={(e) => setFormData({ ...formData, oldPassword: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    className={`w-full bg-white text-gray-900 placeholder:text-gray-400 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       errors.oldPassword ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Masukkan password lama"
@@ -116,7 +114,7 @@ export default function SekretarisChangePasswordPage() {
                     type={showNewPassword ? "text" : "password"}
                     value={formData.newPassword}
                     onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    className={`w-full bg-white text-gray-900 placeholder:text-gray-400 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       errors.newPassword ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Masukkan password baru"
@@ -144,7 +142,7 @@ export default function SekretarisChangePasswordPage() {
                     type={showConfirmPassword ? "text" : "password"}
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    className={`w-full bg-white text-gray-900 placeholder:text-gray-400 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Ulangi password baru"
@@ -181,41 +179,7 @@ export default function SekretarisChangePasswordPage() {
                   Reset
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-
-        {/* Info Panel */}
-        <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-              <span>ℹ️</span> Tips Password Aman
-            </h3>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Minimal 6 karakter</li>
-              <li>• Gunakan kombinasi huruf dan angka</li>
-              <li>• Hindari kata yang mudah ditebak</li>
-              <li>• Jangan gunakan informasi pribadi</li>
-            </ul>
-          </div>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <h3 className="font-semibold text-yellow-900 mb-2 flex items-center gap-2">
-              <span>⚠️</span> Peringatan
-            </h3>
-            <p className="text-sm text-yellow-800">
-              Setelah mengubah password, Anda akan diminta login ulang. Pastikan Anda mengingat password baru.
-            </p>
-          </div>
-
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h3 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
-              <span className="inline-block w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs font-bold">OK</span> Keamanan Akun
-            </h3>
-            <p className="text-sm text-green-800">
-              Ubah password secara berkala untuk menjaga keamanan akun Anda.
-            </p>
-          </div>
+          </form>
         </div>
       </div>
     </section>

@@ -51,7 +51,7 @@ type NormalizedStatus =
   | 'selesai'
   | 'ditolak';
 
-type InternalRole = Extract<UserRole, 'admin' | 'sekretaris' | 'kepala_desa'>;
+type InternalRole = Extract<UserRole, 'admin' | 'kepala_desa'>;
 
 function normalizeStatus(input: unknown): NormalizedStatus | null {
   const value = String(input ?? '').trim().toLowerCase();
@@ -127,7 +127,7 @@ function canTransitionStatus(
 ): boolean {
   if (currentStatus === nextStatus) return true;
 
-  if (role === 'admin' || role === 'sekretaris') {
+  if (role === 'admin') {
     if (nextStatus === 'dikirim_ke_kepala_desa') {
       return ['pending', 'diproses', 'perlu_revisi'].includes(currentStatus);
     }
@@ -582,7 +582,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    if (!['admin', 'sekretaris', 'kepala_desa'].includes(authUser.role)) {
+    if (!['admin', 'kepala_desa'].includes(authUser.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -592,9 +592,7 @@ export async function PUT(
     const noteByRole =
       authUser.role === 'admin'
         ? 'Admin'
-        : authUser.role === 'sekretaris'
-          ? 'Sekretaris'
-          : 'Kepala Desa';
+        : 'Kepala Desa';
     const effectiveCatatan = catatan || `Status diperbarui oleh ${noteByRole}`;
 
     const processedByNumber = Number(authUser.id);

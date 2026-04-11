@@ -51,7 +51,7 @@ export async function GET() {
 
     const idField = await getIdField();
     const [rows] = await db.execute(
-      `SELECT ${idField} AS id, username, nama, email, role, status, created_at, last_login FROM users WHERE ${idField} = ? LIMIT 1`,
+      `SELECT ${idField} AS id, username, nama, email, role, status, nik, alamat, telepon, created_at, last_login FROM users WHERE ${idField} = ? LIMIT 1`,
       [auth.userId]
     );
 
@@ -79,6 +79,8 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const nama = String(body?.nama || '').trim();
     const email = String(body?.email || '').trim().toLowerCase();
+    const alamat = String(body?.alamat || '').trim();
+    const telepon = String(body?.telepon || '').trim();
     const currentPassword = String(body?.currentPassword || '');
     const newPassword = String(body?.newPassword || '');
 
@@ -128,13 +130,13 @@ export async function PUT(request: Request) {
 
       const passwordHash = await bcrypt.hash(newPassword, 10);
       await db.execute(
-        `UPDATE users SET nama = ?, email = ?, password = ?, updated_at = NOW() WHERE ${idField} = ?`,
-        [nama, email, passwordHash, auth.userId]
+        `UPDATE users SET nama = ?, email = ?, alamat = ?, telepon = ?, password = ?, updated_at = NOW() WHERE ${idField} = ?`,
+        [nama, email, alamat || null, telepon || null, passwordHash, auth.userId]
       );
     } else {
       await db.execute(
-        `UPDATE users SET nama = ?, email = ?, updated_at = NOW() WHERE ${idField} = ?`,
-        [nama, email, auth.userId]
+        `UPDATE users SET nama = ?, email = ?, alamat = ?, telepon = ?, updated_at = NOW() WHERE ${idField} = ?`,
+        [nama, email, alamat || null, telepon || null, auth.userId]
       );
     }
 

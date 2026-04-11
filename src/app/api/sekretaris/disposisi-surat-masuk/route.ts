@@ -97,12 +97,18 @@ export async function GET() {
         sm.file_path
       FROM disposisi_surat_masuk d
       LEFT JOIN surat_masuk sm ON CAST(sm.id AS CHAR) = d.surat_masuk_id
-      WHERE d.tujuan_role = 'sekretaris'
+      WHERE (
+        LOWER(TRIM(COALESCE(d.tujuan_role, ''))) LIKE '%sekretaris%'
+        OR LOWER(TRIM(COALESCE(d.tujuan_label, ''))) LIKE '%sekretaris%'
+      )
         AND d.id = (
           SELECT d2.id
           FROM disposisi_surat_masuk d2
           WHERE d2.surat_masuk_id = d.surat_masuk_id
-            AND d2.tujuan_role = 'sekretaris'
+            AND (
+              LOWER(TRIM(COALESCE(d2.tujuan_role, ''))) LIKE '%sekretaris%'
+              OR LOWER(TRIM(COALESCE(d2.tujuan_label, ''))) LIKE '%sekretaris%'
+            )
           ORDER BY d2.disposed_at DESC, d2.id DESC
           LIMIT 1
         )

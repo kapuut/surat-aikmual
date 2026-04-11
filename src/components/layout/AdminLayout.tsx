@@ -29,8 +29,7 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
   '/admin/dashboard': {
     eyebrow: 'Portal Administrasi Terpadu',
     title: 'Selamat datang, Administrator Sistem',
-    description:
-      'Pantau kinerja sekretaris dan kepala desa, kelola akun internal, serta pastikan setiap permohonan warga berjalan efisien dalam satu dasbor terpadu.',
+    description: '',
   },
   '/admin/surat-masuk': {
     eyebrow: 'Portal Administrasi Terpadu',
@@ -69,8 +68,8 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
   },
   '/admin/profile': {
     eyebrow: 'Portal Administrasi Terpadu',
-    title: 'Profil',
-    description: 'Kelola data pribadi dan keamanan akun Anda.',
+    title: 'Profil Akun',
+    description: 'Kelola data akun dan keamanan administrator sistem.',
   },
   '/admin/approval': {
     eyebrow: 'Portal Administrasi Terpadu',
@@ -296,7 +295,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               }`}
             >
               <FiUser className="w-4 h-4" />
-              <span>Profil</span>
+              <span>Profil Akun</span>
             </Link>
           </div>
         </nav>
@@ -317,9 +316,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <>
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{headerContent.eyebrow}</p>
                 <h1 className="mt-1 text-xl md:text-2xl font-bold text-gray-900">{headerContent.title}</h1>
-                <p className="mt-1 text-sm text-gray-600 max-w-3xl">
-                  {headerContent.description}
-                </p>
+                {headerContent.description && (
+                  <p className="mt-1 text-sm text-gray-600 max-w-3xl">
+                    {headerContent.description}
+                  </p>
+                )}
               </>
             )}
           </div>
