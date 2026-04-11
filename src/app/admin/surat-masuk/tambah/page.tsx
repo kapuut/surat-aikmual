@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiSave, FiUpload } from "react-icons/fi";
+import { FiAlertCircle, FiArrowLeft, FiCheckCircle, FiSave, FiUpload } from "react-icons/fi";
+
+type AlertType = "success" | "error";
 
 export default function TambahSuratMasukPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [alert, setAlert] = useState<{ type: AlertType; message: string } | null>(null);
   const [fileName, setFileName] = useState<string>("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -21,37 +23,45 @@ export default function TambahSuratMasukPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setAlert(null);
 
     const formData = new FormData(e.currentTarget);
-    
-    // Data sesuai struktur tabel surat_masuk
-    const data = {
-      nomor_surat: formData.get("nomor_surat"),
-      tanggal_surat: formData.get("tanggal_surat"),
-      tanggal_terima: formData.get("tanggal_terima"),
-      asal_surat: formData.get("asal_surat"),
-      perihal: formData.get("perihal"),
-      // file akan dihandle oleh API endpoint
-    };
+    const selectedFile = formData.get("file_surat");
+
+    if (!(selectedFile instanceof File) || selectedFile.size === 0) {
+      setAlert({
+        type: "error",
+        message: "Dokumen surat wajib diupload dalam format PDF.",
+      });
+      setLoading(false);
+      return;
+    }
 
     try {
-      // TODO: Implement API endpoint untuk menyimpan surat masuk
       const response = await fetch("/api/admin/surat-masuk", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        credentials: "include",
+        body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Gagal menyimpan surat masuk");
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Gagal menyimpan surat masuk");
       }
 
-      alert("Surat masuk berhasil ditambahkan!");
-      router.push("/admin/surat-masuk");
+      setAlert({
+        type: "success",
+        message: "Surat masuk berhasil ditambahkan! Mengalihkan ke daftar surat masuk...",
+      });
+
+      setTimeout(() => {
+        router.push("/admin/surat-masuk");
+      }, 1200);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      setAlert({
+        type: "error",
+        message: err instanceof Error ? err.message : "Terjadi kesalahan",
+      });
     } finally {
       setLoading(false);
     }
@@ -69,9 +79,18 @@ export default function TambahSuratMasukPage() {
         </Link>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
+      {alert && (
+        <div
+          className={`mb-6 rounded-lg border px-4 py-3 ${
+            alert.type === "success"
+              ? "border-green-200 bg-green-50 text-green-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {alert.type === "success" ? <FiCheckCircle className="h-4 w-4" /> : <FiAlertCircle className="h-4 w-4" />}
+            <span>{alert.message}</span>
+          </div>
         </div>
       )}
 
@@ -192,6 +211,7 @@ export default function TambahSuratMasukPage() {
                     name="file_surat"
                     accept=".pdf"
                     onChange={handleFileChange}
+                    required
                     className="hidden"
                   />
                 </label>

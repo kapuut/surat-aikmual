@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FiCalendar, FiDownload, FiInbox, FiRefreshCw } from "react-icons/fi";
+import Link from "next/link";
+import { FiCalendar, FiDownload, FiInbox, FiRefreshCw, FiSend, FiUserCheck } from "react-icons/fi";
 
 interface SuratMasukItem {
   id: number;
@@ -12,7 +13,16 @@ interface SuratMasukItem {
   perihal: string;
   file_path?: string | null;
   created_by_name?: string | null;
+  latest_disposisi_tujuan?: string | null;
+  latest_disposisi_tujuan_label?: string | null;
+  latest_disposisi_status?: string | null;
+  latest_disposisi_catatan?: string | null;
+  latest_disposisi_at?: string | null;
+  latest_disposisi_by?: string | null;
 }
+
+const FIXED_TUJUAN_ROLE = "sekretaris";
+const FIXED_TUJUAN_LABEL = "Sekretaris Desa";
 
 function parseDate(value?: string): Date | null {
   if (!value) return null;
@@ -39,6 +49,11 @@ export default function KepalaDesaLaporanSuratMasukPage() {
   const [data, setData] = useState<SuratMasukItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submittingId, setSubmittingId] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [disposisiTarget, setDisposisiTarget] = useState<SuratMasukItem | null>(null);
+  const [tujuanLanjutan, setTujuanLanjutan] = useState<string>("");
+  const [catatanDisposisi, setCatatanDisposisi] = useState<string>("");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
@@ -70,6 +85,80 @@ export default function KepalaDesaLaporanSuratMasukPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const openDisposisiDialog = (item: SuratMasukItem) => {
+    setDisposisiTarget(item);
+    setTujuanLanjutan("");
+    setCatatanDisposisi(`Mohon ditindaklanjuti terkait surat masuk ${item.nomor_surat || ""}.`.trim());
+  };
+
+  const closeDisposisiDialog = () => {
+    setDisposisiTarget(null);
+    setTujuanLanjutan("");
+    setCatatanDisposisi("");
+  };
+
+  const handleDisposisi = async () => {
+    if (!disposisiTarget) {
+      return;
+    }
+
+    try {
+      setSubmittingId(disposisiTarget.id);
+      setFeedback(null);
+
+      const response = await fetch(`/api/kepala-desa/surat-masuk/${disposisiTarget.id}/disposisi`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tujuan_role: FIXED_TUJUAN_ROLE,
+          tujuan_label: FIXED_TUJUAN_LABEL,
+          tujuan_lanjutan: tujuanLanjutan,
+          catatan: catatanDisposisi,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Gagal melakukan disposisi");
+      }
+
+      const nowIso = new Date().toISOString();
+
+      setData((current) =>
+        current.map((row) =>
+          row.id === disposisiTarget.id
+            ? {
+                ...row,
+                latest_disposisi_tujuan: FIXED_TUJUAN_ROLE,
+                latest_disposisi_tujuan_label: FIXED_TUJUAN_LABEL,
+                latest_disposisi_status: "didisposisikan",
+                latest_disposisi_catatan: catatanDisposisi,
+                latest_disposisi_at: nowIso,
+                latest_disposisi_by: "Kepala Desa",
+              }
+            : row
+        )
+      );
+
+      setFeedback({
+        type: "success",
+        text: `Surat ${disposisiTarget.nomor_surat || ""} berhasil didisposisikan ke ${FIXED_TUJUAN_LABEL}.`,
+      });
+      closeDisposisiDialog();
+    } catch (err) {
+      setFeedback({
+        type: "error",
+        text: err instanceof Error ? err.message : "Terjadi kesalahan saat melakukan disposisi",
+      });
+    } finally {
+      setSubmittingId(null);
+    }
+  };
 
   const years = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -252,6 +341,18 @@ export default function KepalaDesaLaporanSuratMasukPage() {
         </div>
       </div>
 
+      {feedback && (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            feedback.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {feedback.text}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="text-sm text-gray-600 inline-flex items-center gap-2">
           <FiCalendar className="text-gray-500" />
@@ -311,6 +412,7 @@ export default function KepalaDesaLaporanSuratMasukPage() {
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">Asal Surat</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">Perihal</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">Petugas Input</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Disposisi</th>
                 <th className="px-4 py-3 text-center font-semibold text-gray-700">File</th>
               </tr>
             </thead>
@@ -323,14 +425,54 @@ export default function KepalaDesaLaporanSuratMasukPage() {
                   <td className="px-4 py-3">{item.asal_surat || "-"}</td>
                   <td className="px-4 py-3">{item.perihal || "-"}</td>
                   <td className="px-4 py-3">{item.created_by_name || "-"}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-2">
+                      {item.latest_disposisi_tujuan ? (
+                        <div className="text-xs text-emerald-700">
+                          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 font-semibold">
+                            Sudah didisposisikan
+                          </span>
+                          <p className="mt-1 font-semibold text-gray-700">
+                            Tujuan: {item.latest_disposisi_tujuan_label || item.latest_disposisi_tujuan}
+                          </p>
+                          <p className="mt-1 text-gray-600">
+                            {formatDate(item.latest_disposisi_at || undefined)}
+                            {item.latest_disposisi_by ? ` • oleh ${item.latest_disposisi_by}` : ""}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                          Tanpa disposisi
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => openDisposisiDialog(item)}
+                        disabled={submittingId === item.id}
+                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                      >
+                        <FiSend className="h-3.5 w-3.5" />
+                        {submittingId === item.id ? "Memproses..." : "Kirim ke Sekretaris"}
+                      </button>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-center">
-                    {item.file_path ? (
-                      <a href={item.file_path} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                        Lihat File
-                      </a>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
+                    <div className="flex flex-col items-center gap-1">
+                      <Link
+                        href={`/kepala-desa/surat-masuk/${item.id}`}
+                        className="text-xs font-medium text-slate-700 hover:text-blue-600 hover:underline"
+                      >
+                        Lihat Detail
+                      </Link>
+                      {item.file_path ? (
+                        <a href={item.file_path} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                          Lihat File
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -338,6 +480,75 @@ export default function KepalaDesaLaporanSuratMasukPage() {
           </table>
         )}
       </div>
+
+      {disposisiTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">Disposisi Surat Masuk</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Nomor surat: <span className="font-semibold text-gray-800">{disposisiTarget.nomor_surat || "-"}</span>
+            </p>
+
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Tujuan Disposisi</label>
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 inline-flex items-center gap-2">
+                  <FiUserCheck className="h-4 w-4" />
+                  Surat ini akan dikirim ke <span className="font-semibold">{FIXED_TUJUAN_LABEL}</span>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  Sekretaris akan menentukan penerusan disposisi berikutnya ke kaur/kasi/staf sesuai kebutuhan.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Rekomendasi Tujuan Lanjutan oleh Sekretaris (opsional)
+                </label>
+                <input
+                  type="text"
+                  value={tujuanLanjutan}
+                  onChange={(e) => setTujuanLanjutan(e.target.value)}
+                  placeholder="Contoh: Kaur Pemerintahan dan Kasi Pelayanan"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Keterangan Disposisi (instruksi tindak lanjut)
+                </label>
+                <textarea
+                  value={catatanDisposisi}
+                  onChange={(e) => setCatatanDisposisi(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Isi arahan untuk petugas yang menerima disposisi"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeDisposisiDialog}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDisposisi}
+                disabled={submittingId === disposisiTarget.id}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                <FiSend className="h-4 w-4" />
+                {submittingId === disposisiTarget.id ? "Memproses..." : "Simpan Disposisi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

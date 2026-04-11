@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+type AlertType = "success" | "error";
+
 interface SuratMasuk {
   id: number;
   nomor_surat: string;
@@ -17,6 +19,8 @@ interface SuratMasuk {
 export default function SuratMasukPage() {
   const [suratMasuk, setSuratMasuk] = useState<SuratMasuk[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [alert, setAlert] = useState<{ type: AlertType; message: string } | null>(null);
 
   useEffect(() => {
     fetchSuratMasuk();
@@ -24,13 +28,22 @@ export default function SuratMasukPage() {
 
   const fetchSuratMasuk = async () => {
     try {
-      const response = await fetch("/api/admin/surat-masuk");
+      const response = await fetch("/api/admin/surat-masuk", {
+        credentials: "include",
+      });
+
       const result = await response.json();
-      if (result.success) {
-        setSuratMasuk(result.data);
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Gagal mengambil data surat masuk");
       }
+
+      setSuratMasuk(result.data || []);
     } catch (error) {
       console.error("Error fetching surat masuk:", error);
+      setAlert({
+        type: "error",
+        message: error instanceof Error ? error.message : "Terjadi kesalahan saat memuat data surat masuk",
+      });
     } finally {
       setLoading(false);
     }
@@ -38,6 +51,10 @@ export default function SuratMasukPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+
     return date.toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "long",
@@ -45,8 +62,56 @@ export default function SuratMasukPage() {
     });
   };
 
+  const handleDelete = async (id: number) => {
+    const confirmed = window.confirm("Apakah Anda yakin ingin menghapus surat masuk ini?");
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingId(id);
+      setAlert(null);
+
+      const response = await fetch(`/api/admin/surat-masuk/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Gagal menghapus surat masuk");
+      }
+
+      setAlert({
+        type: "success",
+        message: result.message || "Surat masuk berhasil dihapus",
+      });
+      await fetchSuratMasuk();
+    } catch (error) {
+      console.error("Error deleting surat masuk:", error);
+      setAlert({
+        type: "error",
+        message: error instanceof Error ? error.message : "Terjadi kesalahan saat menghapus surat masuk",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <section>
+        {alert && (
+          <div
+            className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+              alert.type === "success"
+                ? "border-green-200 bg-green-50 text-green-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {alert.message}
+          </div>
+        )}
+
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex gap-2">
@@ -129,16 +194,29 @@ export default function SuratMasukPage() {
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center flex gap-2 justify-center">
-                      <button className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex justify-center gap-2">
+                      <Link
+                        href={`/admin/surat-masuk/${s.id}`}
+                        className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
+                      >
                         Lihat
-                      </button>
-                      <button className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600">
+                      </Link>
+                      <Link
+                        href={`/admin/surat-masuk/${s.id}/edit`}
+                        className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600"
+                      >
                         Edit
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(s.id)}
+                        disabled={deletingId === s.id}
+                        className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {deletingId === s.id ? "Menghapus..." : "Hapus"}
                       </button>
-                      <button className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
-                        Hapus
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

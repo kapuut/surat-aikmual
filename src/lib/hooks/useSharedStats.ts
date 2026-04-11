@@ -16,6 +16,7 @@ export function useSharedStats() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        setError(null);
         const response = await fetch('/api/stats', {
           credentials: 'include'
         });
@@ -26,6 +27,7 @@ export function useSharedStats() {
         
         const data = await response.json();
         setStats(data);
+        setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
         console.error('Stats fetch error:', err);
@@ -45,14 +47,19 @@ export function useSharedStats() {
   const refresh = async () => {
     setLoading(true);
     try {
+      setError(null);
       const response = await fetch('/api/stats', {
         credentials: 'include'
       });
       if (response.ok) {
         const data = await response.json();
         setStats(data);
+        setError(null);
+      } else {
+        throw new Error('Failed to fetch stats');
       }
     } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
       console.error('Stats refresh error:', err);
     } finally {
       setLoading(false);

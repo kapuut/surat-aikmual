@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FiInbox, FiDownload, FiEye } from "react-icons/fi";
+import Link from "next/link";
+import { FiInbox, FiDownload, FiEye, FiSend, FiUserCheck } from "react-icons/fi";
 
 interface SuratMasukItem {
   id: number;
@@ -11,12 +12,23 @@ interface SuratMasukItem {
   asal_surat: string;
   perihal: string;
   file_path?: string;
+  latest_disposisi_tujuan?: string | null;
+  latest_disposisi_tujuan_label?: string | null;
+  latest_disposisi_at?: string | null;
 }
+
+const FIXED_TUJUAN_ROLE = "sekretaris";
+const FIXED_TUJUAN_LABEL = "Sekretaris Desa";
 
 export default function KepalaDesaSuratMasukPage() {
   const [suratMasuk, setSuratMasuk] = useState<SuratMasukItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submittingId, setSubmittingId] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [disposisiTarget, setDisposisiTarget] = useState<SuratMasukItem | null>(null);
+  const [tujuanLanjutan, setTujuanLanjutan] = useState<string>("");
+  const [catatanDisposisi, setCatatanDisposisi] = useState<string>("");
 
   useEffect(() => {
     const fetchSuratMasuk = async () => {
@@ -51,6 +63,75 @@ export default function KepalaDesaSuratMasukPage() {
       year: "numeric",
     });
 
+  const openDisposisiDialog = (item: SuratMasukItem) => {
+    setDisposisiTarget(item);
+    setTujuanLanjutan("");
+    setCatatanDisposisi(`Mohon ditindaklanjuti terkait surat masuk ${item.nomor_surat || ""}.`.trim());
+  };
+
+  const closeDisposisiDialog = () => {
+    setDisposisiTarget(null);
+    setTujuanLanjutan("");
+    setCatatanDisposisi("");
+  };
+
+  const handleDisposisi = async () => {
+    if (!disposisiTarget) {
+      return;
+    }
+
+    try {
+      setSubmittingId(disposisiTarget.id);
+      setFeedback(null);
+
+      const response = await fetch(`/api/kepala-desa/surat-masuk/${disposisiTarget.id}/disposisi`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tujuan_role: FIXED_TUJUAN_ROLE,
+          tujuan_label: FIXED_TUJUAN_LABEL,
+          tujuan_lanjutan: tujuanLanjutan,
+          catatan: catatanDisposisi,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Gagal melakukan disposisi");
+      }
+
+      setSuratMasuk((current) =>
+        current.map((row) =>
+          row.id === disposisiTarget.id
+            ? {
+                ...row,
+                latest_disposisi_tujuan: FIXED_TUJUAN_ROLE,
+                latest_disposisi_tujuan_label: FIXED_TUJUAN_LABEL,
+                latest_disposisi_at: new Date().toISOString(),
+              }
+            : row
+        )
+      );
+
+      setFeedback({
+        type: "success",
+        text: `Surat ${disposisiTarget.nomor_surat || ""} berhasil didisposisikan ke ${FIXED_TUJUAN_LABEL}.`,
+      });
+      closeDisposisiDialog();
+    } catch (err) {
+      setFeedback({
+        type: "error",
+        text: err instanceof Error ? err.message : "Terjadi kesalahan saat melakukan disposisi",
+      });
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
   return (
     <section>
       <div className="mb-8">
@@ -61,6 +142,18 @@ export default function KepalaDesaSuratMasukPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        {feedback && (
+          <div
+            className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+              feedback.type === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {feedback.text}
+          </div>
+        )}
+
         {loading ? (
           <div className="py-8 text-center text-gray-500">Memuat data surat masuk...</div>
         ) : error ? (
@@ -76,6 +169,7 @@ export default function KepalaDesaSuratMasukPage() {
                 <th className="px-4 py-3 text-left font-semibold">Tanggal</th>
                 <th className="px-4 py-3 text-left font-semibold">Pengirim</th>
                 <th className="px-4 py-3 text-left font-semibold">Perihal</th>
+                <th className="px-4 py-3 text-left font-semibold">Disposisi</th>
                 <th className="px-4 py-3 text-center font-semibold">Aksi</th>
               </tr>
             </thead>
@@ -87,19 +181,49 @@ export default function KepalaDesaSuratMasukPage() {
                   <td className="px-4 py-3">{formatDate(surat.tanggal_terima)}</td>
                   <td className="px-4 py-3">{surat.asal_surat}</td>
                   <td className="px-4 py-3">{surat.perihal}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-2">
+                      {surat.latest_disposisi_tujuan ? (
+                        <div className="text-xs text-emerald-700">
+                          <span className="inline-flex w-fit rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+                            Sudah didisposisikan
+                          </span>
+                          <p className="mt-1 font-semibold text-gray-700">
+                            Tujuan: {surat.latest_disposisi_tujuan_label || surat.latest_disposisi_tujuan}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                          Tanpa disposisi
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => openDisposisiDialog(surat)}
+                        disabled={submittingId === surat.id}
+                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                      >
+                        <FiSend className="h-3.5 w-3.5" />
+                        {submittingId === surat.id ? "Memproses..." : "Kirim ke Sekretaris"}
+                      </button>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex gap-2 justify-center">
+                      <Link
+                        href={`/kepala-desa/surat-masuk/${surat.id}`}
+                        className="bg-slate-500 text-white px-2 py-1 rounded hover:bg-slate-600"
+                        title="Lihat detail surat"
+                      >
+                        <FiEye className="w-4 h-4" />
+                      </Link>
                       {surat.file_path ? (
                         <>
                           <button
                             onClick={() => window.open(surat.file_path as string, "_blank")}
-                            className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
-                          >
-                            <FiEye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => window.open(surat.file_path as string, "_blank")}
                             className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                            title="Lihat file surat"
                           >
                             <FiDownload className="w-4 h-4" />
                           </button>
@@ -115,6 +239,75 @@ export default function KepalaDesaSuratMasukPage() {
           </table>
         )}
       </div>
+
+      {disposisiTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">Disposisi Surat Masuk</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Nomor surat: <span className="font-semibold text-gray-800">{disposisiTarget.nomor_surat || "-"}</span>
+            </p>
+
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Tujuan Disposisi</label>
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 inline-flex items-center gap-2">
+                  <FiUserCheck className="h-4 w-4" />
+                  Surat ini akan dikirim ke <span className="font-semibold">{FIXED_TUJUAN_LABEL}</span>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  Sekretaris akan menentukan penerusan disposisi berikutnya ke kaur/kasi/staf sesuai kebutuhan.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Rekomendasi Tujuan Lanjutan oleh Sekretaris (opsional)
+                </label>
+                <input
+                  type="text"
+                  value={tujuanLanjutan}
+                  onChange={(e) => setTujuanLanjutan(e.target.value)}
+                  placeholder="Contoh: Kaur Pemerintahan dan Kasi Pelayanan"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Keterangan Disposisi (instruksi tindak lanjut)
+                </label>
+                <textarea
+                  value={catatanDisposisi}
+                  onChange={(e) => setCatatanDisposisi(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Isi arahan untuk petugas yang menerima disposisi"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeDisposisiDialog}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDisposisi}
+                disabled={submittingId === disposisiTarget.id}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                <FiSend className="h-4 w-4" />
+                {submittingId === disposisiTarget.id ? "Memproses..." : "Simpan Disposisi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
