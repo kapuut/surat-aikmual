@@ -73,9 +73,9 @@ export default function UserNavbar({ showMainMenu = true }: UserNavbarProps) {
                 className="object-contain"
               />
             </div>
-            <div className="flex flex-col justify-center">
-              <h1 className="text-lg font-bold text-gray-900 leading-tight">Sistem Pelayanan Surat</h1>
-              <p className="text-xs text-gray-600 leading-tight">Desa Aikmual</p>
+            <div className="flex flex-col justify-center min-w-0">
+              <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight truncate">Sistem Pelayanan Surat</h1>
+              <p className="hidden sm:block text-xs text-gray-600 leading-tight">Desa Aikmual</p>
             </div>
           </Link>
 
@@ -196,39 +196,33 @@ export default function UserNavbar({ showMainMenu = true }: UserNavbarProps) {
                 >
                   Beranda
                 </Link>
-                {/* Dashboard - dinamis berdasarkan role */}
-                {showMainMenu && (
-                  <>
-                    <Link
-                      href={getDashboardRoute(user.role)}
-                      className="block px-4 py-2 text-gray-600 hover:bg-gray-50 font-medium"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      Dashboard
-                    </Link>
+                <Link
+                  href={getDashboardRoute(user.role)}
+                  className="block px-4 py-2 text-gray-600 hover:bg-gray-50 font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Dashboard
+                </Link>
 
-                    {/* Permohonan - hanya untuk masyarakat */}
-                    {user.role === 'masyarakat' && (
-                      <Link
-                        href="/permohonan"
-                        className="block px-4 py-2 text-gray-600 hover:bg-gray-50"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        Permohonan
-                      </Link>
-                    )}
+                {/* Permohonan & Tracking tetap tampil di mobile karena sidebar tidak muncul di layar kecil */}
+                {user.role === 'masyarakat' && (
+                  <Link
+                    href="/permohonan"
+                    className="block px-4 py-2 text-gray-600 hover:bg-gray-50"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Permohonan
+                  </Link>
+                )}
 
-                    {/* Lacak Surat - hanya untuk masyarakat */}
-                    {user.role === 'masyarakat' && (
-                      <Link
-                        href="/tracking"
-                        className="block px-4 py-2 text-gray-600 hover:bg-gray-50"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        Lacak Surat
-                      </Link>
-                    )}
-                  </>
+                {user.role === 'masyarakat' && (
+                  <Link
+                    href="/tracking"
+                    className="block px-4 py-2 text-gray-600 hover:bg-gray-50"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Lacak Surat
+                  </Link>
                 )}
                 
                 <Link

@@ -4,6 +4,7 @@ import { RowDataPacket } from 'mysql2';
 import { readdir } from 'fs/promises';
 import path from 'path';
 import { generateSuratTemplate } from '@/lib/surat-generator/template';
+import { generateNomorSurat } from '@/lib/surat-generator/nomor-surat';
 import { normalizeSuratSlug } from '@/lib/surat-data';
 import type { JenisSurat, SuratData } from '@/lib/surat-generator/types';
 
@@ -207,6 +208,40 @@ async function resolveFinalSuratKeluarPath(nomorSurat: string | null, jenisSurat
   } catch {
     return null;
   }
+}
+
+async function getNextNomorSuratForPreview(
+  tanggal: Date,
+  jenisSurat: JenisSurat,
+  currentPermohonanId: number
+): Promise<string> {
+  const bulan = String(tanggal.getMonth() + 1).padStart(2, '0');
+  const tahun = String(tanggal.getFullYear());
+  const suffix = `/${bulan}.${tahun}`;
+
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT id, nomor_surat, jenis_surat, status, catatan
+     FROM permohonan_surat
+     WHERE nomor_surat LIKE ?
+     ORDER BY id DESC`,
+    [`%${suffix}`]
+  );
+
+  const scopedRows = (rows || []).filter((row: any) => {
+    const id = Number(row?.id || 0);
+    if (id === currentPermohonanId) return false;
+    const rowStatus = normalizeWorkflowStatus(row?.status, row?.nomor_surat, row?.catatan);
+    if (rowStatus === 'ditolak') return false;
+    return normalizeSuratSlug(String(row?.jenis_surat || '')) === jenisSurat;
+  });
+
+  let nomorUrut = 1;
+  if (scopedRows.length > 0 && typeof scopedRows[0].nomor_surat === 'string') {
+    const parsed = parseInt(String(scopedRows[0].nomor_surat).split('/')[0], 10);
+    nomorUrut = Number.isFinite(parsed) ? parsed + 1 : 1;
+  }
+
+  return generateNomorSurat(nomorUrut, tanggal);
 }
 
 function isAttachmentFile(pathValue: string): boolean {
@@ -780,9 +815,13 @@ export async function GET(
       getDateWithDetail(permohonan.masa_berlaku_sampai, detailData, ['masa_berlaku_sampai', 'masaBerlakuSampai']) ||
       new Date(masaBerlakuDari.getFullYear(), masaBerlakuDari.getMonth() + 6, masaBerlakuDari.getDate());
 
+    const previewNomorSurat = permohonan.nomor_surat
+      ? String(permohonan.nomor_surat)
+      : await getNextNomorSuratForPreview(tanggalSurat, suratSlug as JenisSurat, Number(permohonan.id));
+
     const suratData: SuratData = {
       jenisSurat: suratSlug as JenisSurat,
-      nomorSurat: permohonan.nomor_surat || undefined,
+      nomorSurat: previewNomorSurat,
       tanggalSurat,
       nama: isSuratKematian ? (namaAlmarhum || permohonan.nama_pemohon) : permohonan.nama_pemohon,
       nik: isSuratKematian ? (nikAlmarhum || permohonan.nik) : permohonan.nik,
@@ -799,18 +838,18 @@ export async function GET(
       },
       alamat: isSuratKematian ? (alamatTerakhir || permohonan.alamat) : permohonan.alamat,
       isiSurat: isSuratCerai
-        ? `Bahwa berdasarkan data administrasi kependudukan yang ada, benar ${permohonan.nama_pemohon} telah bercerai secara sah dengan ${namaMantan || 'pasangannya'}. Surat keterangan ini dipergunakan untuk keperluan ${permohonan.keperluan}.`
+        ? `Bahwa berdasarkan data administrasi kependudukan yang ada, benar ${permohonan.nama_pemohon} telah bercerai secara sah dengan ${namaMantan || 'pasangannya'}.`
         : isSuratJanda
           ? `Bahwa yang namanya tersebut diatas memang benar berstatus ${statusJanda || 'Janda/Duda'}${alasanStatusJanda ? ` (${alasanStatusJanda})` : ''}.`
           : isSuratPenghasilan
-            ? `Bahwa yang namanya tersebut di atas merupakan penduduk Desa Aikmual dan merupakan anak/tanggungan dari ${namaWali || 'wali yang bersangkutan'}. Berdasarkan keterangan ${dasarKeterangan || 'Kepala Dusun setempat'}, penghasilan wali/orang tua yang bersangkutan sebesar ${penghasilanPerBulan || 'sesuai keterangan'} per bulan${sumberPenghasilan ? ` dari ${sumberPenghasilan}` : ''}. Surat ini dipergunakan untuk keperluan ${permohonan.keperluan}.`
+            ? `Bahwa yang namanya tersebut di atas merupakan penduduk Desa Aikmual dan merupakan anak/tanggungan dari ${namaWali || 'wali yang bersangkutan'}. Berdasarkan keterangan ${dasarKeterangan || 'Kepala Dusun setempat'}, penghasilan wali/orang tua yang bersangkutan sebesar ${penghasilanPerBulan || 'sesuai keterangan'} per bulan${sumberPenghasilan ? ` dari ${sumberPenghasilan}` : ''}.`
           : isSuratTidakPunyaRumah
             ? `Orang tersebut adalah benar-benar warga Desa Aikmual dengan data seperti di atas, dan memang yang bersangkutan Belum Memiliki Rumah.`
           : isSuratUsaha
             ? `Menerangkan bahwa orang tersebut adalah benar-benar warga Desa Aikmual dengan data seperti di atas, yang memiliki usaha ${jenisUsaha || '-'}.`
           : isSuratKehilangan
             ? `Menerangkan bahwa orang tersebut adalah benar-benar warga Desa Aikmual dan telah kehilangan ${barangHilang || 'barang penting'}${jenisBarang ? ` yang tergolong ${jenisBarang}` : ''}${asalBarang ? ` milik/berasal dari ${asalBarang}` : ''}${nomorBarang ? ` dengan ${labelNomorBarang || 'Nomor'}: ${nomorBarang}` : ''}${lokasiKehilangan ? ` di ${lokasiKehilangan}` : ''}${uraianKehilangan ? `. Menurut keterangan pemohon ${uraianKehilangan}` : ''}${ciriBarang ? `. Barang tersebut memiliki ciri-ciri ${ciriBarang}` : ''}.`
-          : `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}. Surat keterangan ini dipergunakan untuk keperluan ${permohonan.keperluan}.`,
+          : `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}.`,
       kematian: isSuratKematian
         ? {
             namaAlmarhum: namaAlmarhum || permohonan.nama_pemohon,
@@ -887,7 +926,6 @@ export async function GET(
         : undefined,
       rumah: isSuratTidakPunyaRumah
         ? {
-            keperluan: permohonan.keperluan,
             penyandangCacat,
             statusTempatTinggal,
             namaPemilikRumah,
@@ -900,7 +938,6 @@ export async function GET(
         : undefined,
       usaha: isSuratUsaha
         ? {
-            keperluan: permohonan.keperluan,
             penyandangCacat,
             mulaiUsaha,
             jenisUsaha,

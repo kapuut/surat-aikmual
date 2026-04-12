@@ -12,21 +12,67 @@ export default function SuratKepemilikanFormPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const normalizeSpacing = (value: string) => value.replace(/\s+/g, ' ').trim();
+
+  const toTitleCase = (value: string) => {
+    const cleaned = normalizeSpacing(value);
+    if (!cleaned) return '';
+
+    return cleaned
+      .toLowerCase()
+      .split(' ')
+      .map((word) => (word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : ''))
+      .join(' ');
+  };
+
+  const normalizeAreaValue = (value: string, type: 'dusun' | 'desa' | 'kecamatan' | 'kabupaten' | 'provinsi') => {
+    const cleaned = normalizeSpacing(value);
+    if (!cleaned) return '';
+
+    const patterns = {
+      dusun: /^dusun\s+/i,
+      desa: /^desa\s+/i,
+      kecamatan: /^(kecamatan|kec\.?)+\s+/i,
+      kabupaten: /^(kabupaten|kab\.?)+\s+/i,
+      provinsi: /^(provinsi|prov\.?)+\s+/i,
+    } as const;
+
+    return toTitleCase(cleaned.replace(patterns[type], ''));
+  };
+
+  const composeAddress = (dusun: string, desa: string, kecamatan: string, kabupaten: string, provinsi: string) => {
+    if (!dusun || !desa || !kecamatan || !kabupaten) return '';
+    const baseAddress = `Dusun ${dusun}, Desa ${desa}\nKec. ${kecamatan}, Kab. ${kabupaten}`;
+    return provinsi ? `${baseAddress}\nProvinsi ${provinsi}` : baseAddress;
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     const formData = new FormData(e.currentTarget);
+    const dusun = normalizeAreaValue(String(formData.get("dusun") || ""), 'dusun');
+    const desa = normalizeAreaValue(String(formData.get("desa") || ""), 'desa');
+    const kecamatan = normalizeAreaValue(String(formData.get("kecamatan") || ""), 'kecamatan');
+    const kabupaten = normalizeAreaValue(String(formData.get("kabupaten") || ""), 'kabupaten');
+    const provinsi = normalizeAreaValue(String(formData.get("provinsi") || ""), 'provinsi');
+    const alamat = composeAddress(dusun, desa, kecamatan, kabupaten, provinsi);
+
     const data = {
       jenisSurat: "Surat Keterangan Kepemilikan",
-      namaLengkap: formData.get("namaLengkap"),
+      nama: formData.get("namaLengkap"),
       nik: formData.get("nik"),
       tempatLahir: formData.get("tempatLahir"),
       tanggalLahir: formData.get("tanggalLahir"),
       jenisKelamin: formData.get("jenisKelamin"),
       pekerjaan: formData.get("pekerjaan"),
-      alamat: formData.get("alamat"),
+      dusun,
+      desa,
+      kecamatan,
+      kabupaten,
+      provinsi,
+      alamat,
       noTelp: formData.get("noTelp"),
       // Data Kepemilikan
       jenisKepemilikan: formData.get("jenisKepemilikan"),
@@ -36,7 +82,7 @@ export default function SuratKepemilikanFormPage() {
       nomorSertifikat: formData.get("nomorSertifikat"),
       tahunPerolehan: formData.get("tahunPerolehan"),
       caraPerolehan: formData.get("caraPerolehan"),
-      keperluan: formData.get("keperluan"),
+      keperluan: '-',
     };
 
     try {
@@ -120,8 +166,27 @@ export default function SuratKepemilikanFormPage() {
                 <input type="tel" name="noTelp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Alamat Lengkap *</label>
-                <textarea name="alamat" required rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Alamat (Isi Per Kolom) *</label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dusun *</label>
+                <input type="text" name="dusun" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Desa *</label>
+                <input type="text" name="desa" required defaultValue="Aikmual" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kecamatan *</label>
+                <input type="text" name="kecamatan" required defaultValue="Praya" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kabupaten *</label>
+                <input type="text" name="kabupaten" required defaultValue="Lombok Tengah" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Provinsi *</label>
+                <input type="text" name="provinsi" required defaultValue="Nusa Tenggara Barat" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
           </div>
@@ -173,14 +238,7 @@ export default function SuratKepemilikanFormPage() {
             </div>
           </div>
 
-          {/* Keperluan */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Keperluan</h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Untuk Keperluan *</label>
-              <textarea name="keperluan" required rows={3} placeholder="Jelaskan keperluan surat ini..." className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-            </div>
-          </div>
+          <input type="hidden" name="keperluan" value="-" />
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">{error}</div>

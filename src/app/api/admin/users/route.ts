@@ -59,28 +59,88 @@ export async function GET() {
 
     const columnMap = await getUsersColumnMap();
     const idField = columnMap.has('id') ? 'id' : 'id_user';
+    const hasKtpColumn = columnMap.has('dokumen_ktp_path');
+    const hasKkColumn = columnMap.has('dokumen_kk_path');
+
+    const [identityTableRows] = await db.query("SHOW TABLES LIKE 'user_identity_documents'");
+    const hasIdentityTable = Array.isArray(identityTableRows) && identityTableRows.length > 0;
+
+    const dokumenKtpExpr = hasIdentityTable
+      ? hasKtpColumn
+        ? 'COALESCE(u.dokumen_ktp_path, uid.dokumen_ktp_path)'
+        : 'uid.dokumen_ktp_path'
+      : hasKtpColumn
+        ? 'u.dokumen_ktp_path'
+        : 'NULL';
+
+    const dokumenKkExpr = hasIdentityTable
+      ? hasKkColumn
+        ? 'COALESCE(u.dokumen_kk_path, uid.dokumen_kk_path)'
+        : 'uid.dokumen_kk_path'
+      : hasKkColumn
+        ? 'u.dokumen_kk_path'
+        : 'NULL';
+
+    const joinIdentityTable = hasIdentityTable
+      ? `
+      LEFT JOIN user_identity_documents uid
+        ON BINARY uid.user_id = BINARY CAST(u.${idField} AS CHAR)
+        ${columnMap.has('nik') ? "OR BINARY uid.user_nik = BINARY SUBSTRING_INDEX(u.nik, '_', 1)" : ''}`
+      : '';
 
     const selectedColumns = [
-      `${idField} AS id`,
-      columnMap.has('username') ? 'username' : 'NULL AS username',
-      columnMap.has('nama') ? 'nama' : 'NULL AS nama',
-      columnMap.has('email') ? 'email' : 'NULL AS email',
-      columnMap.has('nik') ? 'nik' : 'NULL AS nik',
-      columnMap.has('alamat') ? 'alamat' : 'NULL AS alamat',
-      columnMap.has('telepon') ? 'telepon' : 'NULL AS telepon',
-      columnMap.has('role') ? 'role' : '"masyarakat" AS role',
-      columnMap.has('status') ? 'status' : '"aktif" AS status',
-      columnMap.has('created_at') ? 'created_at' : 'NULL AS created_at',
-      columnMap.has('last_login') ? 'last_login' : 'NULL AS last_login',
+      `u.${idField} AS id`,
+      columnMap.has('username') ? 'u.username' : 'NULL AS username',
+      columnMap.has('nama') ? 'u.nama' : 'NULL AS nama',
+      columnMap.has('email') ? 'u.email' : 'NULL AS email',
+      columnMap.has('nik') ? 'u.nik' : 'NULL AS nik',
+      columnMap.has('alamat') ? 'u.alamat' : 'NULL AS alamat',
+      columnMap.has('telepon') ? 'u.telepon' : 'NULL AS telepon',
+      columnMap.has('role') ? 'u.role' : '"masyarakat" AS role',
+      columnMap.has('status') ? 'u.status' : '"aktif" AS status',
+      columnMap.has('created_at') ? 'u.created_at' : 'NULL AS created_at',
+      columnMap.has('last_login') ? 'u.last_login' : 'NULL AS last_login',
+      `${dokumenKtpExpr} AS dokumen_ktp_path`,
+      `${dokumenKkExpr} AS dokumen_kk_path`,
     ];
 
-    const orderByClause = columnMap.has('created_at') ? 'ORDER BY created_at DESC' : '';
+    const fallbackSelectedColumns = [
+      `u.${idField} AS id`,
+      columnMap.has('username') ? 'u.username' : 'NULL AS username',
+      columnMap.has('nama') ? 'u.nama' : 'NULL AS nama',
+      columnMap.has('email') ? 'u.email' : 'NULL AS email',
+      columnMap.has('nik') ? 'u.nik' : 'NULL AS nik',
+      columnMap.has('alamat') ? 'u.alamat' : 'NULL AS alamat',
+      columnMap.has('telepon') ? 'u.telepon' : 'NULL AS telepon',
+      columnMap.has('role') ? 'u.role' : '"masyarakat" AS role',
+      columnMap.has('status') ? 'u.status' : '"aktif" AS status',
+      columnMap.has('created_at') ? 'u.created_at' : 'NULL AS created_at',
+      columnMap.has('last_login') ? 'u.last_login' : 'NULL AS last_login',
+      hasKtpColumn ? 'u.dokumen_ktp_path AS dokumen_ktp_path' : 'NULL AS dokumen_ktp_path',
+      hasKkColumn ? 'u.dokumen_kk_path AS dokumen_kk_path' : 'NULL AS dokumen_kk_path',
+    ];
 
-    const [rows] = await db.query(`
-      SELECT ${selectedColumns.join(', ')}
-      FROM users
-      ${orderByClause}
-    `);
+    const orderByClause = columnMap.has('created_at') ? 'ORDER BY u.created_at DESC' : '';
+
+    let rows: any = [];
+    try {
+      const [joinedRows] = await db.query(`
+        SELECT ${selectedColumns.join(', ')}
+        FROM users u
+        ${joinIdentityTable}
+        ${orderByClause}
+      `);
+      rows = joinedRows;
+    } catch (joinedQueryError) {
+      console.error('Admin users GET joined query failed, using fallback query:', joinedQueryError);
+
+      const [fallbackRows] = await db.query(`
+        SELECT ${fallbackSelectedColumns.join(', ')}
+        FROM users u
+        ${orderByClause}
+      `);
+      rows = fallbackRows;
+    }
 
     return NextResponse.json({
       success: true,

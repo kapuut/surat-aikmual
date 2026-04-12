@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FiUsers, FiActivity, FiClock, FiRefreshCw, FiUser, FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiSave, FiEye, FiEyeOff } from "react-icons/fi";
+import { FiUsers, FiActivity, FiClock, FiRefreshCw, FiUser, FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiSave, FiEye, FiEyeOff, FiCheck } from "react-icons/fi";
 import { AuthUser, UserRole } from "@/lib/types";
+import Notification from "@/components/shared/Notification";
 
 interface User {
   id: number;
@@ -33,9 +34,16 @@ interface UserData {
   nik?: string;
   alamat?: string;
   telepon?: string;
+  dokumen_ktp_path?: string | null;
+  dokumen_kk_path?: string | null;
   created_at: string;
   last_login?: string;
 }
+
+type NotificationState = {
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+} | null;
 
 export default function PemantauanUserPage() {
   const [activeTab, setActiveTab] = useState<'monitoring' | 'hakakses'>('monitoring');
@@ -51,6 +59,11 @@ export default function PemantauanUserPage() {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [notification, setNotification] = useState<NotificationState>(null);
+  const [pendingDeleteUserId, setPendingDeleteUserId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [selectedVerificationUser, setSelectedVerificationUser] = useState<UserData | null>(null);
+  const [approveLoadingUserId, setApproveLoadingUserId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -75,6 +88,20 @@ export default function PemantauanUserPage() {
       return () => clearInterval(interval);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!notification) return;
+
+    const timeout = window.setTimeout(() => {
+      setNotification(null);
+    }, 3500);
+
+    return () => window.clearTimeout(timeout);
+  }, [notification]);
+
+  const showNotification = (type: 'success' | 'error' | 'warning' | 'info', message: string) => {
+    setNotification({ type, message });
+  };
 
   const fetchUsersMonitoring = async () => {
     setLoading(true);
@@ -112,7 +139,7 @@ export default function PemantauanUserPage() {
       setUsers(data.users || []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
-      alert(error instanceof Error ? error.message : 'Gagal memuat data pengguna');
+      showNotification('error', error instanceof Error ? error.message : 'Gagal memuat data pengguna');
     } finally {
       setLoading(false);
     }
@@ -215,14 +242,14 @@ export default function PemantauanUserPage() {
         throw new Error(data.error || 'Gagal menyimpan data pengguna');
       }
 
-      alert(data.message || (editingUser ? 'Data pengguna berhasil diupdate!' : 'Data pengguna berhasil ditambahkan!'));
+      showNotification('success', data.message || (editingUser ? 'Data pengguna berhasil diupdate!' : 'Data pengguna berhasil ditambahkan!'));
       setIsModalOpen(false);
       setEditingUser(null);
       resetForm();
       fetchUsers();
     } catch (error) {
       console.error('Failed to save user:', error);
-      alert(error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan data pengguna!');
+      showNotification('error', error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan data pengguna!');
     } finally {
       setSubmitLoading(false);
     }
@@ -245,22 +272,93 @@ export default function PemantauanUserPage() {
   };
 
   const handleDelete = async (userId: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus user ini?')) {
-      try {
-        const response = await fetch(`/api/admin/users/${userId}`, {
-          method: 'DELETE',
-          credentials: 'include',
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || 'Gagal menghapus data pengguna');
-        }
-        alert(data.message || 'Data pengguna berhasil dihapus!');
-        fetchUsers();
-      } catch (error) {
-        console.error('Failed to delete user:', error);
-        alert(error instanceof Error ? error.message : 'Terjadi kesalahan saat menghapus data pengguna!');
+    setPendingDeleteUserId(userId);
+  };
+
+  const openDocument = (path?: string | null) => {
+    if (!path) {
+      showNotification('warning', 'Dokumen belum tersedia');
+      return;
+    }
+
+    window.open(path, '_blank', 'noopener,noreferrer');
+  };
+
+  const normalizeNik = (nik?: string) => {
+    if (!nik) return '-';
+    return String(nik).split('_')[0] || '-';
+  };
+
+  const handleApproveUser = async (userData: UserData) => {
+    if (
+      userData.role === 'masyarakat' &&
+      (!userData.dokumen_ktp_path || !userData.dokumen_kk_path)
+    ) {
+      showNotification('warning', 'Dokumen KTP dan KK harus tersedia sebelum akun masyarakat di-ACC.');
+      return;
+    }
+
+    try {
+      setApproveLoadingUserId(userData.id);
+
+      const payload = {
+        username: userData.username,
+        nama: userData.nama,
+        email: userData.email,
+        nik: userData.nik || '',
+        role: userData.role,
+        alamat: userData.alamat || '',
+        telepon: userData.telepon || '',
+        status: 'aktif',
+      };
+
+      const response = await fetch(`/api/admin/users/${userData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Gagal mengaktifkan akun pengguna');
       }
+
+      showNotification('success', 'Akun berhasil diaktifkan (ACC)');
+      setSelectedVerificationUser(null);
+      fetchUsers();
+    } catch (error) {
+      console.error('Failed to approve user:', error);
+      showNotification('error', error instanceof Error ? error.message : 'Gagal mengaktifkan akun pengguna');
+    } finally {
+      setApproveLoadingUserId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDeleteUserId) return;
+
+    try {
+      setDeleteLoading(true);
+      const response = await fetch(`/api/admin/users/${pendingDeleteUserId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Gagal menghapus data pengguna');
+      }
+
+      showNotification('success', data.message || 'Data pengguna berhasil dihapus!');
+      setPendingDeleteUserId(null);
+      fetchUsers();
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      showNotification('error', error instanceof Error ? error.message : 'Terjadi kesalahan saat menghapus data pengguna!');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -291,6 +389,16 @@ export default function PemantauanUserPage() {
 
   return (
     <section>
+      {notification && (
+        <div className="fixed top-4 right-4 z-[60] w-[calc(100%-2rem)] max-w-sm">
+          <Notification
+            type={notification.type}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        </div>
+      )}
+
       <div className="mb-8">
         <div className="flex items-center justify-end">
           {activeTab === 'monitoring' && (
@@ -610,6 +718,23 @@ export default function PemantauanUserPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
                             <button
+                              onClick={() => setSelectedVerificationUser(userData)}
+                              className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-100"
+                              title="Verifikasi Data"
+                            >
+                              <FiEye className="w-4 h-4" />
+                            </button>
+                            {userData.status === 'nonaktif' && (
+                              <button
+                                onClick={() => handleApproveUser(userData)}
+                                disabled={approveLoadingUserId === userData.id}
+                                className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-100 disabled:text-green-300 disabled:cursor-not-allowed"
+                                title="ACC & Aktifkan"
+                              >
+                                <FiCheck className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
                               onClick={() => handleEdit(userData)}
                               className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
                               title="Edit"
@@ -630,6 +755,105 @@ export default function PemantauanUserPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedVerificationUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto animate-slideUp">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Verifikasi Data Pendaftar</h2>
+              <button
+                onClick={() => setSelectedVerificationUser(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Nama</p>
+                <p className="font-medium text-gray-900">{selectedVerificationUser.nama || '-'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">NIK</p>
+                <p className="font-medium text-gray-900">{normalizeNik(selectedVerificationUser.nik)}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Email</p>
+                <p className="font-medium text-gray-900">{selectedVerificationUser.email || '-'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Telepon</p>
+                <p className="font-medium text-gray-900">{selectedVerificationUser.telepon || '-'}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-gray-500">Alamat</p>
+                <p className="font-medium text-gray-900 whitespace-pre-line">{selectedVerificationUser.alamat || '-'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Status Akun</p>
+                <span className={`inline-flex mt-1 px-2 py-1 text-xs font-semibold rounded-full ${
+                  selectedVerificationUser.status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {selectedVerificationUser.status === 'aktif' ? 'Aktif' : 'Menunggu ACC Admin'}
+                </span>
+              </div>
+              <div>
+                <p className="text-gray-500">Tanggal Daftar</p>
+                <p className="font-medium text-gray-900">{selectedVerificationUser.created_at ? new Date(selectedVerificationUser.created_at).toLocaleString('id-ID') : '-'}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 border rounded-lg p-4 bg-gray-50">
+              <h3 className="font-semibold text-gray-900 mb-3">Dokumen Verifikasi Warga</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => openDocument(selectedVerificationUser.dokumen_ktp_path)}
+                  className="w-full text-left px-4 py-3 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition"
+                >
+                  <p className="font-medium text-gray-900">Lihat Dokumen KTP</p>
+                  <p className="text-xs text-gray-500 mt-1">Klik untuk buka dokumen KTP</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openDocument(selectedVerificationUser.dokumen_kk_path)}
+                  className="w-full text-left px-4 py-3 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition"
+                >
+                  <p className="font-medium text-gray-900">Lihat Dokumen KK</p>
+                  <p className="text-xs text-gray-500 mt-1">Klik untuk buka dokumen Kartu Keluarga</p>
+                </button>
+              </div>
+              {(!selectedVerificationUser.dokumen_ktp_path || !selectedVerificationUser.dokumen_kk_path) && (
+                <p className="text-xs text-amber-700 mt-3">
+                  Dokumen KTP/KK belum lengkap. Pastikan data pendaftar valid sebelum akun diaktifkan.
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setSelectedVerificationUser(null)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Tutup
+              </button>
+              {selectedVerificationUser.status !== 'aktif' && (
+                <button
+                  type="button"
+                  onClick={() => handleApproveUser(selectedVerificationUser)}
+                  disabled={approveLoadingUserId === selectedVerificationUser.id}
+                  className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <FiCheck className="w-4 h-4" />
+                  <span>{approveLoadingUserId === selectedVerificationUser.id ? 'Memproses...' : 'ACC & Aktifkan Akun'}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -797,6 +1021,42 @@ export default function PemantauanUserPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {pendingDeleteUserId && (
+        <div className="modal-backdrop">
+          <div className="modal animate-slideUp">
+            <div className="modal-header">
+              <h3 className="text-lg font-semibold text-gray-900">Konfirmasi Hapus</h3>
+            </div>
+            <div className="modal-body">
+              <p className="text-sm text-gray-700">
+                Apakah Anda yakin ingin menghapus user ini?
+              </p>
+              <p className="text-xs text-gray-500 mt-2">
+                Tindakan ini tidak dapat dibatalkan.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteUserId(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleteLoading}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed"
+              >
+                {deleteLoading ? 'Menghapus...' : 'Ya, Hapus'}
+              </button>
+            </div>
           </div>
         </div>
       )}

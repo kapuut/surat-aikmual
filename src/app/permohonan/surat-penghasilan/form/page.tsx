@@ -41,18 +41,6 @@ export default function SuratPenghasilanPage() {
     const formData = new FormData(e.currentTarget);
     const asString = (name: string) => String(formData.get(name) || "");
 
-    const dokumenKTP = formData.get("dokumenKTP");
-    const dokumenKK = formData.get("dokumenKK");
-    const hasKtp = dokumenKTP instanceof File && dokumenKTP.size > 0;
-    const hasKk = dokumenKK instanceof File && dokumenKK.size > 0;
-
-    if (!hasKtp || !hasKk) {
-      setLoading(false);
-      setError("Upload KTP dan Kartu Keluarga (KK) wajib diisi.");
-      showFeedback();
-      return;
-    }
-
     formData.set("jenisSurat", "Surat Keterangan Penghasilan");
     formData.set("nama", toTitleCase(asString("nama")));
     formData.set("nik", normalizeSpacing(asString("nik")));
@@ -67,6 +55,7 @@ export default function SuratPenghasilanPage() {
     formData.set("desa", toTitleCase(asString("desa")));
     formData.set("kecamatan", toTitleCase(asString("kecamatan")));
     formData.set("kabupaten", toTitleCase(asString("kabupaten")));
+    formData.set("provinsi", toTitleCase(asString("provinsi")));
 
     formData.set("namaWali", toTitleCase(asString("namaWali")));
     formData.set("nikWali", normalizeSpacing(asString("nikWali")));
@@ -76,7 +65,7 @@ export default function SuratPenghasilanPage() {
     formData.set("penghasilanPerBulan", normalizeSpacing(asString("penghasilanPerBulan")));
     formData.set("sumberPenghasilan", toTitleCase(asString("sumberPenghasilan")));
     formData.set("dasarKeterangan", normalizeSpacing(asString("dasarKeterangan")));
-    formData.set("keperluan", normalizeSpacing(asString("keperluan")));
+    formData.set("keperluan", "-");
 
     try {
       const response = await fetch("/api/permohonan", {
@@ -233,6 +222,10 @@ export default function SuratPenghasilanPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Kabupaten *</label>
                 <input type="text" name="kabupaten" defaultValue="Lombok Tengah" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Provinsi *</label>
+                <input type="text" name="provinsi" defaultValue="Nusa Tenggara Barat" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
             </div>
           </div>
 
@@ -296,30 +289,16 @@ export default function SuratPenghasilanPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Keperluan</h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Untuk Keperluan *</label>
-              <textarea name="keperluan" required rows={3} placeholder="Jelaskan keperluan surat ini..." className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-            </div>
-          </div>
+          <input type="hidden" name="keperluan" value="-" />
 
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <FiUpload className="w-5 h-5 text-blue-600" />
               Upload Dokumen
             </h2>
-            <p className="text-sm text-gray-600 mb-4">KTP dan KK wajib diunggah. Dokumen pendukung lainnya bersifat opsional.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <p className="text-sm text-gray-600 mb-4">Dokumen pendukung lainnya bersifat opsional.</p>
+            <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Upload KTP *</label>
-                <input type="file" name="dokumenKTP" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-blue-100 file:text-blue-700" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Upload Kartu Keluarga (KK) *</label>
-                <input type="file" name="dokumenKK" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-blue-100 file:text-blue-700" />
-              </div>
-              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Dokumen Pendukung Lainnya (Opsional)</label>
                 <input type="file" name="dokumenTambahan" multiple accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-gray-100 file:text-gray-700" />
               </div>

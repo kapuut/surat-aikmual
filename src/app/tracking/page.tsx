@@ -82,8 +82,8 @@ export default function TrackingPage() {
     return (
       <SimpleLayout useSidebar>
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Lacak Surat</h1>
-          <p className="text-lg text-gray-600">Pantau status permohonan surat Anda.</p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Lacak Surat</h1>
+          <p className="text-base sm:text-lg text-gray-600">Pantau status permohonan surat Anda.</p>
         </div>
 
         <Card>
@@ -101,8 +101,8 @@ export default function TrackingPage() {
     <SimpleLayout useSidebar>
       {/* Header Section */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">Lacak Surat</h1>
-        <p className="text-lg text-gray-600">Pantau status permohonan surat Anda.</p>
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Lacak Surat</h1>
+        <p className="text-base sm:text-lg text-gray-600">Pantau status permohonan surat Anda.</p>
       </div>
 
       {/* Empty State */}
@@ -128,7 +128,7 @@ export default function TrackingPage() {
           <Card noPadding>
             <CardHeader title="Daftar Permohonan Anda" />
             <CardBody className="p-0">
-              <Table>
+              <Table className="min-w-[820px]">
                 <TableHead>
                   <TableRow>
                     <TableHeaderCell>Jenis Surat</TableHeaderCell>
@@ -192,7 +192,7 @@ export default function TrackingPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="inline-flex"
+                            className="inline-flex w-full sm:w-auto"
                             onClick={() => window.open(buildPdfUrl(item), '_blank')}
                           >
                             <FiDownload className="w-4 h-4" />
@@ -220,7 +220,7 @@ export default function TrackingPage() {
                 Pantau status permohonan Anda di tabel di atas. Jika status sudah ditandatangani atau selesai, tombol unduh surat akan muncul otomatis.
               </p>
               <Link href="/permohonan">
-                <Button variant="secondary" size="sm">
+                <Button variant="secondary" size="sm" className="w-full sm:w-auto">
                   Buat Permohonan Baru
                 </Button>
               </Link>

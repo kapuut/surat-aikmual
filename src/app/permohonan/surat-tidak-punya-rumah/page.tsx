@@ -9,8 +9,8 @@ export default function SuratTidakPunyaRumahInfoPage() {
   const router = useRouter();
 
   const persyaratan = [
-    "Scan/foto KTP yang masih berlaku",
-    "Scan/foto Kartu Keluarga (KK)",
+    "NIK terdaftar dan akun sudah tervalidasi admin",
+    "KTP dan KK cukup diunggah sekali saat registrasi akun",
     "Dokumen pendukung tambahan (opsional): surat pengantar RT/RW, bukti kontrak/sewa, atau surat keterangan menumpang",
   ];
 
@@ -18,7 +18,7 @@ export default function SuratTidakPunyaRumahInfoPage() {
     {
       step: 1,
       title: "Persiapan Dokumen",
-      desc: "Siapkan KTP dan KK, serta dokumen pendukung tambahan bila ada",
+      desc: "Pastikan NIK akun sudah tervalidasi, lalu siapkan dokumen pendukung tambahan bila ada",
     },
     {
       step: 2,
@@ -57,7 +57,7 @@ export default function SuratTidakPunyaRumahInfoPage() {
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Surat resmi yang menyatakan bahwa seseorang tidak memiliki rumah sendiri.
-              Diperlukan untuk pengajuan bantuan perumahan, subsidi rumah, atau keperluan administratif lainnya.
+              Digunakan untuk pengajuan bantuan perumahan, subsidi rumah, atau administrasi lainnya.
             </p>
           </div>
 

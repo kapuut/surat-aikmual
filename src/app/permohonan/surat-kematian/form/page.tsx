@@ -19,6 +19,39 @@ export default function SuratKematianFormPage() {
     }
   };
 
+  const normalizeSpacing = (value: string) => value.replace(/\s+/g, " ").trim();
+
+  const toTitleCase = (value: string) => {
+    const cleaned = normalizeSpacing(value);
+    if (!cleaned) return "";
+    return cleaned
+      .toLowerCase()
+      .split(" ")
+      .map((word) => (word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : ""))
+      .join(" ");
+  };
+
+  const normalizeAreaValue = (value: string, type: "dusun" | "desa" | "kecamatan" | "kabupaten" | "provinsi") => {
+    const cleaned = normalizeSpacing(value);
+    if (!cleaned) return "";
+
+    const patterns = {
+      dusun: /^dusun\s+/i,
+      desa: /^desa\s+/i,
+      kecamatan: /^(kecamatan|kec\.?)+\s+/i,
+      kabupaten: /^(kabupaten|kab\.?)+\s+/i,
+      provinsi: /^(provinsi|prov\.?)+\s+/i,
+    } as const;
+
+    return toTitleCase(cleaned.replace(patterns[type], ""));
+  };
+
+  const composeAddress = (dusun: string, desa: string, kecamatan: string, kabupaten: string, provinsi: string) => {
+    if (!dusun || !desa || !kecamatan || !kabupaten) return "";
+    const baseAddress = `Dusun ${dusun}, Desa ${desa}\nKec. ${kecamatan}, Kab. ${kabupaten}`;
+    return provinsi ? `${baseAddress}\nProvinsi ${provinsi}` : baseAddress;
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -62,6 +95,35 @@ export default function SuratKematianFormPage() {
 
     const formData = new FormData(form);
 
+    const dusunPemohon = normalizeAreaValue(String(formData.get('dusun') || ''), 'dusun');
+    const desaPemohon = normalizeAreaValue(String(formData.get('desa') || ''), 'desa');
+    const kecamatanPemohon = normalizeAreaValue(String(formData.get('kecamatan') || ''), 'kecamatan');
+    const kabupatenPemohon = normalizeAreaValue(String(formData.get('kabupaten') || ''), 'kabupaten');
+    const provinsiPemohon = normalizeAreaValue(String(formData.get('provinsi') || ''), 'provinsi');
+    const alamatPemohon = composeAddress(dusunPemohon, desaPemohon, kecamatanPemohon, kabupatenPemohon, provinsiPemohon);
+
+    const dusunAlmarhum = normalizeAreaValue(String(formData.get('dusunAlmarhum') || ''), 'dusun');
+    const desaAlmarhum = normalizeAreaValue(String(formData.get('desaAlmarhum') || ''), 'desa');
+    const kecamatanAlmarhum = normalizeAreaValue(String(formData.get('kecamatanAlmarhum') || ''), 'kecamatan');
+    const kabupatenAlmarhum = normalizeAreaValue(String(formData.get('kabupatenAlmarhum') || ''), 'kabupaten');
+    const provinsiAlmarhum = normalizeAreaValue(String(formData.get('provinsiAlmarhum') || ''), 'provinsi');
+    const alamatAlmarhum = composeAddress(dusunAlmarhum, desaAlmarhum, kecamatanAlmarhum, kabupatenAlmarhum, provinsiAlmarhum);
+
+    formData.set('dusun', dusunPemohon);
+    formData.set('desa', desaPemohon);
+    formData.set('kecamatan', kecamatanPemohon);
+    formData.set('kabupaten', kabupatenPemohon);
+    formData.set('provinsi', provinsiPemohon);
+    formData.set('alamatSekarang', alamatPemohon);
+
+    formData.set('dusunAlmarhum', dusunAlmarhum);
+    formData.set('desaAlmarhum', desaAlmarhum);
+    formData.set('kecamatanAlmarhum', kecamatanAlmarhum);
+    formData.set('kabupatenAlmarhum', kabupatenAlmarhum);
+    formData.set('provinsiAlmarhum', provinsiAlmarhum);
+    formData.set('alamatTerakhir', alamatAlmarhum);
+    formData.set('keperluan', '-');
+
     const nikPemohonRaw = String(formData.get('nik') || '');
     const nikAlmarhumRaw = String(formData.get('nikAlmarhum') || '');
     const nikPemohon = nikPemohonRaw.replace(/\D/g, '').slice(0, 16);
@@ -80,34 +142,6 @@ export default function SuratKematianFormPage() {
     if (nikAlmarhum.length !== 16) {
       setLoading(false);
       setError('NIK Almarhum/Almarhumah harus terdiri dari 16 digit angka.');
-      showFeedback();
-      return;
-    }
-
-    const dokumenKTP = formData.get('dokumenKTP');
-    const dokumenKK = formData.get('dokumenKK');
-    const dokumenTambahan = formData
-      .getAll('dokumenTambahan')
-      .filter((item): item is File => item instanceof File && item.size > 0);
-
-    const hasKtp = dokumenKTP instanceof File && dokumenKTP.size > 0;
-    const hasKk = dokumenKK instanceof File && dokumenKK.size > 0;
-
-    if (!hasKtp || !hasKk) {
-      setLoading(false);
-      setError("Upload KTP Pemohon dan Kartu Keluarga (KK) wajib diisi.");
-      showFeedback();
-      return;
-    }
-
-    // Keep existing backend compatibility by also checking total uploaded files.
-    const uploadedFiles = [dokumenKTP, dokumenKK, ...dokumenTambahan].filter(
-      (item): item is File => item instanceof File && item.size > 0
-    );
-
-    if (uploadedFiles.length < 2) {
-      setLoading(false);
-      setError('Dokumen tidak terbaca. Silakan unggah ulang KTP dan KK.');
       showFeedback();
       return;
     }
@@ -260,15 +294,28 @@ export default function SuratKematianFormPage() {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Alamat Pemohon <span className="text-red-500">*</span>
+                  Alamat Pemohon (Isi Per Kolom) <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  name="alamatSekarang"
-                  required
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                  placeholder="Dusun, RT/RW, Desa, Kecamatan, Kabupaten"
-                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dusun <span className="text-red-500">*</span></label>
+                <input type="text" name="dusun" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Desa <span className="text-red-500">*</span></label>
+                <input type="text" name="desa" required defaultValue="Aikmual" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kecamatan <span className="text-red-500">*</span></label>
+                <input type="text" name="kecamatan" required defaultValue="Praya" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kabupaten <span className="text-red-500">*</span></label>
+                <input type="text" name="kabupaten" required defaultValue="Lombok Tengah" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Provinsi <span className="text-red-500">*</span></label>
+                <input type="text" name="provinsi" required defaultValue="Nusa Tenggara Barat" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
               </div>
             </div>
           </div>
@@ -373,14 +420,28 @@ export default function SuratKematianFormPage() {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Alamat Terakhir <span className="text-red-500">*</span>
+                  Alamat Terakhir Almarhum/Almarhumah (Isi Per Kolom) <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  name="alamatTerakhir"
-                  required
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dusun <span className="text-red-500">*</span></label>
+                <input type="text" name="dusunAlmarhum" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Desa <span className="text-red-500">*</span></label>
+                <input type="text" name="desaAlmarhum" required defaultValue="Aikmual" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kecamatan <span className="text-red-500">*</span></label>
+                <input type="text" name="kecamatanAlmarhum" required defaultValue="Praya" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kabupaten <span className="text-red-500">*</span></label>
+                <input type="text" name="kabupatenAlmarhum" required defaultValue="Lombok Tengah" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Provinsi <span className="text-red-500">*</span></label>
+                <input type="text" name="provinsiAlmarhum" required defaultValue="Nusa Tenggara Barat" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
               </div>
             </div>
           </div>
@@ -472,58 +533,17 @@ export default function SuratKematianFormPage() {
             </div>
           </div>
 
-          {/* Keperluan */}
-          <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
-              Keperluan
-            </h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Untuk Keperluan <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                name="keperluan"
-                required
-                rows={3}
-                placeholder="Contoh: Pengurusan akta kematian, administrasi bank, dan keperluan waris"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-              />
-            </div>
-          </div>
+          <input type="hidden" name="keperluan" value="-" />
 
           <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
               <FiUpload className="text-slate-600" /> Upload Dokumen
             </h2>
             <p className="text-sm text-gray-600 mb-4">
-              KTP Pemohon dan KK wajib diunggah. Dokumen pendukung kematian dapat ditambahkan bila tersedia.
+              Dokumen pendukung kematian dapat ditambahkan bila tersedia.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Upload KTP Pemohon <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="file"
-                  name="dokumenKTP"
-                  required
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-slate-100 file:text-slate-700"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Upload Kartu Keluarga (KK) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="file"
-                  name="dokumenKK"
-                  required
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-slate-100 file:text-slate-700"
-                />
-              </div>
-              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Dokumen Pendukung Kematian (opsional)
                 </label>

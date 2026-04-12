@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FiUser, FiMail, FiLock, FiMapPin, FiPhone, FiEye, FiEyeOff, FiUserPlus } from "react-icons/fi";
+import { FiUser, FiMail, FiLock, FiMapPin, FiPhone, FiEye, FiEyeOff, FiUserPlus, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
@@ -28,6 +28,8 @@ export default function RegisterPage() {
       alamat: String(formData.get("alamat") || "").trim(),
       telepon: String(formData.get("telepon") || "").trim(),
     };
+    const dokumenKTP = formData.get("dokumenKTP");
+    const dokumenKK = formData.get("dokumenKK");
 
     if (!payload.nama || !payload.email || !payload.nik || !payload.password || !payload.alamat || !payload.telepon) {
       setError("Semua field wajib diisi, termasuk nomor WhatsApp aktif");
@@ -53,13 +55,32 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!(dokumenKTP instanceof File) || dokumenKTP.size === 0) {
+      setError("Dokumen KTP wajib diunggah saat registrasi");
+      setLoading(false);
+      return;
+    }
+
+    if (!(dokumenKK instanceof File) || dokumenKK.size === 0) {
+      setError("Dokumen Kartu Keluarga (KK) wajib diunggah saat registrasi");
+      setLoading(false);
+      return;
+    }
+
+    const submitData = new FormData();
+    submitData.set("nama", payload.nama);
+    submitData.set("email", payload.email);
+    submitData.set("nik", payload.nik);
+    submitData.set("password", payload.password);
+    submitData.set("alamat", payload.alamat);
+    submitData.set("telepon", payload.telepon);
+    submitData.set("dokumenKTP", dokumenKTP);
+    submitData.set("dokumenKK", dokumenKK);
+
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        body: submitData,
       });
 
       const contentType = response.headers.get("content-type") || "";
@@ -79,7 +100,7 @@ export default function RegisterPage() {
         throw new Error(data.error || "Registrasi gagal. Silakan coba lagi.");
       }
 
-      router.push("/login?registered=1");
+      router.push("/login?registered=pending");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registrasi gagal. Silakan coba lagi.");
     } finally {
@@ -234,6 +255,47 @@ export default function RegisterPage() {
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
                   Digunakan untuk notifikasi saat surat selesai diproses.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="dokumenKTP" className="block text-sm font-medium text-gray-700 mb-2">
+                  Upload KTP
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FiUpload className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="dokumenKTP"
+                    name="dokumenKTP"
+                    type="file"
+                    required
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="block w-full pl-10 pr-3 py-3 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="dokumenKK" className="block text-sm font-medium text-gray-700 mb-2">
+                  Upload Kartu Keluarga (KK)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FiUpload className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="dokumenKK"
+                    name="dokumenKK"
+                    type="file"
+                    required
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="block w-full pl-10 pr-3 py-3 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  KTP dan KK diunggah sekali saat registrasi, tidak perlu diulang saat ajukan surat.
                 </p>
               </div>
 

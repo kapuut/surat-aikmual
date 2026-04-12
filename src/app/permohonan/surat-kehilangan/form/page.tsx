@@ -64,18 +64,6 @@ export default function SuratKehilanganPage() {
     const berlakuMulai = formatDateYmd(today);
     const berlakuSampai = formatDateYmd(addMonths(today, 6));
 
-    const dokumenKTP = formData.get("dokumenKTP");
-    const dokumenKK = formData.get("dokumenKK");
-    const hasKtp = dokumenKTP instanceof File && dokumenKTP.size > 0;
-    const hasKk = dokumenKK instanceof File && dokumenKK.size > 0;
-
-    if (!hasKtp || !hasKk) {
-      setLoading(false);
-      setError("Upload KTP dan Kartu Keluarga (KK) wajib diisi.");
-      showFeedback();
-      return;
-    }
-
     formData.set("jenisSurat", "Surat Keterangan Kehilangan");
     formData.set("nama", asTitleCase("nama"));
     formData.set("nik", normalizeSpacing(asString("nik")));
@@ -87,6 +75,7 @@ export default function SuratKehilanganPage() {
     formData.set("desa", asTitleCase("desa"));
     formData.set("kecamatan", asTitleCase("kecamatan"));
     formData.set("kabupaten", asTitleCase("kabupaten"));
+    formData.set("provinsi", asTitleCase("provinsi"));
     formData.set("jenisBarang", asTitleCase("jenisBarang"));
     formData.set("barangHilang", asTitleCase("barangHilang"));
     formData.set("asalBarang", asTitleCase("asalBarang"));
@@ -95,7 +84,7 @@ export default function SuratKehilanganPage() {
     formData.set("ciriBarang", asTitleCase("ciriBarang"));
     formData.set("keteranganKehilangan", normalizeSpacing(asString("keteranganKehilangan")));
     formData.set("lokasiKehilangan", asTitleCase("lokasiKehilangan"));
-    formData.set("keperluan", normalizeSpacing(asString("keperluan")));
+    formData.set("keperluan", "-");
     formData.set("masaBerlakuDari", berlakuMulai);
     formData.set("masaBerlakuSampai", berlakuSampai);
 
@@ -229,6 +218,10 @@ export default function SuratKehilanganPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Kabupaten *</label>
                 <input type="text" name="kabupaten" required defaultValue="Lombok Tengah" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Provinsi *</label>
+                <input type="text" name="provinsi" required defaultValue="Nusa Tenggara Barat" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
             </div>
           </div>
 
@@ -300,36 +293,20 @@ export default function SuratKehilanganPage() {
           </div>
 
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Keperluan</h2>
-            <p className="text-sm text-gray-600 mb-4">Masa berlaku surat diatur otomatis selama 6 bulan sejak tanggal terbit surat.</p>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Keperluan *</label>
-              <textarea
-                name="keperluan"
-                required
-                rows={3}
-                placeholder="Contoh: Kelengkapan administrasi Desa Aikmual"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Masa Berlaku</h2>
+            <p className="text-sm text-gray-600">Masa berlaku surat diatur otomatis selama 6 bulan sejak tanggal terbit surat.</p>
           </div>
+
+          <input type="hidden" name="keperluan" value="-" />
 
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <FiUpload className="w-5 h-5 text-blue-600" />
               Upload Dokumen
             </h2>
-            <p className="text-sm text-gray-600 mb-4">KTP dan KK wajib diunggah. Dokumen pendukung lainnya bersifat opsional.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <p className="text-sm text-gray-600 mb-4">Dokumen pendukung lainnya bersifat opsional.</p>
+            <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Upload KTP *</label>
-                <input type="file" name="dokumenKTP" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-blue-100 file:text-blue-700" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Upload Kartu Keluarga (KK) *</label>
-                <input type="file" name="dokumenKK" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-blue-100 file:text-blue-700" />
-              </div>
-              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Dokumen Pendukung Lainnya (Opsional)</label>
                 <input type="file" name="dokumenTambahan" multiple accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-gray-100 file:text-gray-700" />
               </div>

@@ -13,6 +13,52 @@ export default function SuratDomisiliFormPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const normalizeSpacing = (value: string) => value.replace(/\s+/g, " ").trim();
+
+  const toTitleCase = (value: string) => {
+    const cleaned = normalizeSpacing(value);
+    if (!cleaned) return "";
+    return cleaned
+      .toLowerCase()
+      .split(" ")
+      .map((word) => (word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : ""))
+      .join(" ");
+  };
+
+  const normalizeAreaValue = (value: string, type: "dusun" | "desa" | "kecamatan" | "kabupaten" | "provinsi") => {
+    const cleaned = normalizeSpacing(value);
+    if (!cleaned) return "";
+
+    const patterns = {
+      dusun: /^dusun\s+/i,
+      desa: /^desa\s+/i,
+      kecamatan: /^(kecamatan|kec\.?)+\s+/i,
+      kabupaten: /^(kabupaten|kab\.?)+\s+/i,
+      provinsi: /^(provinsi|prov\.?)+\s+/i,
+    } as const;
+
+    return toTitleCase(cleaned.replace(patterns[type], ""));
+  };
+
+  const composeAddress = (dusun: string, desa: string, kecamatan: string, kabupaten: string, provinsi: string) => {
+    if (!dusun || !desa || !kecamatan || !kabupaten) return "";
+    const baseAddress = `Dusun ${dusun}, Desa ${desa}\nKec. ${kecamatan}, Kab. ${kabupaten}`;
+    return provinsi ? `${baseAddress}\nProvinsi ${provinsi}` : baseAddress;
+  };
+
+  const composeOptionalAddress = (dusun: string, desa: string, kecamatan: string, kabupaten: string, provinsi: string) => {
+    const topLine = [dusun ? `Dusun ${dusun}` : "", desa ? `Desa ${desa}` : ""].filter(Boolean).join(", ");
+    const middleLine = [
+      kecamatan ? `Kec. ${kecamatan}` : "",
+      kabupaten ? `Kab. ${kabupaten}` : "",
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const lines = [topLine, middleLine, provinsi ? `Provinsi ${provinsi}` : ""].filter(Boolean);
+    return lines.join("\n");
+  };
+
   const showFeedback = () => {
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -33,17 +79,34 @@ export default function SuratDomisiliFormPage() {
 
     const formData = new FormData(e.currentTarget);
 
-    // Required identity files validation before submit
-    const uploadedFiles = formData
-      .getAll("dokumen")
-      .filter((item): item is File => item instanceof File && item.size > 0);
+    const dusun = normalizeAreaValue(String(formData.get("dusun") || ""), "dusun");
+    const desa = normalizeAreaValue(String(formData.get("desa") || ""), "desa");
+    const kecamatan = normalizeAreaValue(String(formData.get("kecamatan") || ""), "kecamatan");
+    const kabupaten = normalizeAreaValue(String(formData.get("kabupaten") || ""), "kabupaten");
+    const provinsi = normalizeAreaValue(String(formData.get("provinsi") || ""), "provinsi");
+    const alamatSekarang = composeAddress(dusun, desa, kecamatan, kabupaten, provinsi);
 
-    if (uploadedFiles.length < 2) {
-      setLoading(false);
-      setError("Upload KTP dan Kartu Keluarga (KK) wajib diisi.");
-      showFeedback();
-      return;
-    }
+    const dusunSebelumnya = normalizeAreaValue(String(formData.get("dusunSebelumnya") || ""), "dusun");
+    const desaSebelumnya = normalizeAreaValue(String(formData.get("desaSebelumnya") || ""), "desa");
+    const kecamatanSebelumnya = normalizeAreaValue(String(formData.get("kecamatanSebelumnya") || ""), "kecamatan");
+    const kabupatenSebelumnya = normalizeAreaValue(String(formData.get("kabupatenSebelumnya") || ""), "kabupaten");
+    const provinsiSebelumnya = normalizeAreaValue(String(formData.get("provinsiSebelumnya") || ""), "provinsi");
+    const alamatSebelumnya = composeOptionalAddress(
+      dusunSebelumnya,
+      desaSebelumnya,
+      kecamatanSebelumnya,
+      kabupatenSebelumnya,
+      provinsiSebelumnya
+    );
+
+    formData.set("dusun", dusun);
+    formData.set("desa", desa);
+    formData.set("kecamatan", kecamatan);
+    formData.set("kabupaten", kabupaten);
+    formData.set("provinsi", provinsi);
+    formData.set("alamat", alamatSekarang);
+    formData.set("alamatSekarang", alamatSekarang);
+    formData.set("alamatSebelumnya", alamatSebelumnya);
 
     formData.set("jenisSurat", "Surat Keterangan Domisili");
 
@@ -242,16 +305,62 @@ export default function SuratDomisiliFormPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
                 Alamat Sebelumnya
               </h2>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Alamat Lengkap
-                </label>
-                <textarea
-                  name="alamatSebelumnya"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="Jalan, RT/RW, Kelurahan, Kecamatan, Kabupaten, Provinsi"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Dusun
+                  </label>
+                  <input
+                    type="text"
+                    name="dusunSebelumnya"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Contoh: Darwis"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Desa
+                  </label>
+                  <input
+                    type="text"
+                    name="desaSebelumnya"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Contoh: Aikmual"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Kecamatan
+                  </label>
+                  <input
+                    type="text"
+                    name="kecamatanSebelumnya"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Contoh: Praya"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Kabupaten/Kota
+                  </label>
+                  <input
+                    type="text"
+                    name="kabupatenSebelumnya"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Contoh: Lombok Tengah"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Provinsi
+                  </label>
+                  <input
+                    type="text"
+                    name="provinsiSebelumnya"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Contoh: Nusa Tenggara Barat"
+                  />
+                </div>
               </div>
             </div>
 
@@ -261,61 +370,32 @@ export default function SuratDomisiliFormPage() {
                 Alamat Domisili Sekarang
               </h2>
               <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Alamat Lengkap <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    name="alamatSekarang"
-                    required
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Nama jalan, nomor rumah, nama kampung/dusun"
-                  />
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      RT <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="rt"
-                      required
-                      pattern="[0-9]{1,3}"
-                      maxLength={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="1-3 digit"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      RW <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="rw"
-                      required
-                      pattern="[0-9]{1,3}"
-                      maxLength={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="1-3 digit"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Kelurahan/Desa <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="kelurahan"
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="Nama kelurahan"
-                    />
-                  </div>
-                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Dusun <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="dusun"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="Contoh: Darwis"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Desa <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="desa"
+                      required
+                      defaultValue="Aikmual"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="Contoh: Aikmual"
+                    />
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Kecamatan <span className="text-red-500">*</span>
@@ -324,6 +404,7 @@ export default function SuratDomisiliFormPage() {
                       type="text"
                       name="kecamatan"
                       required
+                      defaultValue="Praya"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       placeholder="Nama kecamatan"
                     />
@@ -336,6 +417,7 @@ export default function SuratDomisiliFormPage() {
                       type="text"
                       name="kabupaten"
                       required
+                      defaultValue="Lombok Tengah"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       placeholder="Nama kabupaten/kota"
                     />
@@ -348,8 +430,37 @@ export default function SuratDomisiliFormPage() {
                       type="text"
                       name="provinsi"
                       required
+                      defaultValue="Nusa Tenggara Barat"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       placeholder="Nama provinsi"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      RT
+                    </label>
+                    <input
+                      type="text"
+                      name="rt"
+                      pattern="[0-9]{1,3}"
+                      maxLength={3}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="1-3 digit"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      RW
+                    </label>
+                    <input
+                      type="text"
+                      name="rw"
+                      pattern="[0-9]{1,3}"
+                      maxLength={3}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="1-3 digit"
                     />
                   </div>
                   <div>
@@ -415,18 +526,7 @@ export default function SuratDomisiliFormPage() {
                     placeholder="Contoh: 2 tahun 3 bulan"
                   />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Keperluan <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    name="keperluan"
-                    required
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Jelaskan keperluan surat keterangan domisili ini"
-                  />
-                </div>
+                <input type="hidden" name="keperluan" value="-" />
               </div>
             </div>
 
@@ -435,38 +535,10 @@ export default function SuratDomisiliFormPage() {
                 <FiUpload className="text-orange-500" /> Menu Upload Dokumen
               </h2>
               <p className="text-sm text-gray-600 mb-4">
-                KTP dan KK wajib diunggah. Dokumen tambahan diisi sesuai kebutuhan permohonan domisili.
+                Dokumen pendukung diisi sesuai kebutuhan permohonan domisili.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Upload KTP <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="file"
-                    name="dokumen"
-                    required
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-orange-100 file:text-orange-700"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Format: JPG, PNG, atau PDF</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Upload Kartu Keluarga (KK) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="file"
-                    name="dokumen"
-                    required
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-orange-100 file:text-orange-700"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Format: JPG, PNG, atau PDF</p>
-                </div>
-
-                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Dokumen Pendukung Domisili (opsional)
                   </label>

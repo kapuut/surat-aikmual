@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FiArchive, FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import { FiTrash2 } from "react-icons/fi";
 
 type WorkflowStatus =
   | "pending"
@@ -26,6 +26,36 @@ interface PermohonanItem {
   attachment_paths?: string[];
 }
 
+type ConfirmDialogState =
+  | {
+      kind: "update";
+      title: string;
+      message: string;
+      confirmText: string;
+      payload: {
+        id: number;
+        status: WorkflowStatus;
+        catatan: string;
+        successMessage: string;
+      };
+    }
+  | {
+      kind: "delete";
+      title: string;
+      message: string;
+      confirmText: string;
+      payload: {
+        id: number;
+      };
+    };
+
+type ArchiveCategory =
+  | "Semua"
+  | "Surat Menunggu"
+  | "Surat Selesai"
+  | "Surat Baru"
+  | "Ditolak";
+
 function statusLabel(status: WorkflowStatus): string {
   switch (status) {
     case "pending":
@@ -34,6 +64,55 @@ function statusLabel(status: WorkflowStatus): string {
       return "Diproses Admin";
     case "dikirim_ke_kepala_desa":
       return "Menunggu Konfirmasi Kepala Desa";
+    case "perlu_revisi":
+      return "Perlu Revisi";
+    case "ditandatangani":
+      return "Ditandatangani";
+    case "selesai":
+      return "Selesai";
+    case "ditolak":
+      return "Ditolak";
+    default:
+      return status;
+  }
+}
+
+function isPermohonanBaruStatus(status: WorkflowStatus): boolean {
+  return status === "pending" || status === "diproses" || status === "perlu_revisi";
+}
+
+function isMenungguTtdStatus(status: WorkflowStatus): boolean {
+  return status === "dikirim_ke_kepala_desa";
+}
+
+function isPermohonanSelesaiStatus(status: WorkflowStatus): boolean {
+  return status === "ditandatangani" || status === "selesai";
+}
+
+function matchesArchiveCategory(status: WorkflowStatus, archiveCategory: ArchiveCategory): boolean {
+  switch (archiveCategory) {
+    case "Surat Menunggu":
+      return isMenungguTtdStatus(status);
+    case "Surat Selesai":
+      return isPermohonanSelesaiStatus(status);
+    case "Surat Baru":
+      return isPermohonanBaruStatus(status);
+    case "Ditolak":
+      return status === "ditolak";
+    case "Semua":
+    default:
+      return true;
+  }
+}
+
+function statusBadgeLabel(status: WorkflowStatus): string {
+  switch (status) {
+    case "pending":
+      return "Menunggu";
+    case "diproses":
+      return "Diproses";
+    case "dikirim_ke_kepala_desa":
+      return "Menunggu Konfirmasi";
     case "perlu_revisi":
       return "Perlu Revisi";
     case "ditandatangani":
@@ -68,25 +147,44 @@ function statusClass(status: WorkflowStatus): string {
 }
 
 function processNote(status: WorkflowStatus, catatan?: string | null): string {
+  const note = (catatan || "").trim();
+  const lowerNote = note.toLowerCase();
+
+  const isGenericNote =
+    !note ||
+    lowerNote.includes("status diperbarui oleh") ||
+    lowerNote.includes("data diverifikasi admin dan dikirim ke kepala desa") ||
+    lowerNote.includes("menunggu verifikasi/tanda tangan kepala desa") ||
+    lowerNote.includes("selesai diverifikasi kepala desa") ||
+    lowerNote.includes("mohon perbaiki data permohonan sesuai catatan peninjauan kepala desa") ||
+    lowerNote.includes("surat telah diverifikasi dan ditandatangani secara digital oleh kepala desa") ||
+    lowerNote.includes("menunggu perbaikan dari admin");
+
   if (status === "dikirim_ke_kepala_desa") {
-    return "Menunggu verifikasi/tanda tangan Kepala Desa";
+    return isGenericNote ? "" : note;
   }
   if (status === "ditandatangani" || status === "selesai") {
-    return "Selesai diverifikasi Kepala Desa";
+    return isGenericNote ? "" : note;
   }
   if (status === "perlu_revisi") {
-    return "Menunggu perbaikan dari admin";
+    return isGenericNote ? "" : note;
   }
   if (status === "ditolak") {
-    const note = (catatan || "").trim();
     return note ? `Alasan penolakan: ${note}` : "Permohonan ditolak";
   }
-  return "";
+
+  return isGenericNote ? "" : note;
 }
 
 function isAttachmentFile(pathValue: string | null): boolean {
   if (!pathValue) return false;
   return pathValue.includes('/uploads/');
+}
+
+function isGeneratedSuratFile(pathValue: string | null): boolean {
+  if (!pathValue) return false;
+  const lowerPath = pathValue.toLowerCase();
+  return lowerPath.includes('/generated-surat/') || lowerPath.endsWith('.html') || lowerPath.includes('.html?');
 }
 
 function resolveAttachmentPaths(item: PermohonanItem): string[] {
@@ -103,26 +201,32 @@ function resolveAttachmentPaths(item: PermohonanItem): string[] {
   return isAttachmentFile(item.file_path) && item.file_path ? [item.file_path] : [];
 }
 
-function isFinalizedStatus(status: WorkflowStatus): boolean {
-  return status === "ditandatangani" || status === "selesai";
-}
-
 export default function PermohonanAdminPage() {
-  const [filterStatus, setFilterStatus] = useState("Semua");
+  const [archiveCategory, setArchiveCategory] = useState<ArchiveCategory>("Semua");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedDayFrom, setSelectedDayFrom] = useState("");
+  const [selectedDayTo, setSelectedDayTo] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [showArchive, setShowArchive] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("Data permohonan belum sesuai persyaratan.");
   const [rejectFormError, setRejectFormError] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
   const rejectReasonRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [permohonan, setPermohonan] = useState<PermohonanItem[]>([]);
+  const [expandedRejectReasonIds, setExpandedRejectReasonIds] = useState<number[]>([]);
+
+  const toggleRejectReason = (id: number) => {
+    setExpandedRejectReasonIds((prev) =>
+      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+    );
+  };
 
   const fetchPermohonan = async () => {
     try {
@@ -152,18 +256,13 @@ export default function PermohonanAdminPage() {
     rejectReasonRef.current?.focus();
   }, [rejectTargetId]);
 
-  const handleUpdateStatus = async (
+  const performUpdateStatus = async (
     id: number,
     status: WorkflowStatus,
     catatan: string,
-    successMessage: string,
-    confirmMessage?: string
+    successMessage: string
   ) => {
     try {
-      if (confirmMessage && !window.confirm(confirmMessage)) {
-        return;
-      }
-
       setActionId(id);
       setError(null);
       setNotice(null);
@@ -193,12 +292,29 @@ export default function PermohonanAdminPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    try {
-      if (!window.confirm("Hapus permohonan ini dari daftar?")) {
-        return;
-      }
+  const handleUpdateStatus = async (
+    id: number,
+    status: WorkflowStatus,
+    catatan: string,
+    successMessage: string,
+    confirmMessage?: string
+  ) => {
+    if (confirmMessage) {
+      setConfirmDialog({
+        kind: "update",
+        title: "Konfirmasi Tindakan",
+        message: confirmMessage,
+        confirmText: "Ya, Lanjutkan",
+        payload: { id, status, catatan, successMessage },
+      });
+      return;
+    }
 
+    await performUpdateStatus(id, status, catatan, successMessage);
+  };
+
+  const performDelete = async (id: number) => {
+    try {
       setDeleteId(id);
       setError(null);
       setNotice(null);
@@ -220,6 +336,40 @@ export default function PermohonanAdminPage() {
     } finally {
       setDeleteId(null);
     }
+  };
+
+  const handleDelete = async (id: number) => {
+    setConfirmDialog({
+      kind: "delete",
+      title: "Konfirmasi Hapus",
+      message: "Hapus permohonan ini dari daftar?",
+      confirmText: "Ya, Hapus",
+      payload: { id },
+    });
+  };
+
+  const closeConfirmDialog = () => {
+    const busyForUpdate =
+      confirmDialog?.kind === "update" && actionId === confirmDialog.payload.id;
+    const busyForDelete =
+      confirmDialog?.kind === "delete" && deleteId === confirmDialog.payload.id;
+
+    if (busyForUpdate || busyForDelete) return;
+    setConfirmDialog(null);
+  };
+
+  const submitConfirmDialog = async () => {
+    if (!confirmDialog) return;
+
+    if (confirmDialog.kind === "update") {
+      const { id, status, catatan, successMessage } = confirmDialog.payload;
+      await performUpdateStatus(id, status, catatan, successMessage);
+      setConfirmDialog(null);
+      return;
+    }
+
+    await performDelete(confirmDialog.payload.id);
+    setConfirmDialog(null);
   };
 
   const openRejectDialog = (id: number) => {
@@ -257,28 +407,118 @@ export default function PermohonanAdminPage() {
     setRejectFormError(null);
   };
 
+  const availableYears = useMemo(() => {
+    const years = permohonan
+      .map((p) => new Date(p.created_at).getFullYear())
+      .filter((year) => Number.isFinite(year));
+
+    return Array.from(new Set(years)).sort((a, b) => b - a);
+  }, [permohonan]);
+
+  const availableDays = useMemo(() => {
+    if (selectedMonth === "") {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const month = Number(selectedMonth);
+    const fallbackYear = new Date().getFullYear();
+    const year = selectedYear === "" ? fallbackYear : Number(selectedYear);
+
+    if (!Number.isFinite(month) || month < 1 || month > 12) {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  }, [selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    if (selectedDayFrom !== "") {
+      const selectedDayFromNumber = Number(selectedDayFrom);
+      if (!availableDays.includes(selectedDayFromNumber)) {
+        setSelectedDayFrom("");
+      }
+    }
+
+    if (selectedDayTo !== "") {
+      const selectedDayToNumber = Number(selectedDayTo);
+      if (!availableDays.includes(selectedDayToNumber)) {
+        setSelectedDayTo("");
+      }
+    }
+  }, [availableDays, selectedDayFrom, selectedDayTo]);
+
   const filteredPermohonan = useMemo(() => {
-    const source = showArchive
-      ? permohonan
-      : permohonan.filter((p) => !isFinalizedStatus(p.status));
+    const source = permohonan;
 
     return source.filter((p) => {
-      const label = statusLabel(p.status);
-      const matchStatus = filterStatus === "Semua" || label === filterStatus;
+      const matchStatus = matchesArchiveCategory(p.status, archiveCategory);
       const matchSearch =
         p.nama_pemohon.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.jenis_surat.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.nik.includes(searchTerm);
-      const month = new Date(p.created_at).getMonth() + 1;
+      const createdAt = new Date(p.created_at);
+      const day = createdAt.getDate();
+      const month = createdAt.getMonth() + 1;
+      const year = createdAt.getFullYear();
+      const parsedDayFrom = selectedDayFrom === "" ? null : Number(selectedDayFrom);
+      const parsedDayTo = selectedDayTo === "" ? null : Number(selectedDayTo);
+      const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
+      const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
+      const matchDayFrom = dayMin === null || day >= dayMin;
+      const matchDayTo = dayMax === null || day <= dayMax;
       const matchMonth = selectedMonth === "" || month === Number(selectedMonth);
-      return matchStatus && matchSearch && matchMonth;
+      const matchYear = selectedYear === "" || year === Number(selectedYear);
+      return matchStatus && matchSearch && matchDayFrom && matchDayTo && matchMonth && matchYear;
     });
-  }, [permohonan, showArchive, filterStatus, searchTerm, selectedMonth]);
+  }, [permohonan, archiveCategory, searchTerm, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear]);
+
+  const groupedPermohonan = useMemo(() => {
+    return {
+      baru: filteredPermohonan.filter((p) => isPermohonanBaruStatus(p.status)),
+      menungguTtd: filteredPermohonan.filter((p) => isMenungguTtdStatus(p.status)),
+      selesai: filteredPermohonan.filter((p) => isPermohonanSelesaiStatus(p.status)),
+      ditolak: filteredPermohonan.filter((p) => p.status === "ditolak"),
+    };
+  }, [filteredPermohonan]);
+
+  const groupedSections = useMemo(() => {
+    const baseSections = [
+      {
+        key: "baru",
+        title: "Permohonan Baru",
+        subtitle: "Permohonan yang masih dalam verifikasi admin.",
+        items: groupedPermohonan.baru,
+      },
+      {
+        key: "menunggu-ttd",
+        title: "Menunggu TTD",
+        subtitle: "Permohonan yang sudah dikirim dan menunggu tanda tangan Kepala Desa.",
+        items: groupedPermohonan.menungguTtd,
+      },
+      {
+        key: "selesai",
+        title: "Permohonan Selesai",
+        subtitle: "Permohonan yang sudah ditandatangani atau selesai diproses.",
+        items: groupedPermohonan.selesai,
+      },
+    ];
+
+    if (archiveCategory === "Semua" || archiveCategory === "Ditolak") {
+      baseSections.push({
+        key: "ditolak",
+        title: "Permohonan Ditolak",
+        subtitle: "Arsip permohonan yang ditolak.",
+        items: groupedPermohonan.ditolak,
+      });
+    }
+
+    return baseSections.filter((section) => section.items.length > 0);
+  }, [groupedPermohonan, archiveCategory]);
 
   const stats = {
     menungguVerifikasi: permohonan.filter((p) => p.status === "pending" || p.status === "diproses").length,
     dikirimKeKepala: permohonan.filter((p) => p.status === "dikirim_ke_kepala_desa").length,
-    perluRevisi: permohonan.filter((p) => p.status === "perlu_revisi").length,
     selesai: permohonan.filter((p) => p.status === "ditandatangani" || p.status === "selesai").length,
     ditolak: permohonan.filter((p) => p.status === "ditolak").length,
   };
@@ -296,16 +536,14 @@ export default function PermohonanAdminPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Menunggu Verifikasi</p>
               <p className="text-2xl font-bold text-yellow-600">{stats.menungguVerifikasi}</p>
             </div>
-            <div className="bg-yellow-100 text-yellow-700 rounded-full w-10 h-10 flex items-center justify-center text-xs font-bold">
-              WAIT
-            </div>
+            <div className="w-3 h-3 rounded-full bg-yellow-300" />
           </div>
         </div>
 
@@ -315,21 +553,7 @@ export default function PermohonanAdminPage() {
               <p className="text-sm font-medium text-gray-500">Menunggu Konfirmasi Kepala Desa</p>
               <p className="text-2xl font-bold text-indigo-600">{stats.dikirimKeKepala}</p>
             </div>
-            <div className="bg-indigo-100 text-indigo-700 rounded-full w-10 h-10 flex items-center justify-center text-xs font-bold">
-              SENT
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Perlu Revisi</p>
-              <p className="text-2xl font-bold text-orange-600">{stats.perluRevisi}</p>
-            </div>
-            <div className="bg-orange-100 text-orange-700 rounded-full w-10 h-10 flex items-center justify-center text-xs font-bold">
-              REV
-            </div>
+            <div className="w-3 h-3 rounded-full bg-indigo-300" />
           </div>
         </div>
 
@@ -339,9 +563,7 @@ export default function PermohonanAdminPage() {
               <p className="text-sm font-medium text-gray-500">Selesai / Ditandatangani</p>
               <p className="text-2xl font-bold text-green-600">{stats.selesai}</p>
             </div>
-            <div className="bg-green-100 text-green-700 rounded-full w-10 h-10 flex items-center justify-center text-xs font-bold">
-              DONE
-            </div>
+            <div className="w-3 h-3 rounded-full bg-green-300" />
           </div>
         </div>
 
@@ -359,7 +581,7 @@ export default function PermohonanAdminPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <input
             type="text"
             placeholder="Cari nama, NIK, atau jenis surat..."
@@ -367,20 +589,6 @@ export default function PermohonanAdminPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option>Semua</option>
-            <option>Menunggu Verifikasi</option>
-            <option>Diproses Admin</option>
-            <option>Menunggu Konfirmasi Kepala Desa</option>
-            <option>Perlu Revisi</option>
-            <option>Ditandatangani</option>
-            <option>Selesai</option>
-            <option>Ditolak</option>
-          </select>
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
@@ -400,180 +608,240 @@ export default function PermohonanAdminPage() {
             <option value="11">November</option>
             <option value="12">Desember</option>
           </select>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowArchive((prev) => !prev)}
-              className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border transition ${
-                showArchive
-                  ? "bg-amber-50 text-amber-800 border-amber-200"
-                  : "bg-slate-50 text-slate-700 border-slate-200"
-              }`}
-            >
-              <FiArchive className="w-4 h-4" />
-              {showArchive ? "Mode Aktif" : "Mode Arsip"}
-            </button>
-            <button onClick={fetchPermohonan} className="inline-flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
-              <FiRefreshCw className="w-4 h-4" />
-              Refresh Data
-            </button>
-          </div>
+
+          <select
+            value={selectedDayFrom}
+            onChange={(e) => setSelectedDayFrom(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Tanggal Dari</option>
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>{day}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedDayTo}
+            onChange={(e) => setSelectedDayTo(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Tanggal Sampai</option>
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>{day}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Semua Tahun</option>
+            {availableYears.map((year) => (
+              <option key={year} value={String(year)}>{year}</option>
+            ))}
+          </select>
+
+          <select
+            value={archiveCategory}
+            onChange={(e) => setArchiveCategory(e.target.value as ArchiveCategory)}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="Semua">Semua</option>
+            <option value="Surat Menunggu">Surat Menunggu</option>
+            <option value="Surat Selesai">Surat Selesai</option>
+            <option value="Surat Baru">Surat Baru</option>
+            <option value="Ditolak">Ditolak</option>
+          </select>
         </div>
       </div>
 
       <div className="mb-4 text-sm text-gray-600">
-        Menampilkan {filteredPermohonan.length} data {showArchive ? "arsip/riwayat" : "permohonan aktif"}
+        Menampilkan {filteredPermohonan.length} data berdasarkan filter yang dipilih
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Nama Pemohon</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">NIK</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Jenis Surat</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Keperluan</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">File</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {loading ? (
-              <tr>
-                <td className="px-4 py-5 text-center text-gray-500" colSpan={10}>Memuat data...</td>
-              </tr>
-            ) : filteredPermohonan.length === 0 ? (
-              <tr>
-                <td className="px-4 py-5 text-center text-gray-500" colSpan={10}>Belum ada data permohonan</td>
-              </tr>
-            ) : (
-              filteredPermohonan.map((p, i) => {
-                const attachmentLinks = resolveAttachmentPaths(p);
+      {loading ? (
+        <div className="rounded-lg border border-gray-200 bg-white shadow-sm px-4 py-5 text-center text-sm text-gray-500">
+          Memuat data...
+        </div>
+      ) : groupedSections.length === 0 ? (
+        <div className="rounded-lg border border-gray-200 bg-white shadow-sm px-4 py-5 text-center text-sm text-gray-500">
+          Belum ada data permohonan
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {groupedSections.map((section) => (
+            <div key={section.key} className="rounded-lg border border-gray-200 bg-white shadow-sm">
+              <div className="px-4 py-3 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-800">{section.title}</h3>
+                <p className="mt-1 text-xs text-gray-500">{section.subtitle}</p>
+              </div>
 
-                return (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{i + 1}</td>
-                  <td className="px-4 py-3 font-medium">{p.nomor_surat || `REG-${p.id}/${new Date(p.created_at).getFullYear()}`}</td>
-                  <td className="px-4 py-3">{new Date(p.created_at).toLocaleDateString("id-ID")}</td>
-                  <td className="px-4 py-3 font-medium">{p.nama_pemohon}</td>
-                  <td className="px-4 py-3">{p.nik}</td>
-                  <td className="px-4 py-3">{p.jenis_surat}</td>
-                  <td className="px-4 py-3">{p.keperluan}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      <span className={`inline-flex w-fit px-2 py-1 rounded-full text-xs font-medium ${statusClass(p.status)}`}>
-                        {statusLabel(p.status)}
-                      </span>
-                      {processNote(p.status, p.catatan) && (
-                        <span className="text-[11px] text-gray-500 whitespace-pre-wrap break-words">{processNote(p.status, p.catatan)}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      <a
-                        href={`/api/admin/permohonan/${p.id}/preview?mode=admin`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        Lihat Draft Surat
-                      </a>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Nama Pemohon</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">NIK</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Jenis Surat</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Keperluan</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">File</th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {section.items.map((p, i) => {
+                      const attachmentLinks = resolveAttachmentPaths(p);
+                      const noteText = processNote(p.status, p.catatan);
+                      const canToggleRejectReason =
+                        p.status === "ditolak" && noteText.startsWith("Alasan penolakan:");
+                      const showRejectReason =
+                        canToggleRejectReason && expandedRejectReasonIds.includes(p.id);
+                      const shouldOpenFinalFile =
+                        (p.status === "ditandatangani" || p.status === "selesai") && isGeneratedSuratFile(p.file_path);
+                      const isFinalizedStatus = p.status === "ditandatangani" || p.status === "selesai";
+                      const suratPreviewUrl = shouldOpenFinalFile
+                        ? (p.file_path as string)
+                        : isFinalizedStatus
+                          ? `/api/admin/permohonan/${p.id}/preview`
+                          : `/api/admin/permohonan/${p.id}/preview?mode=admin`;
+                      const suratPreviewLabel = isFinalizedStatus ? "Lihat Surat Final" : "Lihat Draft Surat";
 
-                      {attachmentLinks.length > 0 && (
-                        <a
-                          href={`/api/admin/permohonan/${p.id}/preview?mode=admin&attachments=1`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-amber-700 hover:underline"
-                        >
-                          Lihat Lampiran
-                        </a>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1 justify-center flex-wrap">
-                      <button
-                        onClick={() => window.open(`/api/admin/permohonan/${p.id}/preview?mode=admin`, "_blank")}
-                        className="bg-blue-500 text-white px-2 py-1 text-xs rounded hover:bg-blue-600"
-                      >
-                        Lihat/Edit
-                      </button>
+                      return (
+                        <tr key={p.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">{i + 1}</td>
+                          <td className="px-4 py-3 font-medium">{p.nomor_surat || `REG-${p.id}/${new Date(p.created_at).getFullYear()}`}</td>
+                          <td className="px-4 py-3">{new Date(p.created_at).toLocaleDateString("id-ID")}</td>
+                          <td className="px-4 py-3 font-medium">{p.nama_pemohon}</td>
+                          <td className="px-4 py-3">{p.nik}</td>
+                          <td className="px-4 py-3">{p.jenis_surat}</td>
+                          <td className="px-4 py-3">{p.keperluan}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex max-w-[220px] flex-col gap-1">
+                              {canToggleRejectReason ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRejectReason(p.id)}
+                                  className={`inline-flex w-fit px-2 py-1 rounded-full text-xs font-medium ${statusClass(p.status)} hover:opacity-85`}
+                                  title="Klik untuk lihat/sembunyikan alasan"
+                                >
+                                  {statusBadgeLabel(p.status)}
+                                </button>
+                              ) : (
+                                <span className={`inline-flex w-fit px-2 py-1 rounded-full text-xs font-medium ${statusClass(p.status)}`}>
+                                  {statusBadgeLabel(p.status)}
+                                </span>
+                              )}
+                              {noteText && p.status !== "ditolak" && (
+                                <span className="text-[11px] leading-4 text-gray-500 whitespace-pre-wrap break-words">{noteText}</span>
+                              )}
+                              {showRejectReason && (
+                                <span className="text-[11px] leading-4 text-gray-500 whitespace-pre-wrap break-words">{noteText}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-1">
+                              <a
+                                href={suratPreviewUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                {suratPreviewLabel}
+                              </a>
 
-                      {(p.status === "pending" || p.status === "diproses" || p.status === "perlu_revisi") && (
-                        <>
-                          <button
-                            onClick={() =>
-                              handleUpdateStatus(
-                                p.id,
-                                "dikirim_ke_kepala_desa",
-                                "Data diverifikasi admin dan dikirim ke Kepala Desa untuk proses tanda tangan.",
-                                "Permohonan berhasil dikirim ke Kepala Desa.",
-                                "Pastikan data permohonan sudah lengkap dan benar. Kirim ke Kepala Desa sekarang?"
-                              )
-                            }
-                            disabled={actionId === p.id}
-                            className="bg-green-500 text-white px-2 py-1 text-xs rounded hover:bg-green-600 disabled:opacity-50"
-                          >
-                            Kirim ke Kepala Desa
-                          </button>
-                          <button
-                            onClick={() => openRejectDialog(p.id)}
-                            disabled={actionId === p.id}
-                            className="bg-red-500 text-white px-2 py-1 text-xs rounded hover:bg-red-600 disabled:opacity-50"
-                          >
-                            Tolak
-                          </button>
-                        </>
-                      )}
+                              {attachmentLinks.length > 0 && (
+                                <a
+                                  href={`/api/admin/permohonan/${p.id}/preview?mode=admin&attachments=1`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-amber-700 hover:underline"
+                                >
+                                  Lihat Lampiran
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1 justify-center flex-wrap">
+                              {(p.status === "pending" || p.status === "diproses" || p.status === "perlu_revisi") && (
+                                <>
+                                  <button
+                                    onClick={() =>
+                                      handleUpdateStatus(
+                                        p.id,
+                                        "dikirim_ke_kepala_desa",
+                                        "",
+                                        "Permohonan berhasil dikirim ke Kepala Desa.",
+                                        "Pastikan data permohonan sudah lengkap dan benar. Kirim ke Kepala Desa sekarang?"
+                                      )
+                                    }
+                                    disabled={actionId === p.id}
+                                    className="bg-green-500 text-white px-2 py-1 text-xs rounded hover:bg-green-600 disabled:opacity-50"
+                                  >
+                                    Kirim ke Kepala Desa
+                                  </button>
+                                  <button
+                                    onClick={() => openRejectDialog(p.id)}
+                                    disabled={actionId === p.id}
+                                    className="bg-red-500 text-white px-2 py-1 text-xs rounded hover:bg-red-600 disabled:opacity-50"
+                                  >
+                                    Tolak
+                                  </button>
+                                </>
+                              )}
 
-                      {p.status === "dikirim_ke_kepala_desa" && (
-                        <span className="text-xs text-indigo-600 px-2 py-1">Menunggu Tanda Tangan Kepala Desa</span>
-                      )}
+                              {p.status === "dikirim_ke_kepala_desa" && (
+                                <span className="text-xs text-indigo-600 px-2 py-1">Menunggu Tanda Tangan Kepala Desa</span>
+                              )}
 
-                      {(p.status === "ditandatangani" || p.status === "selesai") && (
-                        <>
-                          <span className="text-xs text-green-600 px-2 py-1">Final</span>
-                          <button
-                            onClick={() => (window.location.href = "/admin/surat-keluar")}
-                            className="bg-emerald-600 text-white px-2 py-1 text-xs rounded hover:bg-emerald-700"
-                          >
-                            Ke Surat Keluar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(p.id)}
-                            disabled={deleteId === p.id}
-                            className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
-                          >
-                            <FiTrash2 className="w-3.5 h-3.5" />
-                            {deleteId === p.id ? "Menghapus..." : "Hapus"}
-                          </button>
-                        </>
-                      )}
+                              {(p.status === "ditandatangani" || p.status === "selesai") && (
+                                <>
+                                  <span className="text-xs text-green-600 px-2 py-1">Final</span>
+                                  <button
+                                    onClick={() => (window.location.href = "/admin/surat-keluar")}
+                                    className="bg-emerald-600 text-white px-2 py-1 text-xs rounded hover:bg-emerald-700"
+                                  >
+                                    Ke Surat Keluar
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(p.id)}
+                                    disabled={deleteId === p.id}
+                                    className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                                  >
+                                    <FiTrash2 className="w-3.5 h-3.5" />
+                                    {deleteId === p.id ? "Menghapus..." : "Hapus"}
+                                  </button>
+                                </>
+                              )}
 
-                      {p.status === "ditolak" && (
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          disabled={deleteId === p.id}
-                          className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
-                        >
-                          <FiTrash2 className="w-3.5 h-3.5" />
-                          {deleteId === p.id ? "Menghapus..." : "Hapus"}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                              {p.status === "ditolak" && (
+                                <button
+                                  onClick={() => handleDelete(p.id)}
+                                  disabled={deleteId === p.id}
+                                  className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                                >
+                                  <FiTrash2 className="w-3.5 h-3.5" />
+                                  {deleteId === p.id ? "Menghapus..." : "Hapus"}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {rejectTargetId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -624,6 +892,60 @@ export default function PermohonanAdminPage() {
                 className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {actionId === rejectTargetId ? "Menyimpan..." : "Tolak Permohonan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Tutup dialog"
+            onClick={closeConfirmDialog}
+            className="absolute inset-0 bg-white/70"
+          />
+
+          <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-2xl">
+            <div className="px-5 py-4 border-b border-slate-200">
+              <h3 className="text-base font-semibold text-slate-900">{confirmDialog.title}</h3>
+            </div>
+
+            <div className="px-5 py-4">
+              <p className="text-sm text-slate-700">{confirmDialog.message}</p>
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeConfirmDialog}
+                disabled={
+                  (confirmDialog.kind === "update" && actionId === confirmDialog.payload.id) ||
+                  (confirmDialog.kind === "delete" && deleteId === confirmDialog.payload.id)
+                }
+                className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={submitConfirmDialog}
+                disabled={
+                  (confirmDialog.kind === "update" && actionId === confirmDialog.payload.id) ||
+                  (confirmDialog.kind === "delete" && deleteId === confirmDialog.payload.id)
+                }
+                className={`px-4 py-2 text-sm rounded-lg text-white disabled:opacity-50 ${
+                  confirmDialog.kind === "delete"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+              >
+                {confirmDialog.kind === "update" && actionId === confirmDialog.payload.id
+                  ? "Memproses..."
+                  : confirmDialog.kind === "delete" && deleteId === confirmDialog.payload.id
+                    ? "Menghapus..."
+                    : confirmDialog.confirmText}
               </button>
             </div>
           </div>

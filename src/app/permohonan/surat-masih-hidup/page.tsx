@@ -9,10 +9,10 @@ export default function SuratMasihHidupInfoPage() {
   const router = useRouter();
 
   const persyaratan = [
-    "Upload KTP yang masih berlaku (wajib)",
-    "Upload Kartu Keluarga (KK) (wajib)",
+    "NIK terdaftar dan akun sudah tervalidasi admin",
     "Isi data identitas: Nama, TTL, Kelamin, Agama, Alamat terakhir",
     "Nomor WhatsApp aktif untuk menerima notifikasi status surat",
+    "KTP dan KK cukup diunggah sekali saat registrasi akun",
     "Dokumen pendukung tambahan (opsional jika diminta petugas)",
   ];
 
@@ -59,7 +59,7 @@ export default function SuratMasihHidupInfoPage() {
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Surat resmi yang menyatakan bahwa seseorang masih hidup (alive).
-              Diperlukan untuk keperluan administrasi, asuransi, pensiun, dan berbagai kemudahan lainnya.
+              Digunakan untuk administrasi, asuransi, pensiun, dan layanan pendukung lainnya.
             </p>
           </div>
 

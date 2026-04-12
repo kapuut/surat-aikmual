@@ -9,8 +9,8 @@ export default function SuratDomisiliInfoPage() {
   const router = useRouter();
 
   const persyaratan = [
-    "Upload KTP yang masih berlaku (wajib)",
-    "Upload Kartu Keluarga (KK) (wajib)",
+    "NIK terdaftar dan akun sudah tervalidasi admin",
+    "KTP dan KK cukup diunggah sekali saat registrasi akun",
     "Upload bukti pendukung domisili sesuai kondisi pemohon",
     "Dokumen tambahan bukan surat yang diajukan, melainkan bukti pendukung",
   ];
@@ -19,7 +19,7 @@ export default function SuratDomisiliInfoPage() {
     {
       step: 1,
       title: "Persiapan Dokumen",
-      desc: "Siapkan KTP, KK, dan bukti pendukung domisili sesuai kebutuhan",
+      desc: "Pastikan NIK akun sudah tervalidasi dan siapkan bukti pendukung domisili sesuai kebutuhan",
     },
     {
       step: 2,
@@ -29,7 +29,7 @@ export default function SuratDomisiliInfoPage() {
     {
       step: 3,
       title: "Upload Dokumen",
-      desc: "Unggah KTP, KK, dan dokumen pendukung sesuai jenis permohonan",
+      desc: "Unggah dokumen pendukung sesuai jenis permohonan",
     },
     {
       step: 4,
@@ -63,7 +63,7 @@ export default function SuratDomisiliInfoPage() {
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Surat resmi yang menyatakan bahwa seseorang bertempat tinggal di wilayah tertentu.
-              Diperlukan untuk berbagai keperluan administratif seperti pembuatan KTP, NPWP, dll.
+              Digunakan untuk pengurusan administrasi seperti pembuatan KTP, NPWP, dan dokumen layanan lainnya.
             </p>
           </div>
 

@@ -9,8 +9,8 @@ export default function SuratUsahaInfoPage() {
   const router = useRouter();
 
   const persyaratan = [
-    "Scan/foto KTP yang masih berlaku",
-    "Scan/foto Kartu Keluarga (KK)",
+    "NIK terdaftar dan akun sudah tervalidasi admin",
+    "KTP dan KK cukup diunggah sekali saat registrasi akun",
     "Scan/foto Surat Pengantar dari RT/RW",
     "Upload pas foto 3x4",
     "Upload foto tempat usaha (tampak depan)",
@@ -60,7 +60,7 @@ export default function SuratUsahaInfoPage() {
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Surat resmi yang menyatakan bahwa seseorang memiliki dan menjalankan usaha di wilayah desa.
-              Diperlukan untuk pengurusan izin usaha, pengajuan kredit, atau keperluan administratif lainnya.
+              Digunakan untuk pengurusan izin usaha, pengajuan kredit, atau administrasi lainnya.
             </p>
           </div>
 

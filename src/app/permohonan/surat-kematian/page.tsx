@@ -9,8 +9,8 @@ export default function SuratKematianInfoPage() {
   const router = useRouter();
 
   const persyaratan = [
-    "Scan/foto KTP Pemohon yang masih berlaku",
-    "Scan/foto Kartu Keluarga (KK)",
+    "NIK terdaftar dan akun sudah tervalidasi admin",
+    "KTP dan KK cukup diunggah sekali saat registrasi akun",
     "Scan/foto KTP Almarhum/Almarhumah",
     "Scan/foto Surat Keterangan Kematian dari Rumah Sakit/Dokter (jika ada)",
     "Scan/foto Surat Pengantar dari RT/RW",
@@ -60,7 +60,7 @@ export default function SuratKematianInfoPage() {
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Surat resmi yang menyatakan bahwa seseorang telah meninggal dunia.
-              Diperlukan untuk pengurusan administrasi kependudukan, pemakaman, warisan, dan keperluan lainnya.
+              Digunakan untuk pengurusan administrasi kependudukan, pemakaman, warisan, dan dokumen terkait.
             </p>
           </div>
 

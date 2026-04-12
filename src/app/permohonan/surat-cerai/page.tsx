@@ -9,8 +9,8 @@ export default function SuratCeraiInfoPage() {
   const router = useRouter();
 
   const persyaratan = [
-    "Scan/foto KTP yang masih berlaku",
-    "Scan/foto Kartu Keluarga (KK)",
+    "NIK terdaftar dan akun sudah tervalidasi admin",
+    "KTP dan KK cukup diunggah sekali saat registrasi akun",
     "Scan/foto Akta Nikah/Buku Nikah",
     "Scan/foto Surat Cerai dari Pengadilan",
     "Scan/foto Surat Pengantar dari RT/RW",
@@ -60,7 +60,7 @@ export default function SuratCeraiInfoPage() {
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Surat resmi yang menyatakan bahwa seseorang telah bercerai.
-              Diperlukan untuk pengurusan administrasi kependudukan dan keperluan lainnya.
+              Digunakan untuk pengurusan administrasi kependudukan dan pembaruan data sipil.
             </p>
           </div>
 

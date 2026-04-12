@@ -22,12 +22,12 @@ interface CardHeaderProps {
 
 export function CardHeader({ title, description, action }: CardHeaderProps) {
   return (
-    <div className={`${!description && !action ? 'pb-4' : 'pb-6'} border-b border-gray-200 flex items-start justify-between`}>
+    <div className={`${!description && !action ? 'pb-4' : 'pb-6'} border-b border-gray-200 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between`}>
       <div className="flex-1">
-        <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900">{title}</h2>
         {description && <p className="text-sm text-gray-600 mt-1">{description}</p>}
       </div>
-      {action && <div className="ml-4">{action}</div>}
+      {action && <div className="self-start sm:ml-4">{action}</div>}
     </div>
   );
 }

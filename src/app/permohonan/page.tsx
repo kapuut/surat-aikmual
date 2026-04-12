@@ -20,7 +20,7 @@ const SURAT_TYPES = [
   {
     slug: 'surat-kematian',
     title: 'Surat Keterangan Kematian',
-    description: 'Surat resmi untuk keperluan administrasi kematian',
+    description: 'Surat resmi untuk administrasi kematian',
   },
   {
     slug: 'surat-cerai',
@@ -45,7 +45,7 @@ const SURAT_TYPES = [
   {
     slug: 'surat-tidak-punya-rumah',
     title: 'Surat Keterangan Tidak Memiliki Rumah',
-    description: 'Surat untuk keperluan bantuan rumah atau properti',
+    description: 'Surat untuk pengajuan bantuan rumah atau properti',
   },
   {
     slug: 'surat-usaha',

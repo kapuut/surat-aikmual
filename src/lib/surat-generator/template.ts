@@ -292,7 +292,6 @@ export function generateSuratTemplate(
     const uraianKehilanganRaw = (kehilanganData.uraianKehilangan || '').trim();
     const lokasiKehilanganRaw = (kehilanganData.lokasiKehilangan || '').trim();
     const tanggalKehilangan = formatTanggalSuratDisplay(kehilanganData.tanggalKehilangan);
-    const keperluanKehilangan = kehilanganData.keperluan || '-';
     const objekKehilangan = barangHilangRaw || jenisBarang || 'barang/dokumen penting';
     const uraianAkhir = uraianKehilanganRaw && /[.!?]$/.test(uraianKehilanganRaw) ? '' : '.';
 
@@ -311,8 +310,7 @@ export function generateSuratTemplate(
       `<tr><td class="label">7. Status</td><td class="colon">:</td><td class="nilai">${valueOrDash(statusPemohon)}</td></tr>`,
       `<tr><td class="label">8. Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan || 'Indonesia')}</td></tr>`,
       `<tr><td class="label">9. Penyandang Cacat</td><td class="colon">:</td><td class="nilai">${valueOrDash(penyandangCacat)}</td></tr>`,
-      `<tr><td class="label">10. Keperluan</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(keperluanKehilangan)}</td></tr>`,
-      `<tr><td class="label">11. Berlaku mulai</td><td class="colon">:</td><td class="nilai">${berlakuMulai}</td></tr>`,
+      `<tr><td class="label">10. Berlaku mulai</td><td class="colon">:</td><td class="nilai">${berlakuMulai}</td></tr>`,
     ];
 
     isiSuratBodyHtml = `
@@ -333,7 +331,6 @@ export function generateSuratTemplate(
       `<tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.pekerjaan)}</td></tr>`,
       `<tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan || 'Indonesia')}</td></tr>`,
       `<tr><td class="label">Penyandang Cacat</td><td class="colon">:</td><td class="nilai">${valueOrDash(penyandangCacat)}</td></tr>`,
-      `<tr><td class="label">Keperluan</td><td class="colon">:</td><td class="nilai">${valueOrDash(rumahData.keperluan)}</td></tr>`,
       `<tr><td class="label">Masa Berlaku</td><td class="colon">:</td><td class="nilai">${masaBerlaku}</td></tr>`,
     ];
 
@@ -356,7 +353,6 @@ export function generateSuratTemplate(
       `<tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.kewarganegaraan || 'Indonesia')}</td></tr>`,
       `<tr><td class="label">Penyandang Cacat</td><td class="colon">:</td><td class="nilai">${valueOrDash(penyandangCacat)}</td></tr>`,
       `<tr><td class="label">Mulai Usaha</td><td class="colon">:</td><td class="nilai">${valueOrDash(mulaiUsaha)}</td></tr>`,
-      `<tr><td class="label">Keperluan</td><td class="colon">:</td><td class="nilai">${valueOrDash(usahaData.keperluan)}</td></tr>`,
       `<tr><td class="label">Berlaku mulai</td><td class="colon">:</td><td class="nilai">${masaBerlaku}</td></tr>`,
     ];
 
@@ -909,10 +905,10 @@ function generateIsiSurat(data: SuratData): string {
       `Bahwa yang tersebut di atas memiliki status sebagai janda${data.jeniKelamin === 'Laki-laki' ? '/duda' : ''} dan statusnya tersebut telah tercatat di Desa Aikmual.`,
     
     'surat-kehilangan': 
-      `Bahwa yang tersebut di atas telah melaporkan kehilangan barangnya kepada Pemerintah Desa Aikmual dan permohonan ini dibuat untuk keperluan klaim asuransi atau keperluan lainnya.`,
+      `Bahwa yang tersebut di atas telah melaporkan kehilangan barangnya kepada Pemerintah Desa Aikmual dan permohonan ini dibuat sesuai data kejadian yang disampaikan pemohon.`,
     
     'surat-penghasilan': 
-      `Bahwa yang tersebut di atas adalah penduduk Desa Aikmual yang bekerja sebagai ${data.pekerjaan || 'pekerjaan tertentu'} dan penghasilannya dapat diterima sebagai bukti penghasilan untuk keperluan administrasi.`,
+      `Bahwa yang tersebut di atas adalah penduduk Desa Aikmual yang bekerja sebagai ${data.pekerjaan || 'pekerjaan tertentu'} dan penghasilannya dapat diterima sebagai bukti administrasi.`,
     
     'surat-tidak-punya-rumah': 
       `Bahwa yang tersebut di atas tidak memiliki rumah sendiri dan berdasarkan catatan administrasi kami, hal ini adalah benar adanya.`,

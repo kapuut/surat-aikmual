@@ -30,7 +30,7 @@ export default function SuratCeraiFormPage() {
       .join(" ");
   };
 
-  const normalizeAreaValue = (value: string, type: "dusun" | "desa" | "kecamatan" | "kabupaten") => {
+  const normalizeAreaValue = (value: string, type: "dusun" | "desa" | "kecamatan" | "kabupaten" | "provinsi") => {
     const cleaned = value.replace(/\s+/g, " ").trim();
     if (!cleaned) return "";
 
@@ -39,14 +39,16 @@ export default function SuratCeraiFormPage() {
       desa: /^desa\s+/i,
       kecamatan: /^(kecamatan|kec\.?)+\s+/i,
       kabupaten: /^(kabupaten|kab\.?)+\s+/i,
+      provinsi: /^(provinsi|prov\.?)+\s+/i,
     } as const;
 
     return toTitleCase(cleaned.replace(patterns[type], ""));
   };
 
-  const composeAddress = (dusun: string, desa: string, kecamatan: string, kabupaten: string) => {
+  const composeAddress = (dusun: string, desa: string, kecamatan: string, kabupaten: string, provinsi: string) => {
     if (!dusun || !desa || !kecamatan || !kabupaten) return "";
-    return `Dusun ${dusun}, Desa ${desa}\nKec. ${kecamatan}, Kab. ${kabupaten}`;
+    const baseAddress = `Dusun ${dusun}, Desa ${desa}\nKec. ${kecamatan}, Kab. ${kabupaten}`;
+    return provinsi ? `${baseAddress}\nProvinsi ${provinsi}` : baseAddress;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -104,13 +106,15 @@ export default function SuratCeraiFormPage() {
     const desa = normalizeAreaValue(String(formData.get("desa") || ""), "desa");
     const kecamatan = normalizeAreaValue(String(formData.get("kecamatan") || ""), "kecamatan");
     const kabupaten = normalizeAreaValue(String(formData.get("kabupaten") || ""), "kabupaten");
-    const alamatPemohon = composeAddress(dusun, desa, kecamatan, kabupaten);
+    const provinsi = normalizeAreaValue(String(formData.get("provinsi") || ""), "provinsi");
+    const alamatPemohon = composeAddress(dusun, desa, kecamatan, kabupaten, provinsi);
 
     const dusunPasangan = normalizeAreaValue(String(formData.get("dusunPasangan") || ""), "dusun");
     const desaPasangan = normalizeAreaValue(String(formData.get("desaPasangan") || ""), "desa");
     const kecamatanPasangan = normalizeAreaValue(String(formData.get("kecamatanPasangan") || ""), "kecamatan");
     const kabupatenPasangan = normalizeAreaValue(String(formData.get("kabupatenPasangan") || ""), "kabupaten");
-    const alamatPasangan = composeAddress(dusunPasangan, desaPasangan, kecamatanPasangan, kabupatenPasangan);
+    const provinsiPasangan = normalizeAreaValue(String(formData.get("provinsiPasangan") || ""), "provinsi");
+    const alamatPasangan = composeAddress(dusunPasangan, desaPasangan, kecamatanPasangan, kabupatenPasangan, provinsiPasangan);
 
     formData.set("nama", nama);
     formData.set("tempatLahir", tempatLahir);
@@ -126,6 +130,7 @@ export default function SuratCeraiFormPage() {
     formData.set("desa", desa);
     formData.set("kecamatan", kecamatan);
     formData.set("kabupaten", kabupaten);
+    formData.set("provinsi", provinsi);
     formData.set("alamatSekarang", alamatPemohon);
     formData.set("alamat", alamatPemohon);
 
@@ -133,7 +138,9 @@ export default function SuratCeraiFormPage() {
     formData.set("desaPasangan", desaPasangan);
     formData.set("kecamatanPasangan", kecamatanPasangan);
     formData.set("kabupatenPasangan", kabupatenPasangan);
+    formData.set("provinsiPasangan", provinsiPasangan);
     formData.set("alamatPasangan", alamatPasangan);
+    formData.set("keperluan", "-");
 
     const nikRaw = String(formData.get("nik") || "");
     const nik = nikRaw.replace(/\D/g, "").slice(0, 16);
@@ -159,31 +166,12 @@ export default function SuratCeraiFormPage() {
       return;
     }
 
-    const dokumenKTP = formData.get("dokumenKTP");
-    const dokumenKK = formData.get("dokumenKK");
     const dokumenAktaCerai = formData.get("dokumenAktaCerai");
-    const dokumenTambahan = formData
-      .getAll("dokumenTambahan")
-      .filter((item): item is File => item instanceof File && item.size > 0);
-
-    const hasKtp = dokumenKTP instanceof File && dokumenKTP.size > 0;
-    const hasKk = dokumenKK instanceof File && dokumenKK.size > 0;
     const hasAktaCerai = dokumenAktaCerai instanceof File && dokumenAktaCerai.size > 0;
 
-    if (!hasKtp || !hasKk || !hasAktaCerai) {
+    if (!hasAktaCerai) {
       setLoading(false);
-      setError("Upload KTP, KK, dan Akta Cerai wajib diisi.");
-      showFeedback();
-      return;
-    }
-
-    const uploadedFiles = [dokumenKTP, dokumenKK, dokumenAktaCerai, ...dokumenTambahan].filter(
-      (item): item is File => item instanceof File && item.size > 0
-    );
-
-    if (uploadedFiles.length < 3) {
-      setLoading(false);
-      setError("Dokumen wajib tidak terbaca. Silakan unggah ulang KTP, KK, dan Akta Cerai.");
+      setError("Upload Akta Cerai wajib diisi.");
       showFeedback();
       return;
     }
@@ -349,6 +337,10 @@ export default function SuratCeraiFormPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Kabupaten <span className="text-red-500">*</span></label>
                 <input type="text" name="kabupaten" required defaultValue="Lombok Tengah" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent" placeholder="Contoh: Lombok Tengah" />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Provinsi <span className="text-red-500">*</span></label>
+                <input type="text" name="provinsi" required defaultValue="Nusa Tenggara Barat" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent" placeholder="Contoh: Nusa Tenggara Barat" />
+              </div>
             </div>
           </div>
 
@@ -437,35 +429,21 @@ export default function SuratCeraiFormPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Kabupaten Pasangan <span className="text-red-500">*</span></label>
                 <input type="text" name="kabupatenPasangan" required defaultValue="Lombok Tengah" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent" placeholder="Contoh: Lombok Tengah" />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Provinsi Pasangan <span className="text-red-500">*</span></label>
+                <input type="text" name="provinsiPasangan" required defaultValue="Nusa Tenggara Barat" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent" placeholder="Contoh: Nusa Tenggara Barat" />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">Keperluan</h2>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Untuk Keperluan <span className="text-red-500">*</span></label>
-            <textarea
-              name="keperluan"
-              required
-              rows={3}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-              placeholder="Contoh: Pengurusan administrasi kependudukan, pembaruan KK, dan keperluan hukum lainnya"
-            />
-          </div>
+          <input type="hidden" name="keperluan" value="-" />
 
           <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
               <FiUpload className="text-sky-600" /> Upload Dokumen
             </h2>
-            <p className="text-sm text-gray-600 mb-4">KTP, KK, dan Akta Cerai wajib diunggah. Dokumen tambahan bisa dilampirkan jika diperlukan.</p>
+            <p className="text-sm text-gray-600 mb-4">Akta Cerai wajib diunggah. Dokumen tambahan bisa dilampirkan jika diperlukan.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Upload KTP <span className="text-red-500">*</span></label>
-                <input type="file" name="dokumenKTP" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-sky-100 file:text-sky-700" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Upload Kartu Keluarga (KK) <span className="text-red-500">*</span></label>
-                <input type="file" name="dokumenKK" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-sky-100 file:text-sky-700" />
-              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Upload Akta Cerai <span className="text-red-500">*</span></label>
                 <input type="file" name="dokumenAktaCerai" required accept=".jpg,.jpeg,.png,.pdf" className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-sky-100 file:text-sky-700" />

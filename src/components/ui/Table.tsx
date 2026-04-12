@@ -63,7 +63,7 @@ export function TableHeaderCell({ children, align = 'left', width }: TableHeader
   const alignClass = { left: 'text-left', center: 'text-center', right: 'text-right' }[align];
 
   return (
-    <th className={`px-6 py-4 font-bold text-gray-900 text-sm ${alignClass} ${width || ''}`}>
+    <th className={`px-3 sm:px-6 py-3 sm:py-4 font-bold text-gray-900 text-sm ${alignClass} ${width || ''}`}>
       {children}
     </th>
   );
@@ -79,7 +79,7 @@ export function TableCell({ children, align = 'left', className = '' }: TableCel
   const alignClass = { left: 'text-left', center: 'text-center', right: 'text-right' }[align];
 
   return (
-    <td className={`px-6 py-4 text-gray-700 text-sm ${alignClass} ${className}`}>
+    <td className={`px-3 sm:px-6 py-3 sm:py-4 text-gray-700 text-sm ${alignClass} ${className}`}>
       {children}
     </td>
   );

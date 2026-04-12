@@ -21,6 +21,7 @@ type PermohonanRow = {
   nama_pemohon: string;
   nik: string;
   alamat: string;
+  telepon?: string | null;
   jenis_surat: string;
   keperluan: string;
   status: string;
@@ -444,6 +445,57 @@ function getAppBaseUrl(): string {
   return raw.replace(/\/$/, '');
 }
 
+async function resolvePemohonWhatsAppNumber(
+  detailData: DetailData,
+  permohonan: PermohonanRow
+): Promise<string | null> {
+  const fromDetail = getTextWithDetail(undefined, detailData, [
+    'telepon',
+    'noTelp',
+    'no_telp',
+    'phone',
+    'no_hp',
+    'nomor_hp',
+    'no_wa',
+    'nomor_wa',
+    'whatsapp',
+  ]);
+
+  if (fromDetail) {
+    return fromDetail;
+  }
+
+  const fromPermohonan = asText(permohonan.telepon);
+  if (fromPermohonan) {
+    return fromPermohonan;
+  }
+
+  const nikRaw = String(permohonan.nik || '').trim();
+  const nikBase = normalizeNikValue(nikRaw);
+  const email = asText(permohonan.email)?.toLowerCase() || '';
+
+  if (!nikRaw && !nikBase && !email) {
+    return null;
+  }
+
+  const [userRows]: any = await db.execute(
+    `SELECT telepon
+     FROM users
+     WHERE telepon IS NOT NULL
+       AND telepon <> ''
+       AND (
+         nik = ?
+         OR SUBSTRING_INDEX(nik, '_', 1) = ?
+         OR (? <> '' AND LOWER(email) = ?)
+       )
+     ORDER BY CASE WHEN SUBSTRING_INDEX(nik, '_', 1) = ? THEN 0 ELSE 1 END
+     LIMIT 1`,
+    [nikRaw || nikBase, nikBase || nikRaw, email, email, nikBase || nikRaw]
+  );
+
+  return asText(userRows?.[0]?.telepon) || null;
+}
+
 function buildVerificationCode(source: string): string {
   return createHash('sha256').update(source).digest('hex').slice(0, 16).toUpperCase();
 }
@@ -504,7 +556,7 @@ async function getNextNomorSuratWithLock(
   await connection.execute('SELECT GET_LOCK(?, 10)', [lockName]);
   try {
     const [rows]: any = await connection.execute(
-      `SELECT nomor_surat, jenis_surat
+      `SELECT nomor_surat, jenis_surat, status, catatan
        FROM permohonan_surat
        WHERE nomor_surat LIKE ?
        ORDER BY id DESC
@@ -514,6 +566,8 @@ async function getNextNomorSuratWithLock(
 
     const scopedRows = Array.isArray(rows)
       ? rows.filter((row: any) => {
+          const rowStatus = normalizeCurrentStatus(row?.status, row?.nomor_surat, row?.catatan);
+          if (rowStatus === 'ditolak') return false;
           if (!jenisSurat) return true;
           return normalizeSuratSlug(String(row?.jenis_surat || '')) === jenisSurat;
         })
@@ -570,6 +624,12 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   const connection = await db.getConnection();
+  let whatsappNotification:
+    | 'not_triggered'
+    | 'not_configured'
+    | 'no_number'
+    | 'sent'
+    | 'failed' = 'not_triggered';
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('auth-token')?.value;
@@ -1050,18 +1110,18 @@ export async function PUT(
           },
           alamat: isSuratKematian ? (alamatTerakhir || permohonan.alamat) : permohonan.alamat,
           isiSurat: isSuratCerai
-            ? `Bahwa berdasarkan data administrasi kependudukan yang ada, benar ${permohonan.nama_pemohon} telah bercerai secara sah dengan ${namaMantan || 'pasangannya'}. Surat keterangan ini dipergunakan untuk keperluan ${permohonan.keperluan}.`
+            ? `Bahwa berdasarkan data administrasi kependudukan yang ada, benar ${permohonan.nama_pemohon} telah bercerai secara sah dengan ${namaMantan || 'pasangannya'}.`
             : isSuratJanda
               ? `Bahwa yang namanya tersebut diatas memang benar berstatus ${statusJanda || 'Janda/Duda'}${alasanStatusJanda ? ` (${alasanStatusJanda})` : ''}.`
               : isSuratPenghasilan
-                ? `Bahwa yang namanya tersebut di atas merupakan penduduk Desa Aikmual dan merupakan anak/tanggungan dari ${namaWali || 'wali yang bersangkutan'}. Berdasarkan keterangan ${dasarKeterangan || 'Kepala Dusun setempat'}, penghasilan wali/orang tua yang bersangkutan sebesar ${penghasilanPerBulan || 'sesuai keterangan'} per bulan${sumberPenghasilan ? ` dari ${sumberPenghasilan}` : ''}. Surat ini dipergunakan untuk keperluan ${permohonan.keperluan}.`
+                ? `Bahwa yang namanya tersebut di atas merupakan penduduk Desa Aikmual dan merupakan anak/tanggungan dari ${namaWali || 'wali yang bersangkutan'}. Berdasarkan keterangan ${dasarKeterangan || 'Kepala Dusun setempat'}, penghasilan wali/orang tua yang bersangkutan sebesar ${penghasilanPerBulan || 'sesuai keterangan'} per bulan${sumberPenghasilan ? ` dari ${sumberPenghasilan}` : ''}.`
               : isSuratTidakPunyaRumah
                 ? `Orang tersebut adalah benar-benar warga Desa Aikmual dengan data seperti di atas, dan memang yang bersangkutan Belum Memiliki Rumah.`
               : isSuratUsaha
                 ? `Menerangkan bahwa orang tersebut adalah benar-benar warga Desa Aikmual dengan data seperti di atas, yang memiliki usaha ${jenisUsaha || '-'}.`
               : isSuratKehilangan
                 ? `Menerangkan bahwa orang tersebut adalah benar-benar warga Desa Aikmual dan telah kehilangan ${barangHilang || 'barang penting'}${jenisBarang ? ` yang tergolong ${jenisBarang}` : ''}${asalBarang ? ` milik/berasal dari ${asalBarang}` : ''}${nomorBarang ? ` dengan ${labelNomorBarang || 'Nomor'}: ${nomorBarang}` : ''}${lokasiKehilangan ? ` di ${lokasiKehilangan}` : ''}${uraianKehilangan ? `. Menurut keterangan pemohon ${uraianKehilangan}` : ''}${ciriBarang ? `. Barang tersebut memiliki ciri-ciri ${ciriBarang}` : ''}.`
-              : `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}. Surat keterangan ini dipergunakan untuk keperluan ${permohonan.keperluan}.`,
+              : `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}.`,
           kematian: isSuratKematian
             ? {
                 namaAlmarhum: namaAlmarhum || permohonan.nama_pemohon,
@@ -1138,7 +1198,6 @@ export async function PUT(
             : undefined,
           rumah: isSuratTidakPunyaRumah
             ? {
-                keperluan: permohonan.keperluan,
                 penyandangCacat,
                 statusTempatTinggal,
                 namaPemilikRumah,
@@ -1151,7 +1210,6 @@ export async function PUT(
             : undefined,
           usaha: isSuratUsaha
             ? {
-                keperluan: permohonan.keperluan,
                 penyandangCacat,
                 mulaiUsaha,
                 jenisUsaha,
@@ -1183,7 +1241,7 @@ export async function PUT(
     if (shouldSyncSuratKeluar && nomorSurat) {
       const tanggalArsip = new Date().toISOString().split('T')[0];
       const tujuan = permohonan.nama_pemohon || 'Pemohon';
-      const perihal = `${permohonan.jenis_surat} - ${permohonan.keperluan}`;
+      const perihal = permohonan.jenis_surat;
 
       await upsertSuratKeluarArchive(connection, {
         nomorSurat,
@@ -1214,38 +1272,7 @@ export async function PUT(
     if (shouldSendReadyNotification && isWhatsAppApiConfigured()) {
       try {
         const detailData = parseDetailData(permohonan.data_detail);
-        const nikRaw = String(permohonan.nik || '').trim();
-        const nikBase = normalizeNikValue(nikRaw);
-
-        let waNumber = getTextWithDetail(undefined, detailData, [
-          'telepon',
-          'noTelp',
-          'no_telp',
-          'phone',
-          'no_hp',
-          'nomor_hp',
-          'no_wa',
-          'nomor_wa',
-          'whatsapp',
-        ]);
-
-        if (nikRaw || nikBase) {
-          const [userRows]: any = await db.execute(
-            `SELECT telepon
-             FROM users
-             WHERE telepon IS NOT NULL
-               AND telepon <> ''
-               AND (nik = ? OR SUBSTRING_INDEX(nik, '_', 1) = ?)
-             ORDER BY CASE WHEN SUBSTRING_INDEX(nik, '_', 1) = ? THEN 0 ELSE 1 END
-             LIMIT 1`,
-            [nikRaw || nikBase, nikBase || nikRaw, nikBase || nikRaw]
-          );
-
-          const teleponFromUser = asText(userRows?.[0]?.telepon);
-          if (teleponFromUser) {
-            waNumber = teleponFromUser;
-          }
-        }
+        const waNumber = await resolvePemohonWhatsAppNumber(detailData, permohonan);
 
         if (waNumber) {
           const nomorSuratLabel = nomorSurat || '-';
@@ -1262,7 +1289,6 @@ export async function PUT(
             `Halo ${permohonan.nama_pemohon},`,
             `Permohonan ${jenisSuratLabel} Anda sudah jadi (${statusText}).`,
             `Nomor Surat: ${nomorSuratLabel}`,
-            `Keperluan: ${permohonan.keperluan}`,
             `Lihat/unduh surat: ${finalFileUrl}`,
           ];
 
@@ -1275,10 +1301,16 @@ export async function PUT(
               nomorSurat: nomorSurat || null,
             },
           });
+          whatsappNotification = 'sent';
+        } else {
+          whatsappNotification = 'no_number';
         }
       } catch (waError) {
         console.error('Gagal kirim notifikasi WhatsApp:', waError);
+        whatsappNotification = 'failed';
       }
+    } else if (shouldSendReadyNotification) {
+      whatsappNotification = 'not_configured';
     }
 
     return NextResponse.json({
@@ -1288,6 +1320,7 @@ export async function PUT(
         status: normalizedStatus,
         nomor_surat: nomorSurat,
         file_path: generatedFilePath,
+        whatsapp_notification: whatsappNotification,
       },
     });
   } catch (error) {

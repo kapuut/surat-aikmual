@@ -81,7 +81,7 @@ export default function SuratNikahPage() {
 						</div>
 						<div>
 							<h1 className="text-3xl font-bold">Surat Pengantar Nikah</h1>
-							<p className="text-pink-100">Surat pengantar untuk keperluan pernikahan di KUA</p>
+							<p className="text-pink-100">Surat pengantar proses pernikahan di KUA</p>
 						</div>
 					</div>
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">

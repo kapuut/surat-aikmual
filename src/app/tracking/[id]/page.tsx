@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { FiArrowLeft, FiClock, FiDownload, FiRefreshCw } from 'react-icons/fi';
@@ -143,7 +143,7 @@ export default function TrackingDetailPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const fetchDetail = async () => {
+  const fetchDetail = useCallback(async () => {
     if (!permohonanId) {
       setFetchError('ID permohonan tidak valid.');
       setLoadingData(false);
@@ -171,11 +171,11 @@ export default function TrackingDetailPage() {
     } finally {
       setLoadingData(false);
     }
-  };
+  }, [permohonanId]);
 
   useEffect(() => {
     fetchDetail();
-  }, [permohonanId]);
+  }, [fetchDetail]);
 
   const normalizedStatus = normalizeStatus(detail?.status);
   const canDownload = normalizedStatus === 'selesai' || normalizedStatus === 'ditandatangani';
@@ -197,7 +197,7 @@ export default function TrackingDetailPage() {
               Kembali ke daftar tracking
             </Link>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Detail Permohonan</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Detail Permohonan</h1>
           <p className="mt-1 text-gray-600">Informasi lengkap permohonan surat Anda.</p>
         </div>
 
@@ -228,11 +228,11 @@ export default function TrackingDetailPage() {
               {fetchError}
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Button size="sm" onClick={fetchDetail}>
+              <Button size="sm" className="w-full sm:w-auto" onClick={fetchDetail}>
                 Coba Lagi
               </Button>
               <Link href="/tracking">
-                <Button size="sm" variant="secondary">
+                <Button size="sm" variant="secondary" className="w-full sm:w-auto">
                   Kembali
                 </Button>
               </Link>
@@ -288,6 +288,7 @@ export default function TrackingDetailPage() {
               {canDownload ? (
                 <Button
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => {
                     window.open(buildPdfUrl(detail), '_blank');
                   }}

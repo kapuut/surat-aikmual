@@ -20,7 +20,14 @@ const ALLOWED_SURAT_TYPES = [
     slug: 'surat-domisili',
     title: 'Surat Keterangan Domisili',
     href: '/permohonan/surat-domisili',
-    description: 'Keterangan domisili resmi untuk keperluan administrasi warga.',
+    description: 'Keterangan domisili resmi untuk administrasi warga.',
+    estimate: '1-2 hari kerja',
+  },
+  {
+    slug: 'surat-masih-hidup',
+    title: 'Surat Keterangan Masih Hidup',
+    href: '/permohonan/surat-masih-hidup',
+    description: 'Surat pernyataan bahwa seseorang masih hidup untuk kebutuhan administrasi.',
     estimate: '1-2 hari kerja',
   },
   {
@@ -29,13 +36,6 @@ const ALLOWED_SURAT_TYPES = [
     href: '/permohonan/surat-kematian',
     description: 'Surat keterangan kematian untuk pelaporan dan pengurusan dokumen keluarga.',
     estimate: '1-2 hari kerja',
-  },
-  {
-    slug: 'surat-kepemilikan',
-    title: 'Surat Keterangan Kepemilikan',
-    href: '/permohonan/surat-kepemilikan',
-    description: 'Keterangan kepemilikan aset/barang sesuai data pendukung pemohon.',
-    estimate: '2-3 hari kerja',
   },
   {
     slug: 'surat-cerai',
@@ -48,7 +48,7 @@ const ALLOWED_SURAT_TYPES = [
     slug: 'surat-janda',
     title: 'Surat Keterangan Janda/Duda',
     href: '/permohonan/surat-janda',
-    description: 'Keterangan status janda/duda untuk keperluan program atau layanan publik.',
+    description: 'Keterangan status janda/duda untuk program atau layanan publik.',
     estimate: '1-2 hari kerja',
   },
   {

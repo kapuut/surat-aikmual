@@ -130,9 +130,7 @@ export default function KepalaDesaWorkflowClient() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revisionTargetId, setRevisionTargetId] = useState<number | null>(null);
-  const [revisionNote, setRevisionNote] = useState(
-    "Mohon perbaiki data permohonan sesuai catatan peninjauan Kepala Desa."
-  );
+  const [revisionNote, setRevisionNote] = useState("");
   const [revisionError, setRevisionError] = useState<string | null>(null);
 
   const fetchPermohonan = async () => {
@@ -239,7 +237,7 @@ export default function KepalaDesaWorkflowClient() {
   const openRevisionModal = (id: number) => {
     setRevisionTargetId(id);
     setRevisionError(null);
-    setRevisionNote("Mohon perbaiki data permohonan sesuai catatan peninjauan Kepala Desa.");
+    setRevisionNote("");
   };
 
   const closeRevisionModal = () => {
@@ -443,10 +441,10 @@ export default function KepalaDesaWorkflowClient() {
                             onClick={() =>
                               handleUpdate(
                                 item.id,
-                                  "selesai",
-                                  "Surat telah diverifikasi dan ditandatangani secara digital oleh Kepala Desa.",
-                                  "Surat berhasil diverifikasi dan ditandatangani digital.",
-                                  "Pastikan data surat sudah benar. Lanjut verifikasi + tanda tangan digital sekarang?"
+                                "selesai",
+                                "",
+                                "Surat berhasil diverifikasi dan ditandatangani digital.",
+                                "Pastikan data surat sudah benar. Lanjut verifikasi + tanda tangan digital sekarang?"
                               )
                             }
                             disabled={actionId === item.id}

@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     const [rows]: any = normalizedLoginType === 'public'
       ? await db.execute(
-          'SELECT * FROM users WHERE (SUBSTRING_INDEX(nik, "_", 1) = ? OR email = ?) AND role = "masyarakat" AND status IN ("aktif", "active") LIMIT 1',
+          'SELECT * FROM users WHERE (SUBSTRING_INDEX(nik, "_", 1) = ? OR email = ?) AND role = "masyarakat" LIMIT 1',
           [loginIdentifier, loginIdentifier]
         )
       : await db.execute(
@@ -55,6 +55,14 @@ export async function POST(request: Request) {
     }
 
     const user = rows[0];
+
+    if (normalizedLoginType === 'public' && !['aktif', 'active'].includes(String(user.status || '').toLowerCase())) {
+      return NextResponse.json(
+        { error: 'Akun sudah terdaftar tetapi belum tervalidasi admin' },
+        { status: 403 }
+      );
+    }
+
     const userId = user.id ?? user.id_user;
     const idColumn = user.id !== undefined ? 'id' : 'id_user';
 

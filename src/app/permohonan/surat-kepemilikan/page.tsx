@@ -61,7 +61,7 @@ export default function SuratKepemilikanInfoPage() {
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Surat resmi yang menyatakan kepemilikan atas tanah atau bangunan di wilayah desa.
-              Diperlukan untuk pengurusan sertifikat, jual beli, atau keperluan administratif lainnya.
+              Digunakan untuk pengurusan sertifikat, jual beli, atau administrasi lainnya.
             </p>
           </div>
 

@@ -19,7 +19,6 @@ const TEMPLATE_OVERRIDES: Partial<Record<JenisSurat, TemplateOverride>> = {
 
 const COMMON_FIELDS: TemplateField[] = [
   { name: "nomor_surat", label: "Nomor Surat", type: "text", required: true, placeholder: "001/Ds-AIK/IV/2026" },
-  { name: "keperluan", label: "Keperluan", type: "textarea", required: true },
   { name: "nama_desa", label: "Nama Desa", type: "text", required: true, placeholder: "Aikmual" },
   { name: "kota", label: "Kota", type: "text", required: true, placeholder: "Praya" },
   { name: "tanggal_surat", label: "Tanggal Surat", type: "date", required: true },
@@ -114,7 +113,7 @@ function buildTemplateHtml(judul: string, bodyFields: TemplateField[]): string {
         ${rowsHtml}
       </table>
 
-      <p>Surat ini dibuat untuk keperluan: <b>{{keperluan}}</b>.</p>
+      <p>Surat ini dibuat berdasarkan data dan dokumen pendukung yang telah diverifikasi.</p>
 
       <div style="margin-top: 32px; text-align:right;">
         <p>{{kota}}, {{tanggal_surat}}</p>

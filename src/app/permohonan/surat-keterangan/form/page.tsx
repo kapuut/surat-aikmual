@@ -11,7 +11,11 @@ interface FormData {
   tempat_lahir: string;
   tanggal_lahir: string;
   jenis_kelamin: string;
-  alamat: string;
+  dusun: string;
+  desa: string;
+  kecamatan: string;
+  kabupaten: string;
+  provinsi: string;
   jenis_surat: string;
   keperluan: string;
   no_hp: string;
@@ -35,9 +39,13 @@ export default function FormSuratKeterangan() {
     tempat_lahir: '',
     tanggal_lahir: '',
     jenis_kelamin: '',
-    alamat: '',
+    dusun: '',
+    desa: 'Aikmual',
+    kecamatan: 'Praya',
+    kabupaten: 'Lombok Tengah',
+    provinsi: 'Nusa Tenggara Barat',
     jenis_surat: '',
-    keperluan: '',
+    keperluan: '-',
     no_hp: '',
     email: ''
   });
@@ -62,11 +70,14 @@ export default function FormSuratKeterangan() {
 
     try {
       const submitData = new FormData();
+      const alamatGabungan = `Dusun ${formData.dusun}, Desa ${formData.desa}\nKec. ${formData.kecamatan}, Kab. ${formData.kabupaten}\nProvinsi ${formData.provinsi}`;
       
       // Add form data
       Object.keys(formData).forEach(key => {
         submitData.append(key, formData[key as keyof FormData]);
       });
+      submitData.set('alamat', alamatGabungan);
+      submitData.set('keperluan', '-');
 
       // Add files
       if (files) {
@@ -225,19 +236,77 @@ export default function FormSuratKeterangan() {
                 </div>
               </div>
 
-              <div className="mt-4">
-                <label htmlFor="alamat" className="block text-sm font-medium text-gray-700 mb-1">
-                  Alamat Lengkap *
-                </label>
-                <textarea
-                  id="alamat"
-                  name="alamat"
-                  value={formData.alamat}
-                  onChange={handleInputChange}
-                  required
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="dusun" className="block text-sm font-medium text-gray-700 mb-1">
+                    Dusun *
+                  </label>
+                  <input
+                    type="text"
+                    id="dusun"
+                    name="dusun"
+                    value={formData.dusun}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="desa" className="block text-sm font-medium text-gray-700 mb-1">
+                    Desa *
+                  </label>
+                  <input
+                    type="text"
+                    id="desa"
+                    name="desa"
+                    value={formData.desa}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="kecamatan" className="block text-sm font-medium text-gray-700 mb-1">
+                    Kecamatan *
+                  </label>
+                  <input
+                    type="text"
+                    id="kecamatan"
+                    name="kecamatan"
+                    value={formData.kecamatan}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="kabupaten" className="block text-sm font-medium text-gray-700 mb-1">
+                    Kabupaten *
+                  </label>
+                  <input
+                    type="text"
+                    id="kabupaten"
+                    name="kabupaten"
+                    value={formData.kabupaten}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="provinsi" className="block text-sm font-medium text-gray-700 mb-1">
+                    Provinsi *
+                  </label>
+                  <input
+                    type="text"
+                    id="provinsi"
+                    name="provinsi"
+                    value={formData.provinsi}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
               </div>
             </div>
 
@@ -276,25 +345,7 @@ export default function FormSuratKeterangan() {
               </div>
             </div>
 
-            {/* Keperluan */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Keperluan</h2>
-              <div>
-                <label htmlFor="keperluan" className="block text-sm font-medium text-gray-700 mb-1">
-                  Jelaskan Keperluan Surat *
-                </label>
-                <textarea
-                  id="keperluan"
-                  name="keperluan"
-                  value={formData.keperluan}
-                  onChange={handleInputChange}
-                  required
-                  rows={4}
-                  placeholder="Contoh: Untuk keperluan mendaftar beasiswa S1, melamar pekerjaan, dll. Jelaskan secara detail."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+            <input type="hidden" name="keperluan" value="-" />
 
             {/* Upload Dokumen */}
             <div>

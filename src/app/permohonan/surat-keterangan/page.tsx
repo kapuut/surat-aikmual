@@ -8,7 +8,7 @@ const persyaratan = [
 	"Fotokopi KTP Pemohon",
 	"Surat Pengantar dari RT/RW",
 	"Pas foto 3x4 sebanyak 2 lembar",
-	"Fotokopi dokumen pendukung sesuai keperluan",
+	"Fotokopi dokumen pendukung sesuai jenis surat",
 	"Formulir permohonan yang telah diisi"
 ];
 
@@ -158,7 +158,7 @@ export default function SuratKeteranganPage() {
 						<div>
 							<h3 className="font-semibold text-blue-800 mb-2">Informasi Penting</h3>
 							<ul className="text-sm text-blue-700 space-y-1">
-								<li>• Jelaskan dengan detail keperluan surat dalam formulir</li>
+								<li>• Isi tujuan permohonan secara jelas pada formulir</li>
 								<li>• Persyaratan tambahan mungkin diperlukan sesuai jenis surat</li>
 								<li>• Untuk surat tertentu, mungkin diperlukan saksi atau konfirmasi tambahan</li>
 								<li>• Hubungi petugas desa jika membutuhkan bantuan pengisian formulir</li>

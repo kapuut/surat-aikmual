@@ -9,8 +9,8 @@ export default function SuratJandaInfoPage() {
   const router = useRouter();
 
   const persyaratan = [
-    "Scan/foto KTP yang masih berlaku",
-    "Scan/foto Kartu Keluarga (KK)",
+    "NIK terdaftar dan akun sudah tervalidasi admin",
+    "KTP dan KK cukup diunggah sekali saat registrasi akun",
     "Scan/foto Akta/Surat Keterangan Kematian Suami (untuk janda)",
     "Scan/foto Akta Nikah/Buku Nikah",
     "Scan/foto Surat Pengantar dari RT/RW",
@@ -60,7 +60,7 @@ export default function SuratJandaInfoPage() {
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Surat resmi yang menyatakan status janda atau duda seseorang.
-              Diperlukan untuk pengurusan administrasi kependudukan, bantuan sosial, dan keperluan lainnya.
+              Digunakan untuk pengurusan administrasi kependudukan, bantuan sosial, dan layanan publik.
             </p>
           </div>
 

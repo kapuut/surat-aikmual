@@ -60,7 +60,7 @@ export default function SuratPenghasilanInfoPage() {
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Surat resmi yang menyatakan penghasilan seseorang per bulan.
-              Diperlukan untuk pengajuan kredit, beasiswa, bantuan sosial, atau keperluan administratif lainnya.
+              Digunakan untuk pengajuan kredit, beasiswa, bantuan sosial, atau administrasi lainnya.
             </p>
           </div>
 

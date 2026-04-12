@@ -110,9 +110,9 @@ export default function PublicLoginPage() {
             </div>
           )}
 
-          {searchParams.get("registered") === "1" && (
+          {searchParams.get("registered") === "pending" && (
             <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
-              Registrasi berhasil, silakan login
+              Registrasi berhasil. Akun Anda menunggu validasi admin sebelum bisa login.
             </div>
           )}
 

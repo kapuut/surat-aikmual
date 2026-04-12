@@ -22,6 +22,39 @@ export default function SuratMasihHidupFormPage() {
     }
   };
 
+  const normalizeSpacing = (value: string) => value.replace(/\s+/g, " ").trim();
+
+  const toTitleCase = (value: string) => {
+    const cleaned = normalizeSpacing(value);
+    if (!cleaned) return "";
+    return cleaned
+      .toLowerCase()
+      .split(" ")
+      .map((word) => (word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : ""))
+      .join(" ");
+  };
+
+  const normalizeAreaValue = (value: string, type: "dusun" | "desa" | "kecamatan" | "kabupaten" | "provinsi") => {
+    const cleaned = normalizeSpacing(value);
+    if (!cleaned) return "";
+
+    const patterns = {
+      dusun: /^dusun\s+/i,
+      desa: /^desa\s+/i,
+      kecamatan: /^(kecamatan|kec\.?)+\s+/i,
+      kabupaten: /^(kabupaten|kab\.?)+\s+/i,
+      provinsi: /^(provinsi|prov\.?)+\s+/i,
+    } as const;
+
+    return toTitleCase(cleaned.replace(patterns[type], ""));
+  };
+
+  const composeAddress = (dusun: string, desa: string, kecamatan: string, kabupaten: string, provinsi: string) => {
+    if (!dusun || !desa || !kecamatan || !kabupaten) return "";
+    const baseAddress = `Dusun ${dusun}, Desa ${desa}\nKec. ${kecamatan}, Kab. ${kabupaten}`;
+    return provinsi ? `${baseAddress}\nProvinsi ${provinsi}` : baseAddress;
+  };
+
   const handleInvalid = () => {
     setSuccessMessage(null);
     setError("Form belum lengkap atau ada data yang belum valid. Cek kembali semua field bertanda *.");
@@ -43,36 +76,40 @@ export default function SuratMasihHidupFormPage() {
       return;
     }
 
-    const dokumenKTP = formData.get("dokumenKTP");
-    const dokumenKK = formData.get("dokumenKK");
     const dokumenTambahan = formData
       .getAll("dokumenTambahan")
       .filter((item): item is File => item instanceof File && item.size > 0);
 
-    if (!(dokumenKTP instanceof File) || dokumenKTP.size === 0 || !(dokumenKK instanceof File) || dokumenKK.size === 0) {
-      setLoading(false);
-      setError("Upload KTP dan Kartu Keluarga (KK) wajib diisi masing-masing.");
-      showFeedback();
-      return;
-    }
-
     const submitData = new FormData();
     for (const [key, value] of formData.entries()) {
-      if (key === "dokumenKTP" || key === "dokumenKK" || key === "dokumenTambahan") {
+      if (key === "dokumenTambahan") {
         continue;
       }
       submitData.append(key, value);
     }
 
-    submitData.append("dokumen", dokumenKTP);
-    submitData.append("dokumen", dokumenKK);
     for (const file of dokumenTambahan) {
       submitData.append("dokumen", file);
     }
 
     submitData.set("nik", akunNik);
     submitData.set("jenisSurat", "Surat Keterangan Masih Hidup");
-    submitData.set("alamat", String(formData.get("alamatTerakhir") || "").trim());
+
+    const dusun = normalizeAreaValue(String(formData.get("dusun") || ""), "dusun");
+    const desa = normalizeAreaValue(String(formData.get("desa") || ""), "desa");
+    const kecamatan = normalizeAreaValue(String(formData.get("kecamatan") || ""), "kecamatan");
+    const kabupaten = normalizeAreaValue(String(formData.get("kabupaten") || ""), "kabupaten");
+    const provinsi = normalizeAreaValue(String(formData.get("provinsi") || ""), "provinsi");
+    const alamatTerakhir = composeAddress(dusun, desa, kecamatan, kabupaten, provinsi);
+
+    submitData.set("dusun", dusun);
+    submitData.set("desa", desa);
+    submitData.set("kecamatan", kecamatan);
+    submitData.set("kabupaten", kabupaten);
+    submitData.set("provinsi", provinsi);
+    submitData.set("alamat", alamatTerakhir);
+    submitData.set("alamatTerakhir", alamatTerakhir);
+    submitData.set("keperluan", "-");
 
     try {
       const response = await fetch("/api/permohonan/submit", {
@@ -258,17 +295,65 @@ export default function SuratMasihHidupFormPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
                 Alamat Terakhir
               </h2>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Alamat Terakhir Lengkap <span className="text-red-500">*</span>
+                    Dusun <span className="text-red-500">*</span>
                   </label>
-                  <textarea
-                    name="alamatTerakhir"
+                  <input
+                    type="text"
+                    name="dusun"
                     required
-                    rows={3}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Jalan, RT/RW, Kelurahan, Kecamatan, Kabupaten, Provinsi"
+                    placeholder="Contoh: Darwis"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Desa <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="desa"
+                    required
+                    defaultValue="Aikmual"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Kecamatan <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="kecamatan"
+                    required
+                    defaultValue="Praya"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Kabupaten <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="kabupaten"
+                    required
+                    defaultValue="Lombok Tengah"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Provinsi <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="provinsi"
+                    required
+                    defaultValue="Nusa Tenggara Barat"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -281,32 +366,6 @@ export default function SuratMasihHidupFormPage() {
                 Upload Dokumen Pendukung
               </h2>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Upload KTP (wajib) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="file"
-                    name="dokumenKTP"
-                    required
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Upload Kartu Keluarga (KK) (wajib) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="file"
-                    name="dokumenKK"
-                    required
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
-                  />
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Dokumen Pendukung Tambahan (opsional)
@@ -324,24 +383,7 @@ export default function SuratMasihHidupFormPage() {
               </div>
             </div>
 
-            {/* Keperluan */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
-                Keperluan
-              </h2>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Untuk Keperluan <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  name="keperluan"
-                  required
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Jelaskan keperluan surat ini (misal: untuk asuransi, pensiun, dll)"
-                />
-              </div>
-            </div>
+            <input type="hidden" name="keperluan" value="-" />
 
             {/* Buttons */}
             <div className="flex gap-4">

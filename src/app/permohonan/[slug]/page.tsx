@@ -18,15 +18,15 @@ const suratData: Record<string, {
     title: item.title,
     description: item.description,
     requirements: [
-      "Upload KTP pemohon (wajib)",
-      "Upload Kartu Keluarga/KK (wajib)",
+      "NIK terdaftar dan akun sudah tervalidasi admin",
+      "Nomor telepon aktif",
       "Upload dokumen pendukung sesuai jenis surat (bukti tambahan)",
-      "Nomor telepon aktif"
+      "KTP dan KK cukup diunggah sekali saat registrasi akun"
     ],
     procedures: [
       "Login menggunakan NIK dan password",
       "Isi formulir sesuai data yang benar",
-      "Unggah KTP + KK serta dokumen pendukung",
+      "Unggah dokumen pendukung sesuai kebutuhan surat",
       "Kirim permohonan dan tunggu verifikasi",
       "Pantau status pada halaman riwayat"
     ]
@@ -126,9 +126,8 @@ export default function SuratDetailPage({ params }: SuratDetailProps) {
                 <div className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4">
                   <h4 className="text-sm font-semibold text-blue-800">Menu Upload Dokumen</h4>
                   <ul className="mt-2 space-y-2 text-sm text-blue-700">
-                    <li>1. KTP (wajib)</li>
-                    <li>2. Kartu Keluarga/KK (wajib)</li>
-                    <li>3. Bukti pendukung sesuai jenis surat</li>
+                    <li>1. Dokumen pendukung sesuai jenis surat</li>
+                    <li>2. KTP dan KK sudah tersimpan dari registrasi akun</li>
                   </ul>
                 </div>
               </div>

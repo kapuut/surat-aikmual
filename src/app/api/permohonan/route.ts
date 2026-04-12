@@ -72,15 +72,16 @@ function getGenderValue(value: string): string {
   return toTitleCase(cleaned);
 }
 
-function normalizeAreaValue(value: string, prefix: 'dusun' | 'desa' | 'kecamatan' | 'kabupaten'): string {
+function normalizeAreaValue(value: string, prefix: 'dusun' | 'desa' | 'kecamatan' | 'kabupaten' | 'provinsi'): string {
   const cleaned = normalizeSpacing(value);
   if (!cleaned) return '';
 
-  const patterns: Record<'dusun' | 'desa' | 'kecamatan' | 'kabupaten', RegExp> = {
+  const patterns: Record<'dusun' | 'desa' | 'kecamatan' | 'kabupaten' | 'provinsi', RegExp> = {
     dusun: /^dusun\s+/i,
     desa: /^desa\s+/i,
     kecamatan: /^(kecamatan|kec\.?)+\s+/i,
     kabupaten: /^(kabupaten|kab\.?)+\s+/i,
+    provinsi: /^(provinsi|prov\.?)+\s+/i,
   };
 
   return toTitleCase(cleaned.replace(patterns[prefix], ''));
@@ -91,17 +92,20 @@ function buildStructuredAddress(parts: {
   desa?: string;
   kecamatan?: string;
   kabupaten?: string;
+  provinsi?: string;
 }): string {
   const dusun = normalizeAreaValue(parts.dusun || '', 'dusun');
   const desa = normalizeAreaValue(parts.desa || '', 'desa');
   const kecamatan = normalizeAreaValue(parts.kecamatan || '', 'kecamatan');
   const kabupaten = normalizeAreaValue(parts.kabupaten || '', 'kabupaten');
+  const provinsi = normalizeAreaValue(parts.provinsi || '', 'provinsi');
 
   if (!dusun || !desa || !kecamatan || !kabupaten) {
     return '';
   }
 
-  return `Dusun ${dusun}, Desa ${desa}\nKec. ${kecamatan}, Kab. ${kabupaten}`;
+  const baseAddress = `Dusun ${dusun}, Desa ${desa}\nKec. ${kecamatan}, Kab. ${kabupaten}`;
+  return provinsi ? `${baseAddress}\nProvinsi ${provinsi}` : baseAddress;
 }
 
 function normalizeDateValue(value: string): string | null {
@@ -135,6 +139,10 @@ function normalizeNikValue(value: unknown): string {
   const trimmed = value.trim();
   if (!trimmed) return '';
   return trimmed.split('_')[0].trim();
+}
+
+function hasUploadedFileValue(value: unknown): boolean {
+  return value instanceof File && value.size > 0;
 }
 
 function normalizeFilePath(rawValue: unknown): string | null {
@@ -226,10 +234,12 @@ function collectAdditionalDetailFields(payload: Record<string, unknown>): Record
     'desa',
     'kecamatan',
     'kabupaten',
+    'provinsi',
     'dusun_pemohon',
     'desa_pemohon',
     'kecamatan_pemohon',
     'kabupaten_pemohon',
+    'provinsi_pemohon',
     'keperluan',
     'tempatLahir',
     'tempat_lahir',
@@ -275,10 +285,22 @@ function collectAdditionalDetailFields(payload: Record<string, unknown>): Record
     'desaPasangan',
     'kecamatanPasangan',
     'kabupatenPasangan',
+    'provinsiPasangan',
     'dusun_pasangan',
     'desa_pasangan',
     'kecamatan_pasangan',
     'kabupaten_pasangan',
+    'provinsi_pasangan',
+    'dusunAlmarhum',
+    'dusun_almarhum',
+    'desaAlmarhum',
+    'desa_almarhum',
+    'kecamatanAlmarhum',
+    'kecamatan_almarhum',
+    'kabupatenAlmarhum',
+    'kabupaten_almarhum',
+    'provinsiAlmarhum',
+    'provinsi_almarhum',
     'tanggalCerai',
     'tanggal_cerai',
     'nomorAktaCerai',
@@ -400,28 +422,9 @@ async function handlePermohonanPost(request: Request) {
       );
     }
 
-    if (
-      [
-        'surat-domisili',
-        'surat-masih-hidup',
-        'surat-kematian',
-        'surat-janda',
-        'surat-kehilangan',
-        'surat-penghasilan',
-        'surat-tidak-punya-rumah',
-        'surat-usaha',
-      ].includes(suratSlug) &&
-      uploadedFiles.length < 2
-    ) {
+    if (suratSlug === 'surat-cerai' && !hasUploadedFileValue(payload.dokumenAktaCerai)) {
       return NextResponse.json(
-        { error: 'Upload KTP dan Kartu Keluarga (KK) wajib untuk permohonan ini' },
-        { status: 400 }
-      );
-    }
-
-    if (suratSlug === 'surat-cerai' && uploadedFiles.length < 3) {
-      return NextResponse.json(
-        { error: 'Upload KTP, Kartu Keluarga (KK), dan Akta Cerai wajib untuk permohonan ini' },
+        { error: 'Upload Akta Cerai wajib untuk permohonan surat cerai' },
         { status: 400 }
       );
     }
@@ -430,7 +433,7 @@ async function handlePermohonanPost(request: Request) {
     const namaPemohon = toTitleCase(getFirstStringValue(payload, ['nama_pemohon', 'nama_lengkap', 'nama', 'nama_anak']));
     const nikInput = getFirstStringValue(payload, ['nik']);
     const alamatRaw = getFirstStringValue(payload, ['alamat', 'alamatSekarang', 'alamat_saat_ini', 'alamatTerakhir', 'alamat_terakhir']);
-    const keperluan = normalizeSpacing(getFirstStringValue(payload, ['keperluan']));
+    const keperluan = normalizeSpacing(getFirstStringValue(payload, ['keperluan'])) || '-';
     const teleponInput = getFirstStringValue(payload, [
       'telepon',
       'noTelp',
@@ -627,11 +630,19 @@ async function handlePermohonanPost(request: Request) {
     const desaPemohon = normalizeAreaValue(getFirstStringValue(payload, ['desa', 'desa_pemohon']), 'desa');
     const kecamatanPemohon = normalizeAreaValue(getFirstStringValue(payload, ['kecamatan', 'kecamatan_pemohon']), 'kecamatan');
     const kabupatenPemohon = normalizeAreaValue(getFirstStringValue(payload, ['kabupaten', 'kabupaten_pemohon']), 'kabupaten');
+    const provinsiPemohon = normalizeAreaValue(getFirstStringValue(payload, ['provinsi', 'provinsi_pemohon']), 'provinsi');
 
     const dusunPasangan = normalizeAreaValue(getFirstStringValue(payload, ['dusunPasangan', 'dusun_pasangan']), 'dusun');
     const desaPasangan = normalizeAreaValue(getFirstStringValue(payload, ['desaPasangan', 'desa_pasangan']), 'desa');
     const kecamatanPasangan = normalizeAreaValue(getFirstStringValue(payload, ['kecamatanPasangan', 'kecamatan_pasangan']), 'kecamatan');
     const kabupatenPasangan = normalizeAreaValue(getFirstStringValue(payload, ['kabupatenPasangan', 'kabupaten_pasangan']), 'kabupaten');
+    const provinsiPasangan = normalizeAreaValue(getFirstStringValue(payload, ['provinsiPasangan', 'provinsi_pasangan']), 'provinsi');
+
+    const dusunAlmarhum = normalizeAreaValue(getFirstStringValue(payload, ['dusunAlmarhum', 'dusun_almarhum']), 'dusun');
+    const desaAlmarhum = normalizeAreaValue(getFirstStringValue(payload, ['desaAlmarhum', 'desa_almarhum']), 'desa');
+    const kecamatanAlmarhum = normalizeAreaValue(getFirstStringValue(payload, ['kecamatanAlmarhum', 'kecamatan_almarhum']), 'kecamatan');
+    const kabupatenAlmarhum = normalizeAreaValue(getFirstStringValue(payload, ['kabupatenAlmarhum', 'kabupaten_almarhum']), 'kabupaten');
+    const provinsiAlmarhum = normalizeAreaValue(getFirstStringValue(payload, ['provinsiAlmarhum', 'provinsi_almarhum']), 'provinsi');
 
     const alamat =
       buildStructuredAddress({
@@ -639,14 +650,23 @@ async function handlePermohonanPost(request: Request) {
         desa: desaPemohon,
         kecamatan: kecamatanPemohon,
         kabupaten: kabupatenPemohon,
+        provinsi: provinsiPemohon,
       }) || toTitleCase(alamatRaw);
-    const alamatTerakhir = toTitleCase(alamatTerakhirRaw);
+    const alamatTerakhir =
+      buildStructuredAddress({
+        dusun: dusunAlmarhum,
+        desa: desaAlmarhum,
+        kecamatan: kecamatanAlmarhum,
+        kabupaten: kabupatenAlmarhum,
+        provinsi: provinsiAlmarhum,
+      }) || toTitleCase(alamatTerakhirRaw);
     const alamatPasangan =
       buildStructuredAddress({
         dusun: dusunPasangan,
         desa: desaPasangan,
         kecamatan: kecamatanPasangan,
         kabupaten: kabupatenPasangan,
+        provinsi: provinsiPasangan,
       }) || toTitleCase(alamatPasanganRaw);
 
     const tanggalLahir = normalizeDateValue(tanggalLahirRaw);
@@ -695,6 +715,7 @@ async function handlePermohonanPost(request: Request) {
       desa_pemohon: desaPemohon || undefined,
       kecamatan_pemohon: kecamatanPemohon || undefined,
       kabupaten_pemohon: kabupatenPemohon || undefined,
+      provinsi_pemohon: provinsiPemohon || undefined,
       alamat_pemohon: alamat || undefined,
       telepon: effectiveTelepon || undefined,
       nik_input: nikInput || undefined,
@@ -756,7 +777,13 @@ async function handlePermohonanPost(request: Request) {
       desa_pasangan: desaPasangan || undefined,
       kecamatan_pasangan: kecamatanPasangan || undefined,
       kabupaten_pasangan: kabupatenPasangan || undefined,
+      provinsi_pasangan: provinsiPasangan || undefined,
       alamat_pasangan: alamatPasangan || undefined,
+      dusun_almarhum: dusunAlmarhum || undefined,
+      desa_almarhum: desaAlmarhum || undefined,
+      kecamatan_almarhum: kecamatanAlmarhum || undefined,
+      kabupaten_almarhum: kabupatenAlmarhum || undefined,
+      provinsi_almarhum: provinsiAlmarhum || undefined,
       tanggal_cerai: tanggalCerai || undefined,
       nomor_akta_cerai: nomorAktaCerai || undefined,
       tempat_cerai: tempatCerai || undefined,
@@ -765,7 +792,7 @@ async function handlePermohonanPost(request: Request) {
 
     const detailDataJson = JSON.stringify(detailData);
 
-    if (!namaPemohon || !nik || !alamat || !keperluan) {
+    if (!namaPemohon || !nik || !alamat) {
       return NextResponse.json(
         { error: 'Data permohonan belum lengkap' },
         { status: 400 }
@@ -776,6 +803,32 @@ async function handlePermohonanPost(request: Request) {
       return NextResponse.json(
         { error: 'NIK harus 16 digit angka' },
         { status: 400 }
+      );
+    }
+
+    const [registeredUsers]: any = await db.execute(
+      'SELECT role, status FROM users WHERE SUBSTRING_INDEX(nik, "_", 1) = ? LIMIT 5',
+      [nik]
+    );
+    const masyarakatUsers = Array.isArray(registeredUsers)
+      ? registeredUsers.filter((row: any) => String(row?.role || '').toLowerCase() === 'masyarakat')
+      : [];
+
+    if (masyarakatUsers.length === 0) {
+      return NextResponse.json(
+        { error: 'NIK tidak terdaftar. Silakan registrasi akun terlebih dahulu.' },
+        { status: 404 }
+      );
+    }
+
+    const isValidatedNik = masyarakatUsers.some((row: any) =>
+      ['aktif', 'active'].includes(String(row?.status || '').toLowerCase())
+    );
+
+    if (!isValidatedNik) {
+      return NextResponse.json(
+        { error: 'NIK sudah terdaftar tetapi belum tervalidasi admin.' },
+        { status: 403 }
       );
     }
 
@@ -871,6 +924,7 @@ async function handlePermohonanPost(request: Request) {
       if (!desaPemohon) missingFields.push('Desa pemohon');
       if (!kecamatanPemohon) missingFields.push('Kecamatan pemohon');
       if (!kabupatenPemohon) missingFields.push('Kabupaten pemohon');
+      if (!provinsiPemohon) missingFields.push('Provinsi pemohon');
       if (!nikPasangan) missingFields.push('NIK pasangan cerai');
       if (!tempatLahirPasangan) missingFields.push('Tempat lahir pasangan cerai');
       if (!tanggalLahirPasangan) missingFields.push('Tanggal lahir pasangan cerai');
@@ -881,6 +935,7 @@ async function handlePermohonanPost(request: Request) {
       if (!desaPasangan) missingFields.push('Desa pasangan cerai');
       if (!kecamatanPasangan) missingFields.push('Kecamatan pasangan cerai');
       if (!kabupatenPasangan) missingFields.push('Kabupaten pasangan cerai');
+      if (!provinsiPasangan) missingFields.push('Provinsi pasangan cerai');
       if (!alamatPasangan) missingFields.push('Alamat pasangan cerai');
       if (!tanggalCerai) missingFields.push('Tanggal cerai');
 
@@ -913,6 +968,7 @@ async function handlePermohonanPost(request: Request) {
       if (!desaPemohon) missingFields.push('Desa pemohon');
       if (!kecamatanPemohon) missingFields.push('Kecamatan pemohon');
       if (!kabupatenPemohon) missingFields.push('Kabupaten pemohon');
+      if (!provinsiPemohon) missingFields.push('Provinsi pemohon');
       if (!statusJanda) missingFields.push('Status janda/duda');
       if (!alasanStatusJanda) missingFields.push('Alasan status (Cerai Hidup/Mati)');
 
@@ -939,6 +995,7 @@ async function handlePermohonanPost(request: Request) {
       if (!desaPemohon) missingFields.push('Desa pemohon');
       if (!kecamatanPemohon) missingFields.push('Kecamatan pemohon');
       if (!kabupatenPemohon) missingFields.push('Kabupaten pemohon');
+      if (!provinsiPemohon) missingFields.push('Provinsi pemohon');
       if (!namaWali) missingFields.push('Nama lengkap wali');
       if (!nikWali) missingFields.push('NIK wali');
       if (!tempatLahirWali) missingFields.push('Tempat lahir wali');
@@ -1000,6 +1057,7 @@ async function handlePermohonanPost(request: Request) {
       if (!desaPemohon) missingFields.push('Desa');
       if (!kecamatanPemohon) missingFields.push('Kecamatan');
       if (!kabupatenPemohon) missingFields.push('Kabupaten');
+      if (!provinsiPemohon) missingFields.push('Provinsi');
       if (!mulaiUsaha) missingFields.push('Mulai usaha');
       if (!jenisUsaha) missingFields.push('Jenis usaha');
 

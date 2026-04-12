@@ -36,7 +36,7 @@ export const ALLOWED_SURAT_TYPES: readonly SuratTypeItem[] = [
   {
     slug: "surat-kematian",
     title: "Surat Keterangan Kematian",
-    description: "Surat keterangan untuk keperluan administrasi kematian",
+    description: "Surat keterangan administrasi kematian",
     templateFile: "template-kematian.docx",
     href: "/permohonan/surat-kematian",
   },
@@ -85,7 +85,7 @@ export const ALLOWED_SURAT_TYPES: readonly SuratTypeItem[] = [
   {
     slug: "surat-usaha",
     title: "Surat Keterangan Usaha",
-    description: "Surat keterangan untuk keperluan usaha",
+    description: "Surat keterangan usaha",
     templateFile: "template-usaha.docx",
     href: "/permohonan/surat-usaha",
   },
