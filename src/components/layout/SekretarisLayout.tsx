@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { 
@@ -10,7 +11,6 @@ import {
   FiFileText, 
   FiFile, 
   FiUser,
-  FiFolder,
   FiEdit,
   FiLogOut,
   FiChevronDown
@@ -150,12 +150,23 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
     <div className="flex h-screen overflow-hidden font-display">
       {/* Sidebar */}
       <aside className="w-64 shrink-0 h-screen bg-slate-900 text-white flex flex-col overflow-y-auto">
-        <div className="p-4 border-b border-slate-700">
-          <div className="flex items-center space-x-2">
-            <FiFolder className="w-6 h-6 text-blue-400" />
-            <h1 className="text-lg font-bold">Arsip Surat</h1>
+        <div className="p-4 border-b border-slate-700 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl border border-slate-600 bg-slate-800/80 p-1 shadow-sm ring-1 ring-white/10 backdrop-blur-sm">
+              <Image
+                src="/images/logo-desa.png"
+                alt="Logo Desa"
+                width={40}
+                height={40}
+                className="h-full w-full rounded-xl object-contain"
+                priority
+              />
+            </div>
+            <div className="flex h-12 flex-col justify-center gap-0.5">
+              <h1 className="text-lg leading-tight font-semibold tracking-tight text-white">SI Surat</h1>
+              <p className="text-xs leading-tight text-blue-100/90">Desa Aikmual</p>
+            </div>
           </div>
-          <p className="text-sm text-gray-300 mt-1">Panel Sekretaris</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
@@ -204,7 +215,7 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
               }`}
             >
               <FiFileText className="w-4 h-4" />
-              <span>Permohonan</span>
+              <span>Permohonan Warga</span>
             </Link>
             <Link
               href="/sekretaris/template-surat"
@@ -245,13 +256,6 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
             </Link>
           </div>
         </nav>
-
-        <div className="p-4 border-t border-slate-700">
-          <div className="text-center text-xs text-gray-400">
-            <p className="font-medium">Sistem Informasi Surat</p>
-            <p className="mt-1">© 2025 Desa Digital</p>
-          </div>
-        </div>
       </aside>
 
       {/* Main Content */}

@@ -484,7 +484,8 @@ export function generateSuratTemplate(
     
     .page {
       width: 21cm;
-      height: 29.7cm;
+      min-height: 29.7cm;
+      height: auto;
       margin: 0 auto;
       padding: 1.2cm 1.3cm 1.2cm 1.3cm;
       font-size: 12pt;
@@ -681,6 +682,8 @@ export function generateSuratTemplate(
       display: flex;
       justify-content: flex-end;
       font-size: 12pt;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     
     .tanda-tangan .pejabat {
@@ -697,6 +700,8 @@ export function generateSuratTemplate(
       align-items: flex-end;
       gap: 0.3cm;
       flex-direction: row;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .ttd-signature {
@@ -770,7 +775,8 @@ export function generateSuratTemplate(
 
       .page {
         width: 100%;
-        height: 100%;
+        min-height: auto;
+        height: auto;
         box-shadow: none;
         margin: 0;
         padding: 0;

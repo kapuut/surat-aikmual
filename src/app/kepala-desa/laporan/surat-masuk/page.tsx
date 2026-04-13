@@ -265,31 +265,31 @@ export default function KepalaDesaLaporanSuratMasukPage() {
   return (
     <section>
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2.5">
           <FiInbox className="text-purple-600" /> Surat Masuk
         </h2>
-        <p className="text-gray-500 mt-1">Ringkasan surat masuk berdasarkan filter periode dan pencarian.</p>
+        <p className="mt-1 text-sm text-gray-500">Ringkasan surat masuk berdasarkan filter periode dan pencarian.</p>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Pencarian</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-700">Pencarian</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Cari nomor surat, asal surat, perihal, atau petugas..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Bulan</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-700">Bulan</label>
             <select
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Semua Bulan</option>
               <option value="1">Januari</option>
@@ -308,11 +308,11 @@ export default function KepalaDesaLaporanSuratMasukPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-700">Tahun</label>
             <select
               value={filterYear}
               onChange={(e) => setFilterYear(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Semua Tahun</option>
               {years.map((year) => (
@@ -324,11 +324,11 @@ export default function KepalaDesaLaporanSuratMasukPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Sorting</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-700">Sorting</label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="tanggal-desc">Tanggal Terbaru</option>
               <option value="tanggal-asc">Tanggal Terlama</option>
@@ -353,22 +353,22 @@ export default function KepalaDesaLaporanSuratMasukPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <div className="text-sm text-gray-600 inline-flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-2 text-xs text-gray-600">
           <FiCalendar className="text-gray-500" />
           Menampilkan {totalFiltered} dari {totalSuratMasuk} surat masuk
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchData}
-            className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm hover:bg-slate-200"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700 hover:bg-slate-200"
           >
             <FiRefreshCw className="w-4 h-4" />
             Refresh
           </button>
           <button
             onClick={downloadCsv}
-            className="inline-flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs text-white hover:bg-green-700"
           >
             <FiDownload className="w-4 h-4" />
             Export CSV
@@ -378,20 +378,20 @@ export default function KepalaDesaLaporanSuratMasukPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <p className="text-sm text-gray-500">Total Surat Masuk</p>
-          <p className="text-2xl font-bold text-blue-700">{totalSuratMasuk}</p>
+          <p className="text-xs text-gray-500">Total Surat Masuk</p>
+          <p className="text-xl font-bold text-blue-700">{totalSuratMasuk}</p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <p className="text-sm text-gray-500">Data Ditampilkan</p>
-          <p className="text-2xl font-bold text-emerald-700">{totalFiltered}</p>
+          <p className="text-xs text-gray-500">Data Ditampilkan</p>
+          <p className="text-xl font-bold text-emerald-700">{totalFiltered}</p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <p className="text-sm text-gray-500">Bulan Ini</p>
-          <p className="text-2xl font-bold text-purple-700">{bulanIniCount}</p>
+          <p className="text-xs text-gray-500">Bulan Ini</p>
+          <p className="text-xl font-bold text-purple-700">{bulanIniCount}</p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <p className="text-sm text-gray-500">Pengirim Unik</p>
-          <p className="text-2xl font-bold text-slate-700">{pengirimUnik}</p>
+          <p className="text-xs text-gray-500">Pengirim Unik</p>
+          <p className="text-xl font-bold text-slate-700">{pengirimUnik}</p>
         </div>
       </div>
 
@@ -403,37 +403,37 @@ export default function KepalaDesaLaporanSuratMasukPage() {
         ) : sortedData.length === 0 ? (
           <div className="p-8 text-center text-gray-500">Tidak ada data yang sesuai filter.</div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <table className="min-w-[1160px] divide-y divide-gray-200 text-xs">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal Terima</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Asal Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Perihal</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Petugas Input</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Disposisi</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-700">File</th>
+                <th className="w-12 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">No</th>
+                <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Nomor Surat</th>
+                <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Tanggal Terima</th>
+                <th className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Asal Surat</th>
+                <th className="min-w-[200px] px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Perihal</th>
+                <th className="w-44 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Petugas Input</th>
+                <th className="w-[260px] px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Disposisi</th>
+                <th className="w-32 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">File</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {sortedData.map((item, index) => (
                 <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{index + 1}</td>
-                  <td className="px-4 py-3 font-medium">{item.nomor_surat || "-"}</td>
-                  <td className="px-4 py-3">{formatDate(item.tanggal_terima || item.tanggal_surat)}</td>
-                  <td className="px-4 py-3">{item.asal_surat || "-"}</td>
-                  <td className="px-4 py-3">{item.perihal || "-"}</td>
-                  <td className="px-4 py-3">{item.created_by_name || "-"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3 align-top text-gray-700">{index + 1}</td>
+                  <td className="px-3 py-3 align-top whitespace-nowrap font-semibold text-gray-900">{item.nomor_surat || "-"}</td>
+                  <td className="px-3 py-3 align-top whitespace-nowrap text-gray-700">{formatDate(item.tanggal_terima || item.tanggal_surat)}</td>
+                  <td className="px-3 py-3 align-top text-gray-700">{item.asal_surat || "-"}</td>
+                  <td className="px-3 py-3 align-top text-gray-700">{item.perihal || "-"}</td>
+                  <td className="px-3 py-3 align-top text-gray-700">{item.created_by_name || "-"}</td>
+                  <td className="px-3 py-3 align-top">
                     <div className="flex flex-col gap-2">
                       {item.latest_disposisi_tujuan ? (
-                        <div className="text-xs text-emerald-700">
-                          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 font-semibold">
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-[11px] text-emerald-800">
+                          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800">
                             Sudah didisposisikan
                           </span>
                           <p className="mt-1 font-semibold text-gray-700">
-                            Tujuan: {item.latest_disposisi_tujuan_label || item.latest_disposisi_tujuan}
+                            Ke: {item.latest_disposisi_tujuan_label || item.latest_disposisi_tujuan}
                           </p>
                           <p className="mt-1 text-gray-600">
                             {formatDate(item.latest_disposisi_at || undefined)}
@@ -450,27 +450,32 @@ export default function KepalaDesaLaporanSuratMasukPage() {
                         type="button"
                         onClick={() => openDisposisiDialog(item)}
                         disabled={submittingId === item.id}
-                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                        className="inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                       >
-                        <FiSend className="h-3.5 w-3.5" />
-                        {submittingId === item.id ? "Memproses..." : "Kirim ke Sekretaris"}
+                        <FiSend className="h-3 w-3" />
+                        {submittingId === item.id ? "Memproses..." : "Kirim Sekretaris"}
                       </button>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex flex-col items-center gap-1">
+                  <td className="px-3 py-3 align-top">
+                    <div className="flex flex-col items-start gap-1.5">
                       <Link
                         href={`/kepala-desa/surat-masuk/${item.id}`}
-                        className="text-xs font-medium text-slate-700 hover:text-blue-600 hover:underline"
+                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                       >
                         Lihat Detail
                       </Link>
                       {item.file_path ? (
-                        <a href={item.file_path} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                        <a
+                          href={item.file_path}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex text-[11px] font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                        >
                           Lihat File
                         </a>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span className="text-[11px] text-gray-400">Belum ada file</span>
                       )}
                     </div>
                   </td>

@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SURAT KETERANGAN DOMISILI</title>
+  <title>SURAT KETERANGAN PENGHASILAN</title>
   <style>
     * {
       margin: 0;
@@ -13,8 +13,9 @@
     }
     
     body {
-      font-family: 'Times New Roman', serif;
-      line-height: 1.45;
+      font-family: 'Bookman Old Style', 'Book Antiqua', serif;
+      font-size: 12pt;
+      line-height: 1.5;
       color: #000;
       background-color: #efefef;
       padding: 16px;
@@ -33,6 +34,8 @@
       height: auto;
       margin: 0 auto;
       padding: 1.2cm 1.3cm 1.2cm 1.3cm;
+      font-size: 12pt;
+      line-height: 1.5;
       background: white;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     }
@@ -109,17 +112,18 @@
     .kop-text {
       text-align: center;
       padding-right: 98px;
+      font-family: 'Times New Roman', serif;
     }
 
     .kop-text .kabupaten {
-      font-size: 13pt;
+      font-size: 14pt;
       font-weight: bold;
       letter-spacing: 0.03em;
       text-transform: uppercase;
     }
 
     .kop-text .kecamatan {
-      font-size: 12pt;
+      font-size: 14pt;
       font-weight: bold;
       text-transform: uppercase;
     }
@@ -128,15 +132,16 @@
       font-size: 14pt;
       font-weight: bold;
       text-transform: uppercase;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
     }
 
     .kop-text .alamat {
-      font-size: 10.5pt;
+      font-size: 9pt;
       border: 1px solid #111;
-      padding: 2px 8px;
+      padding: 2px 6px;
       display: inline-block;
       min-width: 86%;
+      white-space: nowrap;
     }
 
     .kop-divider {
@@ -149,8 +154,8 @@
     /* Judul Surat */
     .judul-surat {
       text-align: center;
-      margin: 0.2cm 0 0.15cm 0;
-      font-size: 14pt;
+      margin: 0.1cm 0 0.02cm 0;
+      font-size: 12pt;
       font-weight: bold;
       text-decoration: underline;
       text-transform: uppercase;
@@ -159,13 +164,14 @@
     /* Nomor Surat */
     .nomor-surat {
       text-align: center;
-      margin-bottom: 0.55cm;
+      margin-bottom: 0.32cm;
       font-size: 12pt;
+      line-height: 1.2;
     }
     
     /* Isi Surat - Tabel */
     .isi-surat {
-      font-size: 14pt;
+      font-size: 12pt;
       margin: 0.2cm 0 0.6cm 0;
     }
     
@@ -180,7 +186,7 @@
       width: 100%;
       border-collapse: collapse;
       margin: 0.15cm 0 0.35cm 1.1cm;
-      font-size: 14pt;
+      font-size: 12pt;
     }
     
     .isi-surat td {
@@ -209,7 +215,7 @@
     
     /* Penutup */
     .penutup {
-      font-size: 14pt;
+      font-size: 12pt;
       margin: 0.25cm 0 0.6cm 0;
       text-align: justify;
       text-indent: 1.1cm;
@@ -221,7 +227,7 @@
       margin-top: 0.25cm;
       display: flex;
       justify-content: flex-end;
-      font-size: 14pt;
+      font-size: 12pt;
     }
     
     .tanda-tangan .pejabat {
@@ -278,7 +284,7 @@
     }
     
     .tanda-tangan .nip {
-      font-size: 11pt;
+      font-size: 12pt;
       margin-top: 0.25rem;
     }
 
@@ -365,27 +371,33 @@
           <div class="kabupaten">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
           <div class="kecamatan">KECAMATAN PRAYA</div>
           <div class="desa">DESA AIKMUAL</div>
-          <div class="alamat">Sekretariat : Jln raya Praya - Mantang KM. 07 Aikmual Praya</div>
+          <div class="alamat">Alamat : Jln raya Praya – Mantang KM 07 Aikmual Praya Phone 08175726709 / 08175790747 Kode Post 83500</div>
         </div>
       </div>
       <div class="kop-divider"></div>
     </div>
 
     <!-- JUDUL SURAT -->
-    <div class="judul-surat">SURAT KETERANGAN DOMISILI</div>
+    <div class="judul-surat">SURAT KETERANGAN PENGHASILAN</div>
 
     <!-- NOMOR SURAT -->
-    <div class="nomor-surat">No: 004/Ds.Aml/04.2026</div>
+    <div class="nomor-surat">Nomor : 001/Ds.Aml/04.2026</div>
 
     <!-- ISI SURAT -->
     <div class="isi-surat">
       <p>Yang bertanda tangan di bawah ini Kepala Desa Aikmual Kecamatan Praya Kabupaten Lombok Tengah menerangkan dengan sebenarnya kepada:</p>
       
       <table>
-        <tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">Shaqueena</td></tr><tr><td class="label">NIK</td><td class="colon">:</td><td class="nilai">5202014209030001</td></tr><tr><td class="label">Tempat&nbsp;Tanggal&nbsp;Lahir</td><td class="colon">:</td><td class="nilai">Praya, 12-12-2005</td></tr><tr><td class="label">Jenis Kelamin</td><td class="colon">:</td><td class="nilai">Perempuan</td></tr><tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">Islam</td></tr><tr><td class="label">Pekerjaan</td><td class="colon">:</td><td class="nilai">PNS</td></tr><tr><td class="label">Status</td><td class="colon">:</td><td class="nilai">Belum Kawin</td></tr><tr><td class="label">Kewarganegaraan</td><td class="colon">:</td><td class="nilai">Indonesia</td></tr><tr><td class="label">Alamat</td><td class="colon">:</td><td class="nilai">Aikmual Barat</td></tr><tr><td class="label">Masa Berlaku</td><td class="colon">:</td><td class="nilai">06 April 2026 sampai 06 September 2026</td></tr>
+        <tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">WAWAN</td></tr><tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">5202014209030001</td></tr><tr><td class="label">3. Tempat / Tanggal Lahir</td><td class="colon">:</td><td class="nilai">Praya, 31-12-2025</td></tr><tr><td class="label">4. Jenis Kelamin</td><td class="colon">:</td><td class="nilai">Laki-laki</td></tr><tr><td class="label">5. Agama</td><td class="colon">:</td><td class="nilai">Islam</td></tr><tr><td class="label">6. Status</td><td class="colon">:</td><td class="nilai">Belum Kawin</td></tr><tr><td class="label">7. Pendidikan</td><td class="colon">:</td><td class="nilai">S1</td></tr><tr><td class="label">8. Pekerjaan</td><td class="colon">:</td><td class="nilai">Mahasiswa</td></tr><tr><td class="label">9. Kewarganegaraan</td><td class="colon">:</td><td class="nilai">Indonesia</td></tr><tr><td class="label">10. Alamat</td><td class="colon">:</td><td class="nilai">Dusun Penaban, Desa Aikmual<br>Kec. Praya, Kab. Lombok Tengah</td></tr>
       </table>
 
-      <p>Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di Aikmual Barat. Surat keterangan ini dipergunakan untuk keperluan SURAT DOMISILI.</p>
+      
+      <p>Bahwa nama tersebut di atas adalah benar penduduk Desa Aikmual. Menurut keterangan Kepala Dusun setempat, yang bersangkutan merupakan anak/tanggungan dari:</p>
+      <table>
+        <tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">M. HASYIM</td></tr><tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">9757467874897867</td></tr><tr><td class="label">3. Tempat / Tanggal Lahir</td><td class="colon">:</td><td class="nilai">Aikmual, 12-03-1987</td></tr><tr><td class="label">4. Jenis Kelamin</td><td class="colon">:</td><td class="nilai">Laki-laki</td></tr><tr><td class="label">5. Agama</td><td class="colon">:</td><td class="nilai">Islam</td></tr>
+      </table>
+      <p>Wali/orang tua tersebut memiliki penghasilan rata-rata sebesar <strong>Rp 3.000.000</strong> per bulan yang bersumber dari <strong>Guru</strong>.</p>
+    
     </div>
 
     <!-- PENUTUP -->
@@ -396,13 +408,13 @@
     <!-- TANDA TANGAN -->
     <div class="tanda-tangan">
       <div class="pejabat">
-        <div>Aikmual, 06 April 2026</div>
+        <div>Aikmual, 13 April 2026</div>
         <div>KEPALA DESA AIKMUAL</div>
         
         <div class="ttd-assets">
           <img class="ttd-signature" src="/uploads/signatures/kepala-desa-3.png" alt="Tanda tangan Kepala Desa" />
           <div class="ttd-qr-wrap">
-              <img class="ttd-qr" src="data:image/png;base64,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" alt="QR verifikasi surat" />
+              <img class="ttd-qr" src="data:image/png;base64,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" alt="QR verifikasi surat" />
             </div>
         </div>
         <div class="nama nama-signed">KEPALA DESA AIKMUAL</div>

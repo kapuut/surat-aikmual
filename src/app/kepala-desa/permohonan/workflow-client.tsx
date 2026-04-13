@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FiArchive, FiCheckCircle, FiCornerUpLeft, FiEye, FiPenTool, FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import { FiCheckCircle, FiCornerUpLeft, FiEye, FiPenTool, FiTrash2 } from "react-icons/fi";
 
 type WorkflowStatus =
   | "pending"
@@ -80,7 +80,7 @@ function statusLabel(status: WorkflowStatus): string {
   const labels: Record<WorkflowStatus, string> = {
     pending: "Menunggu Verifikasi",
     diproses: "Diproses Admin",
-    dikirim_ke_kepala_desa: "Dikirim ke Kepala Desa",
+    dikirim_ke_kepala_desa: "Menunggu TTD",
     perlu_revisi: "Perlu Revisi",
     ditandatangani: "Ditandatangani",
     selesai: "Selesai",
@@ -105,12 +105,6 @@ function statusClass(status: WorkflowStatus): string {
 }
 
 function processNote(status: WorkflowStatus): string {
-  if (status === "dikirim_ke_kepala_desa") {
-    return "Menunggu verifikasi oleh Kepala Desa";
-  }
-  if (status === "ditandatangani" || status === "selesai") {
-    return "Surat sudah ditandatangani digital dan siap diverifikasi lewat QR";
-  }
   if (status === "perlu_revisi") {
     return "Menunggu revisi data dari admin";
   }
@@ -126,7 +120,7 @@ export default function KepalaDesaWorkflowClient() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [showArchive, setShowArchive] = useState(false);
+  const [ttdFilter, setTtdFilter] = useState<"belum" | "semua" | "selesai">("belum");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revisionTargetId, setRevisionTargetId] = useState<number | null>(null);
@@ -287,11 +281,16 @@ export default function KepalaDesaWorkflowClient() {
   );
 
   const visibleData = useMemo(() => {
-    if (showArchive) {
-      return data.filter((item) => isFinalizedStatus(item.status) && isGeneratedSuratFile(item.file_path));
+    if (ttdFilter === "selesai") {
+      return data.filter((item) => isFinalizedStatus(item.status));
     }
-    return data.filter((item) => !(isFinalizedStatus(item.status) && isGeneratedSuratFile(item.file_path)));
-  }, [data, showArchive]);
+
+    if (ttdFilter === "semua") {
+      return data;
+    }
+
+    return data.filter((item) => !isFinalizedStatus(item.status));
+  }, [data, ttdFilter]);
 
   return (
     <section>
@@ -323,30 +322,24 @@ export default function KepalaDesaWorkflowClient() {
           <p className="text-sm text-gray-500">Ditandatangani / Selesai</p>
           <p className="text-2xl font-bold text-emerald-700">{signedCount}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-end justify-between gap-3">
-          <button
-            onClick={() => setShowArchive((prev) => !prev)}
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition ${
-              showArchive
-                ? "bg-amber-50 text-amber-800 border-amber-200"
-                : "bg-slate-50 text-slate-700 border-slate-200"
-            }`}
-          >
-            <FiArchive className="w-4 h-4" />
-            {showArchive ? "Tampilkan Aktif" : "Tampilkan Arsip"}
-          </button>
-          <button
-            onClick={fetchPermohonan}
-            className="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700"
-          >
-            <FiRefreshCw className="w-4 h-4" />
-            Refresh Data
-          </button>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-end gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600">Filter TTD:</label>
+            <select
+              value={ttdFilter}
+              onChange={(event) => setTtdFilter(event.target.value as "belum" | "semua" | "selesai")}
+              className="rounded-lg border border-gray-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="belum">Belum</option>
+              <option value="semua">Semua</option>
+              <option value="selesai">Selesai</option>
+            </select>
+          </div>
         </div>
       </div>
 
       <div className="mb-4 text-sm text-gray-600">
-        Menampilkan {visibleData.length} data {showArchive ? "arsip selesai" : "permohonan aktif"}
+        Menampilkan {visibleData.length} surat {ttdFilter === "belum" ? "belum TTD" : ttdFilter === "selesai" ? "selesai" : "(semua status)"}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -372,18 +365,19 @@ export default function KepalaDesaWorkflowClient() {
             ) : visibleData.length === 0 ? (
               <tr>
                 <td className="px-4 py-5 text-center text-gray-500" colSpan={7}>
-                  {showArchive ? "Belum ada arsip permohonan selesai." : "Tidak ada permohonan aktif untuk ditinjau."}
+                  {ttdFilter === "selesai"
+                    ? "Belum ada surat dengan status selesai."
+                    : ttdFilter === "belum"
+                      ? "Tidak ada surat yang menunggu proses TTD."
+                      : "Belum ada data surat."}
                 </td>
               </tr>
             ) : (
               visibleData.map((item) => {
                 const attachmentLinks = resolveAttachmentPaths(item);
-                const hasFinalSignedFile = isGeneratedSuratFile(item.file_path);
-                const shouldOpenFinalFile = isFinalizedStatus(item.status) && hasFinalSignedFile;
-                const suratPreviewUrl = shouldOpenFinalFile
-                  ? (item.file_path as string)
-                  : `/api/admin/permohonan/${item.id}/preview`;
-                const suratPreviewLabel = shouldOpenFinalFile ? "Lihat Surat Final" : "Lihat Draft Surat";
+                const shouldOpenFinalFile = isFinalizedStatus(item.status);
+                const suratPreviewUrl = `/api/admin/permohonan/${item.id}/preview`;
+                const suratPreviewLabel = shouldOpenFinalFile ? "Lihat Surat Final" : "Lihat Surat Draft";
 
                 return (
                 <tr key={item.id} className="hover:bg-gray-50">
@@ -426,16 +420,16 @@ export default function KepalaDesaWorkflowClient() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2 justify-center flex-wrap">
+                    <div className="flex flex-col items-center gap-2">
                       {item.status === "dikirim_ke_kepala_desa" && (
-                        <>
+                        <div className="flex flex-wrap justify-center gap-2">
                           <button
                             onClick={() => openRevisionModal(item.id)}
                             disabled={actionId === item.id}
-                            className="inline-flex items-center gap-1 bg-orange-500 text-white px-2 py-1 text-xs rounded hover:bg-orange-600 disabled:opacity-50"
+                            className="inline-flex whitespace-nowrap items-center gap-1 bg-orange-500 text-white px-2 py-1 text-xs rounded hover:bg-orange-600 disabled:opacity-50"
                           >
                             <FiCornerUpLeft className="w-3.5 h-3.5" />
-                            Perlu Revisi
+                            Kirim Revisi
                           </button>
                           <button
                             onClick={() =>
@@ -443,17 +437,17 @@ export default function KepalaDesaWorkflowClient() {
                                 item.id,
                                 "selesai",
                                 "",
-                                "Surat berhasil diverifikasi dan ditandatangani digital.",
+                                "Surat berhasil diverifikasi dan ditandatangani digital. Data otomatis masuk ke menu Surat Keluar.",
                                 "Pastikan data surat sudah benar. Lanjut verifikasi + tanda tangan digital sekarang?"
                               )
                             }
                             disabled={actionId === item.id}
-                            className="inline-flex items-center gap-1 bg-blue-600 text-white px-2 py-1 text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+                            className="inline-flex whitespace-nowrap items-center gap-1 bg-blue-600 text-white px-2 py-1 text-xs rounded hover:bg-blue-700 disabled:opacity-50"
                           >
                             <FiPenTool className="w-3.5 h-3.5" />
-                              Verifikasi + TTD Digital
+                            Verifikasi & TTD
                           </button>
-                        </>
+                        </div>
                       )}
 
                       {item.status === "ditandatangani" && (
@@ -467,56 +461,35 @@ export default function KepalaDesaWorkflowClient() {
                             )
                           }
                           disabled={actionId === item.id}
-                          className="bg-green-600 text-white px-2 py-1 text-xs rounded hover:bg-green-700 disabled:opacity-50"
+                          className="whitespace-nowrap bg-green-600 text-white px-2 py-1 text-xs rounded hover:bg-green-700 disabled:opacity-50"
                         >
-                          Selesaikan
+                          Tandai Selesai
                         </button>
                       )}
 
                       {(item.status === "perlu_revisi" || item.status === "selesai") && (
-                        <>
-                          <span className="text-xs text-gray-500">Tidak ada aksi</span>
+                        <div className="flex flex-wrap justify-center gap-2">
                           {item.status === "selesai" && (
-                            <>
-                              <button
-                                onClick={() =>
-                                  handleUpdate(
-                                    item.id,
-                                    "selesai",
-                                    "Regenerasi surat final dengan TTD digital dan QR verifikasi oleh Kepala Desa.",
-                                    "File final berhasil diperbarui dengan TTD digital + QR verifikasi.",
-                                    "Regenerasi file final sekarang? Tindakan ini akan memperbarui QR dan metadata tanda tangan."
-                                  )
-                                }
-                                disabled={actionId === item.id}
-                                className="bg-blue-600 text-white px-2 py-1 text-xs rounded hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                Regenerasi TTD+QR
-                              </button>
-                              <button
-                                onClick={() => (window.location.href = "/kepala-desa/surat-keluar")}
-                                className="bg-emerald-600 text-white px-2 py-1 text-xs rounded hover:bg-emerald-700"
-                              >
-                                Ke Surat Keluar
-                              </button>
-                            </>
+                            <span className="text-xs text-emerald-700 font-medium">
+                              Otomatis masuk Surat Keluar
+                            </span>
                           )}
                           <button
                             onClick={() => handleDelete(item.id)}
                             disabled={deleteId === item.id}
-                            className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                            className="inline-flex whitespace-nowrap items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
                           >
                             <FiTrash2 className="w-3.5 h-3.5" />
                             {deleteId === item.id ? "Menghapus..." : "Hapus"}
                           </button>
-                        </>
+                        </div>
                       )}
 
                       {item.status === "ditandatangani" && (
                         <button
                           onClick={() => handleDelete(item.id)}
                           disabled={deleteId === item.id}
-                          className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                          className="inline-flex whitespace-nowrap items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
                         >
                           <FiTrash2 className="w-3.5 h-3.5" />
                           {deleteId === item.id ? "Menghapus..." : "Hapus"}

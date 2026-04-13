@@ -7,6 +7,8 @@ import { generateSuratTemplate } from '@/lib/surat-generator/template';
 import { generateNomorSurat } from '@/lib/surat-generator/nomor-surat';
 import { normalizeSuratSlug } from '@/lib/surat-data';
 import type { JenisSurat, SuratData } from '@/lib/surat-generator/types';
+import { renderTemplateWithValues } from '@/lib/template-surat/render-template';
+import type { TemplateField } from '@/lib/template-surat/types';
 
 type WorkflowStatus =
   | 'pending'
@@ -44,6 +46,22 @@ type PermohonanRow = RowDataPacket & {
 };
 
 type DetailData = Record<string, unknown>;
+
+type DynamicTemplateRow = RowDataPacket & {
+  id: string;
+  nama: string;
+  jenis_surat: string;
+  html_template: string;
+  fields_json: string;
+};
+
+type DynamicTemplatePreview = {
+  id: string;
+  nama: string;
+  jenisSurat: string;
+  htmlTemplate: string;
+  fields: TemplateField[];
+};
 
 function normalizeStatus(value: unknown): WorkflowStatus | null {
   const normalized = String(value || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
@@ -192,19 +210,25 @@ async function resolveFinalSuratKeluarPath(nomorSurat: string | null, jenisSurat
     const strictPath = rows && rows.length > 0 ? normalizeFilePath((rows[0] as any).file_path) : null;
     if (strictPath) return strictPath;
 
-    const [fallbackRows] = await db.query<RowDataPacket[]>(
-      `SELECT file_path
-       FROM surat_keluar
-       WHERE nomor_surat = ?
-         AND file_path IS NOT NULL
-         AND TRIM(file_path) <> ''
-       ORDER BY id DESC
-       LIMIT 1`,
-      [nomorSurat]
-    );
+    const jenisSlug = normalizeSuratSlug(jenisSurat);
+    if (jenisSlug) {
+      const [slugRows] = await db.query<RowDataPacket[]>(
+        `SELECT file_path
+         FROM surat_keluar
+         WHERE nomor_surat = ?
+           AND file_path IS NOT NULL
+           AND TRIM(file_path) <> ''
+           AND LOWER(file_path) LIKE ?
+         ORDER BY id DESC
+         LIMIT 1`,
+        [nomorSurat, `%-${String(jenisSlug).toLowerCase()}.html%`]
+      );
 
-    if (!fallbackRows || fallbackRows.length === 0) return null;
-    return normalizeFilePath((fallbackRows[0] as any).file_path);
+      const slugPath = slugRows && slugRows.length > 0 ? normalizeFilePath((slugRows[0] as any).file_path) : null;
+      if (slugPath) return slugPath;
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -359,6 +383,149 @@ function parseDetailData(value: unknown): DetailData {
   }
 }
 
+function parseTemplateFields(value: unknown): TemplateField[] {
+  if (typeof value !== 'string') return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => item as TemplateField);
+  } catch {
+    return [];
+  }
+}
+
+async function findDynamicTemplateForPreview(
+  jenisSurat: string,
+  dynamicTemplateId?: string
+): Promise<DynamicTemplatePreview | null> {
+  try {
+    if (dynamicTemplateId && dynamicTemplateId.trim()) {
+      const [rows] = await db.query<DynamicTemplateRow[]>(
+        `SELECT id, nama, jenis_surat, html_template, fields_json
+         FROM dynamic_template_surat
+         WHERE id = ? AND status = 'aktif'
+         LIMIT 1`,
+        [dynamicTemplateId.trim()]
+      );
+
+      const row = rows?.[0];
+      if (row) {
+        return {
+          id: row.id,
+          nama: row.nama,
+          jenisSurat: row.jenis_surat,
+          htmlTemplate: row.html_template,
+          fields: parseTemplateFields(row.fields_json),
+        };
+      }
+    }
+
+    const [rows] = await db.query<DynamicTemplateRow[]>(
+      `SELECT id, nama, jenis_surat, html_template, fields_json
+       FROM dynamic_template_surat
+       WHERE LOWER(TRIM(jenis_surat)) = LOWER(TRIM(?))
+         AND status = 'aktif'
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      [jenisSurat]
+    );
+
+    const row = rows?.[0];
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      nama: row.nama,
+      jenisSurat: row.jenis_surat,
+      htmlTemplate: row.html_template,
+      fields: parseTemplateFields(row.fields_json),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function formatDateIndonesian(value: Date): string {
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(value);
+}
+
+function buildDynamicTemplateValues(
+  permohonan: PermohonanRow,
+  detailData: DetailData,
+  nomorSurat: string,
+  tanggalSurat: Date
+): Record<string, string> {
+  const values: Record<string, string> = {
+    nomor_surat: nomorSurat,
+    nama: String(permohonan.nama_pemohon || '').trim(),
+    nik: String(permohonan.nik || '').trim(),
+    alamat: String(permohonan.alamat || '').trim(),
+    keperluan: String(permohonan.keperluan || '-').trim() || '-',
+    jenis_surat: String(permohonan.jenis_surat || '').trim(),
+    tanggal_surat: formatDateIndonesian(tanggalSurat),
+    tanggal_permohonan: formatDateIndonesian(new Date(permohonan.created_at || tanggalSurat)),
+  };
+
+  for (const [key, rawValue] of Object.entries(detailData)) {
+    if (rawValue == null) continue;
+
+    if (typeof rawValue === 'string') {
+      values[key] = rawValue;
+      continue;
+    }
+
+    if (typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+      values[key] = String(rawValue);
+      continue;
+    }
+
+    if (rawValue instanceof Date && !Number.isNaN(rawValue.getTime())) {
+      values[key] = formatDateIndonesian(rawValue);
+      continue;
+    }
+  }
+
+  return values;
+}
+
+function renderDynamicTemplatePage(template: DynamicTemplatePreview, renderedHtml: string): string {
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preview ${escapeHtml(template.jenisSurat)}</title>
+  <style>
+    body { margin: 0; background: #e5e7eb; font-family: Arial, sans-serif; }
+    .page-wrap { max-width: 900px; margin: 24px auto; padding: 0 12px; }
+    .paper { background: #fff; min-height: 1122px; padding: 56px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12); }
+    .paper-content { font-family: 'Times New Roman', serif; color: #111827; line-height: 1.65; font-size: 18px; }
+
+    @media print {
+      body { background: #fff; }
+      .page-wrap { max-width: none; margin: 0; padding: 0; }
+      .paper { box-shadow: none; min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <article class="paper">
+      <div class="paper-content">${renderedHtml}</div>
+    </article>
+  </div>
+</body>
+</html>`;
+}
+
 function getTextWithDetail(primaryValue: unknown, detailData: DetailData, keys: string[]): string | undefined {
   const fromPrimary = asText(primaryValue);
   if (fromPrimary) return fromPrimary;
@@ -453,12 +620,28 @@ export async function GET(
 
     const detailData = parseDetailData(permohonan.data_detail);
     const suratSlug = normalizeSuratSlug(permohonan.jenis_surat);
+    const tanggalSurat = new Date(permohonan.updated_at || permohonan.created_at || Date.now());
 
     if (!suratSlug) {
-      return NextResponse.json({ error: 'Jenis surat tidak valid untuk preview' }, { status: 400 });
-    }
+      const dynamicTemplateId = asText(detailData.dynamic_template_id);
+      const dynamicTemplate = await findDynamicTemplateForPreview(permohonan.jenis_surat, dynamicTemplateId);
 
-    const tanggalSurat = new Date(permohonan.updated_at || permohonan.created_at || Date.now());
+      if (!dynamicTemplate) {
+        return NextResponse.json({ error: 'Jenis surat tidak valid untuk preview' }, { status: 400 });
+      }
+
+      const previewNomorSurat = permohonan.nomor_surat
+        ? String(permohonan.nomor_surat)
+        : `DRAFT/${String(permohonan.id).padStart(3, '0')}`;
+      const renderValues = buildDynamicTemplateValues(permohonan, detailData, previewNomorSurat, tanggalSurat);
+      const htmlBody = renderTemplateWithValues(dynamicTemplate.htmlTemplate, renderValues);
+
+      return new NextResponse(renderDynamicTemplatePage(dynamicTemplate, htmlBody), {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+        },
+      });
+    }
     const tempatLahir = getTextWithDetail(permohonan.tempat_lahir, detailData, [
       'tempat_lahir',
       'tempatLahir',

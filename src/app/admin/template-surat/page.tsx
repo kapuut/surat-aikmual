@@ -24,6 +24,11 @@ type TemplateItem = {
   updated_at: string;
 };
 
+const HIDDEN_SURAT_SLUGS = new Set(["surat-kepemilikan"]);
+const AVAILABLE_SURAT_TYPES = ALLOWED_SURAT_TYPES.filter(
+  (item) => !HIDDEN_SURAT_SLUGS.has(item.slug)
+);
+
 type EditableTemplateField = {
   name: string;
   label: string;
@@ -31,6 +36,15 @@ type EditableTemplateField = {
   required: boolean;
   placeholder: string;
   optionsText: string;
+};
+
+type FieldPreset = {
+  name: string;
+  label: string;
+  type: TemplateFieldType;
+  required?: boolean;
+  placeholder?: string;
+  optionsText?: string;
 };
 
 const EMPTY_FIELD: EditableTemplateField = {
@@ -41,6 +55,82 @@ const EMPTY_FIELD: EditableTemplateField = {
   placeholder: "",
   optionsText: "",
 };
+
+const FIELD_PRESETS: FieldPreset[] = [
+  { name: "nama", label: "Nama Lengkap", type: "text", required: true },
+  { name: "nik", label: "NIK / No KTP", type: "text", required: true },
+  { name: "alamat", label: "Alamat", type: "textarea", required: true },
+  { name: "tempat_lahir", label: "Tempat Lahir", type: "text", required: false },
+  { name: "tanggal_lahir", label: "Tanggal Lahir", type: "date", required: false },
+  { name: "jenis_kelamin", label: "Jenis Kelamin", type: "select", required: false, optionsText: "Laki-laki, Perempuan" },
+  { name: "pekerjaan", label: "Pekerjaan", type: "text", required: false },
+  { name: "keperluan", label: "Keperluan", type: "textarea", required: false },
+];
+
+function normalizeFieldName(value: string): string {
+  const normalized = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return normalized || "field_baru";
+}
+
+function escapeSimpleHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeHtmlPreservingPlaceholders(value: string): string {
+  const placeholders: string[] = [];
+  const markerText = value.replace(/{{\s*[a-zA-Z0-9_]+\s*}}/g, (match) => {
+    const marker = `__PLACEHOLDER_${placeholders.length}__`;
+    placeholders.push(match);
+    return marker;
+  });
+
+  const escaped = escapeSimpleHtml(markerText);
+  return escaped.replace(/__PLACEHOLDER_(\d+)__/g, (_, indexText: string) => {
+    const index = Number(indexText);
+    return placeholders[index] || "";
+  });
+}
+
+function buildSimpleTemplateHtml(jenisSurat: string, bodyText: string): string {
+  const normalizedParagraphs = bodyText
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => {
+      const withBreakLines = paragraph
+        .split("\n")
+        .map((line) => escapeHtmlPreservingPlaceholders(line))
+        .join("<br />");
+      return `<p style="margin: 0 0 12px;">${withBreakLines}</p>`;
+    })
+    .join("\n");
+
+  return `
+    <div style="font-family: 'Times New Roman', serif; line-height: 1.7; color: #111827;">
+      <h2 style="text-align:center; margin-bottom: 0;">${escapeSimpleHtml(jenisSurat.toUpperCase())}</h2>
+      <p style="text-align:center; margin-top: 4px;">Nomor: {{nomor_surat}}</p>
+
+      ${normalizedParagraphs}
+
+      <div style="margin-top: 32px; text-align:right;">
+        <p>{{kota}}, {{tanggal_surat}}</p>
+        <p>Kepala Desa {{nama_desa}}</p>
+        <br /><br /><br />
+        <p><b>{{nama_kepala_desa}}</b></p>
+      </div>
+    </div>
+  `.trim();
+}
 
 export default function TemplateSuratPage() {
   const initialTemplateId = DYNAMIC_SURAT_TEMPLATES[0]?.id ?? "";
@@ -63,13 +153,13 @@ export default function TemplateSuratPage() {
     nama: "",
     jenisSurat: "",
     deskripsi: "",
-    htmlTemplate: "",
   });
+  const [simpleTemplateText, setSimpleTemplateText] = useState("");
   const [newDynamicFields, setNewDynamicFields] = useState<EditableTemplateField[]>([EMPTY_FIELD]);
   const [formData, setFormData] = useState({
     nama: "",
     deskripsi: "",
-    jenisSurat: ALLOWED_SURAT_TYPES[0]?.title || "",
+    jenisSurat: AVAILABLE_SURAT_TYPES[0]?.title || "",
     file: null as File | null,
   });
 
@@ -82,6 +172,15 @@ export default function TemplateSuratPage() {
     if (!selectedDynamicTemplateId) return undefined;
     return dynamicTemplateOptions.find((item) => item.id === selectedDynamicTemplateId);
   }, [dynamicTemplateOptions, selectedDynamicTemplateId]);
+
+  const availablePlaceholderTokens = useMemo(() => {
+    return newDynamicFields
+      .map((field) => ({
+        name: field.name.trim(),
+        label: field.label.trim(),
+      }))
+      .filter((field) => field.name);
+  }, [newDynamicFields]);
 
   const fetchDynamicTemplates = async () => {
     try {
@@ -164,6 +263,29 @@ export default function TemplateSuratPage() {
     setNewDynamicFields((prev) => [...prev, { ...EMPTY_FIELD }]);
   };
 
+  const addPresetField = (preset: FieldPreset) => {
+    setNewDynamicFields((prev) => {
+      if (prev.some((field) => field.name.trim() === preset.name)) {
+        return prev;
+      }
+
+      const mappedPreset: EditableTemplateField = {
+        name: preset.name,
+        label: preset.label,
+        type: preset.type,
+        required: preset.required ?? true,
+        placeholder: preset.placeholder ?? "",
+        optionsText: preset.optionsText ?? "",
+      };
+
+      if (prev.length === 1 && !prev[0].name.trim() && !prev[0].label.trim()) {
+        return [mappedPreset];
+      }
+
+      return [...prev, mappedPreset];
+    });
+  };
+
   const removeNewDynamicField = (index: number) => {
     setNewDynamicFields((prev) => {
       const nextFields = prev.filter((_, fieldIndex) => fieldIndex !== index);
@@ -179,7 +301,12 @@ export default function TemplateSuratPage() {
     const nama = newDynamicTemplate.nama.trim();
     const jenisSurat = newDynamicTemplate.jenisSurat.trim();
     const deskripsi = newDynamicTemplate.deskripsi.trim();
-    const htmlTemplate = newDynamicTemplate.htmlTemplate.trim();
+    const htmlTemplate = buildSimpleTemplateHtml(jenisSurat, simpleTemplateText.trim());
+
+    if (!simpleTemplateText.trim()) {
+      setDynamicError("Isi paragraf surat wajib diisi pada Mode Mudah.");
+      return;
+    }
 
     if (!nama || !jenisSurat || !deskripsi || !htmlTemplate) {
       setDynamicError("Nama surat, jenis surat, deskripsi, dan isi template wajib diisi.");
@@ -265,7 +392,8 @@ export default function TemplateSuratPage() {
       }
 
       setDynamicMessage("Jenis surat dinamis berhasil ditambahkan.");
-      setNewDynamicTemplate({ nama: "", jenisSurat: "", deskripsi: "", htmlTemplate: "" });
+      setNewDynamicTemplate({ nama: "", jenisSurat: "", deskripsi: "" });
+      setSimpleTemplateText("");
       setNewDynamicFields([{ ...EMPTY_FIELD }]);
     } catch (err) {
       setDynamicError(err instanceof Error ? err.message : "Gagal menambah jenis surat dinamis");
@@ -312,7 +440,7 @@ export default function TemplateSuratPage() {
       setFormData({
         nama: "",
         deskripsi: "",
-        jenisSurat: ALLOWED_SURAT_TYPES[0]?.title || "",
+        jenisSurat: AVAILABLE_SURAT_TYPES[0]?.title || "",
         file: null,
       });
       await fetchTemplates();
@@ -480,26 +608,37 @@ export default function TemplateSuratPage() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-gray-700">Isi Template (HTML + Placeholder)</label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Isi Paragraf Surat (Tanpa HTML)</label>
               <textarea
-                value={newDynamicTemplate.htmlTemplate}
-                onChange={(event) =>
-                  setNewDynamicTemplate((prev) => ({ ...prev, htmlTemplate: event.target.value }))
-                }
-                rows={7}
-                placeholder="Contoh: &lt;p&gt;Yang bertanda tangan ... {{nama}} ... {{alamat}} ...&lt;/p&gt;"
+                value={simpleTemplateText}
+                onChange={(event) => setSimpleTemplateText(event.target.value)}
+                rows={8}
+                placeholder={"Contoh:\nYang bertanda tangan di bawah ini menerangkan bahwa {{nama}} dengan NIK {{nik}} benar berdomisili di {{alamat}}.\n\nSurat ini dibuat untuk keperluan {{keperluan}}."}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 required
               />
               <p className="mt-1 text-xs text-gray-500">
-                Gunakan placeholder format <span className="font-medium">{"{{nama_field}}"}</span> sesuai nama field di bawah.
+                Cukup tulis kalimat biasa. Sistem otomatis menyusun layout surat. Gunakan placeholder format <span className="font-medium">{"{{nama_field}}"}</span>.
               </p>
+
+              {availablePlaceholderTokens.length > 0 && (
+                <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-xs font-medium text-gray-700">Placeholder yang tersedia:</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {availablePlaceholderTokens.map((field) => (
+                      <span key={field.name} className="rounded-md bg-white px-2 py-1 text-xs text-gray-700 border border-gray-200">
+                        {`{{${field.name}}}`} {field.label ? `- ${field.label}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="mt-5 rounded-lg border border-emerald-100 bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-gray-800">Daftar Field Placeholder</h4>
+              <h4 className="text-sm font-semibold text-gray-800">Daftar Field Isian Warga</h4>
               <button
                 type="button"
                 onClick={addNewDynamicField}
@@ -509,17 +648,34 @@ export default function TemplateSuratPage() {
               </button>
             </div>
 
-            <p className="mb-3 text-xs text-gray-500">
-              Kamu bisa tambah field apa saja sesuai kebutuhan surat (misalnya: rt, rw, nama_ayah, nomor_kk, dll).
-              Nama field gunakan huruf/angka/underscore, contoh: <span className="font-medium">nama_ayah</span>.
-            </p>
+            <div className="mb-3 rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-gray-700 space-y-1">
+              <p><span className="font-semibold">Kode Placeholder</span>: kunci untuk dipakai di isi surat, contoh <span className="font-medium">nama_ayah</span> lalu dipanggil dengan <span className="font-medium">{"{{nama_ayah}}"}</span>.</p>
+              <p><span className="font-semibold">Label</span>: judul yang muncul di form masyarakat.</p>
+              <p><span className="font-semibold">Tipe</span>: bentuk input (text/tanggal/pilihan).</p>
+            </div>
+
+            <div className="mb-3">
+              <p className="mb-2 text-xs font-medium text-gray-700">Tambah cepat dari contoh umum:</p>
+              <div className="flex flex-wrap gap-2">
+                {FIELD_PRESETS.map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => addPresetField(preset)}
+                    className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-xs text-emerald-700 hover:bg-emerald-50"
+                  >
+                    + {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="space-y-3">
               {newDynamicFields.map((field, index) => (
                 <div key={`${index}-${field.name}`} className="rounded-lg border border-gray-200 p-3">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600">Nama Field</label>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">Kode Placeholder</label>
                       <input
                         type="text"
                         value={field.name}
@@ -534,7 +690,11 @@ export default function TemplateSuratPage() {
                       <input
                         type="text"
                         value={field.label}
-                        onChange={(event) => updateNewField(index, { label: event.target.value })}
+                        onChange={(event) => {
+                          const nextLabel = event.target.value;
+                          const autoName = field.name.trim() ? field.name : normalizeFieldName(nextLabel);
+                          updateNewField(index, { label: nextLabel, name: autoName });
+                        }}
                         placeholder="Nama Lengkap"
                         className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
@@ -650,7 +810,7 @@ export default function TemplateSuratPage() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               >
-                {ALLOWED_SURAT_TYPES.map((item) => (
+                {AVAILABLE_SURAT_TYPES.map((item) => (
                   <option key={item.slug} value={item.title}>
                     {item.title}
                   </option>

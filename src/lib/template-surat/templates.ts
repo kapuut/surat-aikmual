@@ -144,7 +144,7 @@ export const DYNAMIC_SURAT_TEMPLATES: DynamicSuratTemplate[] = ALLOWED_SURAT_TYP
     htmlTemplate: buildTemplateHtml(metadata.judul, metadataFields),
     fields: allFields,
   };
-});
+}).filter((template) => template.id !== 'surat-kepemilikan');
 
 export function getTemplateById(templateId: string): DynamicSuratTemplate | undefined {
   return DYNAMIC_SURAT_TEMPLATES.find((item) => item.id === templateId);

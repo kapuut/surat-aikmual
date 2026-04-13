@@ -19,6 +19,12 @@ type WorkflowStatus =
   | 'selesai'
   | 'ditolak';
 
+type DynamicTemplateLookupRow = {
+  id: string;
+  jenis_surat: string;
+  status: string;
+};
+
 async function saveUploadedFiles(files: File[]): Promise<string[]> {
   if (files.length === 0) return [];
 
@@ -222,6 +228,8 @@ function collectAdditionalDetailFields(payload: Record<string, unknown>): Record
     'jenis_surat',
     'jenisSurat',
     'jenis',
+    'dynamicTemplateId',
+    'dynamic_template_id',
     'nama_pemohon',
     'nama_lengkap',
     'nama',
@@ -395,6 +403,48 @@ function collectAdditionalDetailFields(payload: Record<string, unknown>): Record
   return additionalDetail;
 }
 
+async function findActiveDynamicTemplate(
+  dynamicTemplateId: string,
+  jenisSurat: string
+): Promise<DynamicTemplateLookupRow | null> {
+  try {
+    const trimmedId = dynamicTemplateId.trim();
+    if (trimmedId) {
+      const [rows] = await db.execute(
+        `SELECT id, jenis_surat, status
+         FROM dynamic_template_surat
+         WHERE id = ? AND status = 'aktif'
+         LIMIT 1`,
+        [trimmedId]
+      );
+
+      const matched = (rows as DynamicTemplateLookupRow[])[0];
+      if (matched) return matched;
+    }
+
+    const trimmedJenisSurat = jenisSurat.trim();
+    if (!trimmedJenisSurat) return null;
+
+    const [rows] = await db.execute(
+      `SELECT id, jenis_surat, status
+       FROM dynamic_template_surat
+       WHERE LOWER(TRIM(jenis_surat)) = LOWER(TRIM(?))
+         AND status = 'aktif'
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      [trimmedJenisSurat]
+    );
+
+    return ((rows as DynamicTemplateLookupRow[])[0] || null);
+  } catch (error: unknown) {
+    const message = String((error as { message?: unknown })?.message || '').toLowerCase();
+    if (message.includes("doesn't exist") || message.includes('does not exist')) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function handlePermohonanPost(request: Request) {
   try {
     const contentType = request.headers.get('content-type') || '';
@@ -414,8 +464,13 @@ async function handlePermohonanPost(request: Request) {
     }
 
     const rawJenisSurat = getFirstStringValue(payload, ['jenis_surat', 'jenisSurat', 'jenis']);
+    const dynamicTemplateId = getFirstStringValue(payload, ['dynamicTemplateId', 'dynamic_template_id']);
     const suratSlug = normalizeSuratSlug(rawJenisSurat);
-    if (!suratSlug) {
+    const customTemplate = suratSlug
+      ? null
+      : await findActiveDynamicTemplate(dynamicTemplateId, rawJenisSurat);
+
+    if (!suratSlug && !customTemplate) {
       return NextResponse.json(
         { error: 'Jenis surat tidak tersedia' },
         { status: 400 }
@@ -429,7 +484,8 @@ async function handlePermohonanPost(request: Request) {
       );
     }
 
-    const surat = getSuratBySlug(suratSlug);
+    const surat = suratSlug ? getSuratBySlug(suratSlug) : null;
+    const resolvedJenisSurat = surat?.title || customTemplate?.jenis_surat || rawJenisSurat;
     const namaPemohon = toTitleCase(getFirstStringValue(payload, ['nama_pemohon', 'nama_lengkap', 'nama', 'nama_anak']));
     const nikInput = getFirstStringValue(payload, ['nik']);
     const alamatRaw = getFirstStringValue(payload, ['alamat', 'alamatSekarang', 'alamat_saat_ini', 'alamatTerakhir', 'alamat_terakhir']);
@@ -700,6 +756,7 @@ async function handlePermohonanPost(request: Request) {
     const effectiveTelepon = teleponInput || teleponUser;
 
     const detailData: Record<string, unknown> = {
+      dynamic_template_id: customTemplate?.id || dynamicTemplateId || undefined,
       tempat_lahir: tempatLahir || undefined,
       tanggal_lahir: tanggalLahir || undefined,
       jenis_kelamin: jenisKelamin || undefined,
@@ -1079,7 +1136,7 @@ async function handlePermohonanPost(request: Request) {
          (jenis_surat, nama_pemohon, nik, alamat, keperluan, tempat_lahir, tanggal_lahir, jenis_kelamin, agama, pekerjaan, status_perkawinan, kewarganegaraan, masa_berlaku_dari, masa_berlaku_sampai, dokumen_path, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         values: [
-          surat.title,
+          resolvedJenisSurat,
           namaPemohon,
           nik,
           alamat,
@@ -1101,25 +1158,25 @@ async function handlePermohonanPost(request: Request) {
         query: `INSERT INTO permohonan_surat 
          (jenis_surat, nama_pemohon, nik, alamat, keperluan, data_detail, dokumen_path, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        values: [surat.title, namaPemohon, nik, alamat, keperluan, detailDataJson, filePayload, 'pending'],
+        values: [resolvedJenisSurat, namaPemohon, nik, alamat, keperluan, detailDataJson, filePayload, 'pending'],
       },
       {
         query: `INSERT INTO permohonan_surat 
          (jenis_surat, nama_pemohon, nik, alamat, keperluan, data_detail, file_path, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        values: [surat.title, namaPemohon, nik, alamat, keperluan, detailDataJson, filePayload, 'pending'],
+        values: [resolvedJenisSurat, namaPemohon, nik, alamat, keperluan, detailDataJson, filePayload, 'pending'],
       },
       {
         query: `INSERT INTO permohonan_surat 
          (jenis_surat, nama_pemohon, nik, alamat, keperluan, dokumen_path, status)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        values: [surat.title, namaPemohon, nik, alamat, keperluan, filePayload, 'pending'],
+        values: [resolvedJenisSurat, namaPemohon, nik, alamat, keperluan, filePayload, 'pending'],
       },
       {
         query: `INSERT INTO permohonan_surat 
          (jenis_surat, nama_pemohon, nik, alamat, keperluan, file_path, status)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        values: [surat.title, namaPemohon, nik, alamat, keperluan, filePayload, 'pending'],
+        values: [resolvedJenisSurat, namaPemohon, nik, alamat, keperluan, filePayload, 'pending'],
       },
     ];
 

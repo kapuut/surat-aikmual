@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
 
     const pembuatSurat = String(row.processed_by_name || "").trim() || "Petugas Desa";
     const suratUntuk = `${String(row.nama_pemohon || "-")} (${String(row.nik || "-")})`;
+    const suratUntukPublik = String(row.nama_pemohon || "-");
 
     const source = [
       String(row.id),
@@ -103,8 +104,7 @@ export async function GET(request: NextRequest) {
         id: Number(row.id),
         nomor_surat: String(row.nomor_surat || "-"),
         nama_pemohon: String(row.nama_pemohon || "-"),
-        nik: String(row.nik || "-"),
-        surat_untuk: suratUntuk,
+        surat_untuk: suratUntukPublik,
         jenis_surat: String(row.jenis_surat || "-"),
         keperluan: String(row.keperluan || "-"),
         pembuat_surat: pembuatSurat,
