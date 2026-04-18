@@ -1,8 +1,9 @@
 ﻿"use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiUpload } from 'react-icons/fi';
+import { checkBusinessHours } from '@/lib/utils';
 
 interface FormData {
   nama_anak: string;
@@ -18,6 +19,15 @@ interface FormData {
 export default function FormAktaKelahiran() {
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Check business hours on page load
+  useEffect(() => {
+    const hoursCheck = checkBusinessHours();
+    if (!hoursCheck.isAllowed) {
+      setErrorMessage(hoursCheck.message || "Diluar jam kerja");
+    }
+  }, []);
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);

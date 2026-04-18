@@ -11,7 +11,6 @@ export default function SuratMasihHidupInfoPage() {
   const persyaratan = [
     "NIK terdaftar dan akun sudah tervalidasi admin",
     "Isi data identitas: Nama, TTL, Kelamin, Agama, Alamat terakhir",
-    "Nomor WhatsApp aktif untuk menerima notifikasi status surat",
     "KTP dan KK cukup diunggah sekali saat registrasi akun",
     "Dokumen pendukung tambahan (opsional jika diminta petugas)",
   ];

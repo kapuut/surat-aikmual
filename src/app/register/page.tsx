@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FiUser, FiMail, FiLock, FiMapPin, FiPhone, FiEye, FiEyeOff, FiUserPlus, FiUpload } from "react-icons/fi";
@@ -12,6 +12,65 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [nikInput, setNikInput] = useState("");
+  const [nikCheckState, setNikCheckState] = useState<"idle" | "checking" | "taken" | "available">("idle");
+  const [nikCheckMessage, setNikCheckMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const nik = nikInput.trim();
+
+    if (!nik) {
+      setNikCheckState("idle");
+      setNikCheckMessage(null);
+      return;
+    }
+
+    if (!/^\d+$/.test(nik) || nik.length < 16) {
+      setNikCheckState("idle");
+      setNikCheckMessage(null);
+      return;
+    }
+
+    if (nik.length > 16) {
+      setNikCheckState("idle");
+      setNikCheckMessage("NIK wajib 16 digit angka");
+      return;
+    }
+
+    const abortController = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setNikCheckState("checking");
+      setNikCheckMessage("Memeriksa NIK...");
+
+      try {
+        const response = await fetch(`/api/auth/check-nik?nik=${encodeURIComponent(nik)}`, {
+          method: "GET",
+          signal: abortController.signal,
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (data?.exists) {
+          setNikCheckState("taken");
+          setNikCheckMessage("NIK sudah digunakan");
+          return;
+        }
+
+        setNikCheckState("available");
+        setNikCheckMessage(null);
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        setNikCheckState("idle");
+        setNikCheckMessage(null);
+      }
+    }, 350);
+
+    return () => {
+      abortController.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [nikInput]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -39,6 +98,12 @@ export default function RegisterPage() {
 
     if (!/^\d{16}$/.test(payload.nik)) {
       setError("NIK wajib 16 digit angka");
+      setLoading(false);
+      return;
+    }
+
+    if (nikCheckState === "taken") {
+      setError("NIK sudah digunakan");
       setLoading(false);
       return;
     }
@@ -184,10 +249,32 @@ export default function RegisterPage() {
                     required
                     maxLength={16}
                     pattern="[0-9]{16}"
-                    className="block w-full pl-10 pr-3 py-3 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={nikInput}
+                    onChange={(e) => {
+                      const sanitized = e.target.value.replace(/\D/g, "").slice(0, 16);
+                      setNikInput(sanitized);
+                    }}
+                    className={`block w-full pl-10 pr-3 py-3 bg-white text-gray-900 border rounded-lg focus:ring-2 ${
+                      nikCheckState === "taken"
+                        ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                        : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                    }`}
                     placeholder="Masukkan NIK"
                   />
                 </div>
+                {nikCheckMessage && (
+                  <p
+                    className={`mt-1 text-xs ${
+                      nikCheckState === "taken"
+                        ? "text-red-600"
+                        : nikCheckState === "checking"
+                          ? "text-gray-500"
+                          : "text-gray-500"
+                    }`}
+                  >
+                    {nikCheckMessage}
+                  </p>
+                )}
               </div>
 
               <div>

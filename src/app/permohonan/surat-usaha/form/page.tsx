@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiBriefcase, FiCheckCircle, FiSend, FiUpload } from "react-icons/fi";
+import { checkBusinessHours } from "@/lib/utils";
 
 function normalizeSpacing(value: string): string {
   return value.replace(/\s+/g, " ").trim();
@@ -25,6 +26,14 @@ export default function SuratUsahaFormPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Check business hours on page load
+  useEffect(() => {
+    const hoursCheck = checkBusinessHours();
+    if (!hoursCheck.isAllowed) {
+      setError(hoursCheck.message || "Diluar jam kerja");
+    }
+  }, []);
 
   const showFeedback = () => {
     if (typeof window !== "undefined") {

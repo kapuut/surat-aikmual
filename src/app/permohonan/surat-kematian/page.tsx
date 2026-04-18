@@ -11,10 +11,8 @@ export default function SuratKematianInfoPage() {
   const persyaratan = [
     "NIK terdaftar dan akun sudah tervalidasi admin",
     "KTP dan KK cukup diunggah sekali saat registrasi akun",
-    "Scan/foto KTP Almarhum/Almarhumah",
     "Scan/foto Surat Keterangan Kematian dari Rumah Sakit/Dokter (jika ada)",
     "Scan/foto Surat Pengantar dari RT/RW",
-    "Upload pas foto pemohon 3x4",
   ];
 
   const prosedur = [

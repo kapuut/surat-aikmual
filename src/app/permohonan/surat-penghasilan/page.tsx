@@ -11,8 +11,6 @@ export default function SuratPenghasilanInfoPage() {
   const persyaratan = [
     "Scan/foto KTP yang masih berlaku",
     "Scan/foto Kartu Keluarga (KK)",
-    "Scan/foto Surat Pengantar dari RT/RW",
-    "Upload pas foto 3x4",
     "Scan/foto slip gaji/bukti penghasilan (jika ada)",
     "Scan/foto surat keterangan dari tempat kerja (jika bekerja)",
   ];

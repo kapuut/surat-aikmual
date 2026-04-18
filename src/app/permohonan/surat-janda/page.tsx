@@ -13,8 +13,6 @@ export default function SuratJandaInfoPage() {
     "KTP dan KK cukup diunggah sekali saat registrasi akun",
     "Scan/foto Akta/Surat Keterangan Kematian Suami (untuk janda)",
     "Scan/foto Akta Nikah/Buku Nikah",
-    "Scan/foto Surat Pengantar dari RT/RW",
-    "Upload pas foto 4x6",
   ];
 
   const prosedur = [

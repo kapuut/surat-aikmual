@@ -13,8 +13,6 @@ export default function SuratCeraiInfoPage() {
     "KTP dan KK cukup diunggah sekali saat registrasi akun",
     "Scan/foto Akta Nikah/Buku Nikah",
     "Scan/foto Surat Cerai dari Pengadilan",
-    "Scan/foto Surat Pengantar dari RT/RW",
-    "Upload pas foto 4x6",
   ];
 
   const prosedur = [

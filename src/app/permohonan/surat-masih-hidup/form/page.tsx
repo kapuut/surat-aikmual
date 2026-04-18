@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiCheckCircle, FiHeart, FiSend, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useRequireAuth } from "@/lib/hooks";
+import { checkBusinessHours } from "@/lib/utils";
 
 export default function SuratMasihHidupFormPage() {
   const router = useRouter();
@@ -21,6 +22,14 @@ export default function SuratMasihHidupFormPage() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
+
+  // Check business hours on page load
+  useEffect(() => {
+    const hoursCheck = checkBusinessHours();
+    if (!hoursCheck.isAllowed) {
+      setError(hoursCheck.message || "Diluar jam kerja");
+    }
+  }, []);
 
   const normalizeSpacing = (value: string) => value.replace(/\s+/g, " ").trim();
 
@@ -273,20 +282,7 @@ export default function SuratMasihHidupFormPage() {
                     <option value="Konghucu">Konghucu</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nomor WhatsApp Aktif <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    name="noTelp"
-                    required
-                    defaultValue={user?.telepon || ""}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="08xxxxxxxxxx"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Dipakai untuk notifikasi status surat melalui WhatsApp.</p>
-                </div>
+
               </div>
             </div>
 

@@ -235,10 +235,6 @@ export default function HomePage() {
                 <FiMapPin className="h-4 w-4" />
                 <span>Kantor Desa Aikmual</span>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-black/20 px-4 py-2">
-                <FiPhone className="h-4 w-4" />
-                <span>Kontak Pelayanan: 08xx-xxxx-xxxx</span>
-              </div>
             </div>
           </div>
         </div>

@@ -11,7 +11,7 @@ export default function SuratTidakPunyaRumahInfoPage() {
   const persyaratan = [
     "NIK terdaftar dan akun sudah tervalidasi admin",
     "KTP dan KK cukup diunggah sekali saat registrasi akun",
-    "Dokumen pendukung tambahan (opsional): surat pengantar RT/RW, bukti kontrak/sewa, atau surat keterangan menumpang",
+    "Dokumen pendukung tambahan (opsional): bukti kontrak/sewa, atau surat keterangan menumpang",
   ];
 
   const prosedur = [

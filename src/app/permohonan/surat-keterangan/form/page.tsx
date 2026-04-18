@@ -40,15 +40,24 @@ export default function FormSuratKeterangan() {
     tanggal_lahir: '',
     jenis_kelamin: '',
     dusun: '',
-    desa: 'Aikmual',
-    kecamatan: 'Praya',
-    kabupaten: 'Lombok Tengah',
-    provinsi: 'Nusa Tenggara Barat',
+    desa: '',
+    kecamatan: '',
+    kabupaten: '',
+    provinsi: '',
     jenis_surat: '',
-    keperluan: '-',
+    keperluan: '',
     no_hp: '',
-    email: ''
+    email: '',
   });
+  const [error, setError] = useState<string | null>(null);
+
+  // Check business hours on page load
+  useEffect(() => {
+    const hoursCheck = checkBusinessHours();
+    if (!hoursCheck.isAllowed) {
+      setError(hoursCheck.message || "Diluar jam kerja");
+    }
+  }, []);
   const [files, setFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 

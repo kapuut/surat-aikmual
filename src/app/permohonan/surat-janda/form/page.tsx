@@ -1,15 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiCheckCircle, FiSend, FiUpload, FiUser } from "react-icons/fi";
+import { checkBusinessHours } from "@/lib/utils";
 
 export default function SuratJandaPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Check business hours on page load
+  useEffect(() => {
+    const hoursCheck = checkBusinessHours();
+    if (!hoursCheck.isAllowed) {
+      setError(hoursCheck.message || "Diluar jam kerja");
+    }
+  }, []);
 
   const showFeedback = () => {
     if (typeof window !== "undefined") {

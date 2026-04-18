@@ -11,8 +11,6 @@ export default function SuratUsahaInfoPage() {
   const persyaratan = [
     "NIK terdaftar dan akun sudah tervalidasi admin",
     "KTP dan KK cukup diunggah sekali saat registrasi akun",
-    "Scan/foto Surat Pengantar dari RT/RW",
-    "Upload pas foto 3x4",
     "Upload foto tempat usaha (tampak depan)",
     "Scan/foto surat keterangan sewa/kontrak tempat usaha (jika menyewa)",
   ];

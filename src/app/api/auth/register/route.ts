@@ -129,14 +129,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const [existingRows] = await db.execute(
-      'SELECT 1 FROM users WHERE SUBSTRING_INDEX(nik, "_", 1) = ? OR email = ? LIMIT 1',
-      [nik, email]
+    const [existingNikRows] = await db.execute(
+      'SELECT 1 FROM users WHERE SUBSTRING_INDEX(nik, "_", 1) = ? LIMIT 1',
+      [nik]
     );
 
-    if (Array.isArray(existingRows) && existingRows.length > 0) {
+    const [existingEmailRows] = await db.execute(
+      'SELECT 1 FROM users WHERE LOWER(email) = ? LIMIT 1',
+      [email]
+    );
+
+    const nikSudahTerdaftar = Array.isArray(existingNikRows) && existingNikRows.length > 0;
+    const emailSudahTerdaftar = Array.isArray(existingEmailRows) && existingEmailRows.length > 0;
+
+    if (nikSudahTerdaftar && emailSudahTerdaftar) {
       return NextResponse.json(
-        { error: 'NIK atau email sudah terdaftar' },
+        { error: 'NIK dan email sudah terdaftar' },
+        { status: 409 }
+      );
+    }
+
+    if (nikSudahTerdaftar) {
+      return NextResponse.json(
+        { error: 'NIK sudah terdaftar' },
+        { status: 409 }
+      );
+    }
+
+    if (emailSudahTerdaftar) {
+      return NextResponse.json(
+        { error: 'Email sudah terdaftar' },
         { status: 409 }
       );
     }
@@ -214,6 +236,22 @@ export async function POST(request: Request) {
     console.error('Register error:', error);
 
     if (error?.code === 'ER_DUP_ENTRY') {
+      const duplicateSource = String(error?.sqlMessage || '').toLowerCase();
+
+      if (duplicateSource.includes('nik')) {
+        return NextResponse.json(
+          { error: 'NIK sudah terdaftar' },
+          { status: 409 }
+        );
+      }
+
+      if (duplicateSource.includes('email')) {
+        return NextResponse.json(
+          { error: 'Email sudah terdaftar' },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json(
         { error: 'NIK atau email sudah terdaftar' },
         { status: 409 }

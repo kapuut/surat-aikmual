@@ -1,17 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiSend, FiUsers, FiCheckCircle, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { checkBusinessHours } from "@/lib/utils";
 
 export default function SuratCeraiFormPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Check business hours on page load
+  useEffect(() => {
+    const hoursCheck = checkBusinessHours();
+    if (!hoursCheck.isAllowed) {
+      setError(hoursCheck.message || "Diluar jam kerja");
+    }
+  }, []);
 
   const showFeedback = () => {
     if (typeof window !== "undefined") {
