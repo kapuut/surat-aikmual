@@ -1,70 +1,81 @@
 import Link from "next/link";
-import { FiMail, FiPhone, FiMapPin } from "react-icons/fi";
+import Image from "next/image";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-gray-900 text-white mt-auto">
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* About */}
-          <div>
-            <h3 className="text-lg font-bold mb-3">SI Surat Desa Aikmual</h3>
-            <p className="text-gray-400 text-sm leading-relaxed">
-              Sistem Informasi Persuratan Desa Aikmual untuk memudahkan pelayanan administrasi kepada masyarakat.
+    <footer id="kontak" className="mt-auto border-t border-gray-200 bg-white text-gray-700">
+      <div className="mx-auto max-w-6xl px-6 py-9 md:px-8 md:py-10">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-8">
+          <div className="text-left">
+            <div className="mb-4 flex items-start gap-3">
+              <div className="relative h-12 w-12 flex-shrink-0">
+                <Image
+                  src="/images/logo-desa.png"
+                  alt="Logo Desa Aikmual"
+                  fill
+                  sizes="48px"
+                  className="object-contain"
+                />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold tracking-tight text-gray-900 md:text-2xl">Desa Aikmual</h3>
+                <p className="mt-1 text-sm text-gray-600 md:text-base">Pelayanan Online</p>
+              </div>
+            </div>
+            <p className="max-w-md text-sm leading-7 text-gray-600 md:text-base">
+              Sistem informasi pelayanan surat online untuk mempermudah pelayanan administrasi desa.
             </p>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h3 className="text-lg font-bold mb-3">Menu Cepat</h3>
-            <ul className="space-y-2 text-sm">
+          <div className="text-left md:justify-self-center">
+            <h3 className="mb-4 text-xl font-bold tracking-tight text-gray-900 md:text-2xl">Layanan</h3>
+            <ul className="space-y-2.5 text-sm text-gray-600 md:text-base">
               <li>
-                <Link href="/" className="text-gray-400 hover:text-white transition-colors">
-                  Beranda
+                <Link href="/permohonan/surat-domisili" className="transition-colors hover:text-blue-600">
+                  Surat Keterangan Domisili
                 </Link>
               </li>
               <li>
-                <Link href="/tracking" className="text-gray-400 hover:text-white transition-colors">
-                  Lacak Surat
+                <Link href="/permohonan/surat-masih-hidup" className="transition-colors hover:text-blue-600">
+                  Surat Keterangan Masih Hidup
                 </Link>
               </li>
               <li>
-                <Link href="/login" className="text-gray-400 hover:text-white transition-colors">
-                  Login Masyarakat
+                <Link href="/permohonan/surat-kematian" className="transition-colors hover:text-blue-600">
+                  Surat Keterangan Kematian
                 </Link>
               </li>
               <li>
-                <Link href="/staff/login" className="text-gray-400 hover:text-white transition-colors">
+                <Link href="/tracking" className="transition-colors hover:text-blue-600">
+                  Cek Progres Surat
+                </Link>
+              </li>
+              <li>
+                <Link href="/staff/login" className="transition-colors hover:text-blue-600">
                   Login Staff
                 </Link>
               </li>
             </ul>
           </div>
-          {/* Contact */}
-          <div>
-            <h3 className="text-lg font-bold mb-3">Kontak</h3>
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-start gap-2">
-                <FiMapPin className="w-4 h-4 mt-1 flex-shrink-0 text-gray-400" />
-                <span className="text-gray-400">Desa Aikmual, Kecamatan Praya Timur, Lombok Tengah</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <FiPhone className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-400">(0370) 123-4567</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <FiMail className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-400">desa.aikmual@example.com</span>
-              </li>
-            </ul>
+
+          <div className="text-left md:justify-self-end">
+            <h3 className="mb-4 text-xl font-bold tracking-tight text-gray-900 md:text-2xl">Kontak</h3>
+            <div className="space-y-2.5 text-sm text-gray-600 md:text-base">
+              <p>Kantor Desa Aikmual</p>
+              <p>Kecamatan Aikmual</p>
+              <p>Kabupaten Lombok Utara</p>
+              <p>Nusa Tenggara Barat</p>
+              <p>Telepon/WhatsApp: 085253271360</p>
+              <p>Senin-Jumat, 08.00-15.00 WITA</p>
+            </div>
           </div>
         </div>
-        {/* Bottom Bar */}
-        <div className="border-t border-gray-800 mt-8 pt-6 text-center">
-          <p className="text-sm text-gray-400">
-            &copy; {currentYear} Desa Aikmual. All rights reserved.
+
+        <div className="mt-8 border-t border-gray-200 pt-6 text-center">
+          <p className="text-sm text-gray-500 md:text-base">
+            &copy; {currentYear} SI Pengarsipan Surat Desa Aikmual. All rights reserved.
           </p>
         </div>
       </div>

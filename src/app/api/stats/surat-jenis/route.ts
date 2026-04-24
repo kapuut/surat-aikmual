@@ -8,6 +8,7 @@ type YearRow = { tahun?: number | string | null };
 type JenisRow = {
   jenis_surat?: string | null;
   jumlah?: number | string | null;
+  tanggal_terbaru?: string | Date | null;
 };
 
 const DATE_COLUMN_CANDIDATES = ['created_at', 'tanggal_permohonan', 'tanggal_dibuat', 'tanggal'];
@@ -22,13 +23,35 @@ function normalizeNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function buildDateFilter(dateColumn: string, year: number, month: number): { whereClause: string; params: unknown[] } {
+function normalizeDayValue(value: string | null): number | null {
+  if (!value) return null;
+  const n = parseInt(value, 10);
+  return !isNaN(n) && n >= 1 && n <= 31 ? n : null;
+}
+
+function buildDateFilter(
+  dateColumn: string,
+  year: number,
+  month: number,
+  dayFrom: number | null,
+  dayTo: number | null
+): { whereClause: string; params: unknown[] } {
   const whereParts = [`YEAR(${dateColumn}) = ?`];
   const params: unknown[] = [year];
 
   if (month > 0) {
     whereParts.push(`MONTH(${dateColumn}) = ?`);
     params.push(month);
+  }
+
+  if (dayFrom !== null) {
+    whereParts.push(`DAY(${dateColumn}) >= ?`);
+    params.push(dayFrom);
+  }
+
+  if (dayTo !== null) {
+    whereParts.push(`DAY(${dateColumn}) <= ?`);
+    params.push(dayTo);
   }
 
   return {
@@ -55,27 +78,33 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const parsedYear = normalizeNumber(searchParams.get('year'), now.getFullYear());
     const parsedMonth = normalizeNumber(searchParams.get('month'), 0);
+    const dateFrom = normalizeDayValue(searchParams.get('date_from'));
+    const dateTo = normalizeDayValue(searchParams.get('date_to'));
     const sortRaw = String(searchParams.get('sort') || 'desc').toLowerCase();
 
     const selectedYear = parsedYear >= 2000 && parsedYear <= 2100 ? parsedYear : now.getFullYear();
     const selectedMonth = parsedMonth >= 1 && parsedMonth <= 12 ? parsedMonth : 0;
-    const sortDirection = sortRaw === 'asc' ? 'ASC' : 'DESC';
+    const selectedSort = ['asc', 'desc', 'date_desc', 'date_asc'].includes(sortRaw) ? sortRaw : 'desc';
+    const isDateSort = selectedSort === 'date_desc' || selectedSort === 'date_asc';
+    const sortDirection = selectedSort === 'asc' ? 'ASC' : 'DESC';
+    const dateSortDirection = selectedSort === 'date_asc' ? 'ASC' : 'DESC';
 
     let rows: any[] = [];
     let resolvedDateColumn: string | null = null;
 
     for (const candidate of DATE_COLUMN_CANDIDATES) {
-      const { whereClause, params } = buildDateFilter(candidate, selectedYear, selectedMonth);
+      const { whereClause, params } = buildDateFilter(candidate, selectedYear, selectedMonth, dateFrom, dateTo);
 
       try {
         const [result]: any = await db.execute(
           `SELECT
              COALESCE(NULLIF(TRIM(jenis_surat), ''), 'Lainnya') AS jenis_surat,
-             COUNT(*) AS jumlah
+             COUNT(*) AS jumlah,
+             MAX(${candidate}) AS tanggal_terbaru
            FROM permohonan_surat
            ${whereClause}
            GROUP BY COALESCE(NULLIF(TRIM(jenis_surat), ''), 'Lainnya')
-           ORDER BY jumlah ${sortDirection}, jenis_surat ASC`,
+           ORDER BY ${isDateSort ? `tanggal_terbaru ${dateSortDirection}, jumlah DESC` : `jumlah ${sortDirection}`}, jenis_surat ASC`,
           params
         );
 
@@ -97,7 +126,7 @@ export async function GET(request: NextRequest) {
            COUNT(*) AS jumlah
          FROM permohonan_surat
          GROUP BY COALESCE(NULLIF(TRIM(jenis_surat), ''), 'Lainnya')
-         ORDER BY jumlah ${sortDirection}, jenis_surat ASC`
+        ORDER BY jumlah ${sortDirection}, jenis_surat ASC`
       );
       rows = Array.isArray(result) ? result : [];
     }
@@ -136,7 +165,9 @@ export async function GET(request: NextRequest) {
       filters: {
         year: selectedYear,
         month: selectedMonth,
-        sort: sortDirection.toLowerCase(),
+        dateFrom,
+        dateTo,
+        sort: selectedSort,
       },
       availableYears,
       summary: {

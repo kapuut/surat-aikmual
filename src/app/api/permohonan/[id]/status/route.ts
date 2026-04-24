@@ -13,6 +13,9 @@ import { normalizeSuratSlug } from '@/lib/surat-data';
 import { isWhatsAppApiConfigured, sendWhatsAppNotification } from '@/lib/whatsapp';
 import type { UserRole } from '@/lib/types';
 import { type JenisSurat, type SuratData } from '@/lib/surat-generator/types';
+import { renderTemplateWithValues } from '@/lib/template-surat/render-template';
+import { normalizeCustomTemplateHtml } from '@/lib/template-surat/official-layout';
+import { buildOfficialDynamicSystemValues } from '@/lib/template-surat/official-defaults';
 
 export const runtime = 'nodejs';
 
@@ -39,9 +42,25 @@ type PermohonanRow = {
   kewarganegaraan?: string | null;
   masa_berlaku_dari?: string | Date | null;
   masa_berlaku_sampai?: string | Date | null;
+  created_at?: string | Date | null;
+  updated_at?: string | Date | null;
 };
 
 type DetailData = Record<string, unknown>;
+
+type DynamicTemplateGenerationRow = {
+  id: string;
+  nama: string;
+  jenis_surat: string;
+  html_template: string;
+};
+
+type DynamicTemplateGeneration = {
+  id: string;
+  nama: string;
+  jenisSurat: string;
+  htmlTemplate: string;
+};
 
 type NormalizedStatus =
   | 'pending'
@@ -101,10 +120,42 @@ function normalizeCurrentStatus(rawStatus: unknown, nomorSurat: unknown, note?: 
   if (inferredFromNote) return inferredFromNote;
 
   if (typeof nomorSurat === 'string' && nomorSurat.trim()) {
-    return 'selesai';
+    return 'dikirim_ke_kepala_desa';
   }
 
   return 'pending';
+}
+
+function getDefaultStatusNote(status: NormalizedStatus, role: InternalRole): string {
+  if (status === 'dikirim_ke_kepala_desa') {
+    return 'Data diverifikasi admin dan dikirim ke Kepala Desa untuk proses tanda tangan.';
+  }
+
+  if (status === 'perlu_revisi') {
+    return role === 'kepala_desa'
+      ? 'Permohonan dikembalikan untuk revisi oleh Kepala Desa.'
+      : 'Permohonan perlu revisi oleh admin.';
+  }
+
+  if (status === 'ditandatangani') {
+    return 'Surat telah ditandatangani oleh Kepala Desa.';
+  }
+
+  if (status === 'selesai') {
+    return 'Permohonan selesai diproses dan surat siap digunakan.';
+  }
+
+  if (status === 'ditolak') {
+    return role === 'kepala_desa'
+      ? 'Permohonan ditolak oleh Kepala Desa.'
+      : 'Permohonan ditolak oleh admin.';
+  }
+
+  if (status === 'diproses') {
+    return 'Permohonan sedang diproses oleh admin.';
+  }
+
+  return 'Permohonan menunggu verifikasi admin.';
 }
 
 function statusLabel(status: NormalizedStatus): string {
@@ -358,6 +409,176 @@ function asText(value: unknown): string | undefined {
   return cleaned || undefined;
 }
 
+function formatDateIndonesian(value: Date): string {
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(value);
+}
+
+async function findDynamicTemplateForGeneration(
+  jenisSurat: string,
+  dynamicTemplateId?: string
+): Promise<DynamicTemplateGeneration | null> {
+  try {
+    if (dynamicTemplateId && dynamicTemplateId.trim()) {
+      const [rows] = await db.query<DynamicTemplateGenerationRow[]>(
+        `SELECT id, nama, jenis_surat, html_template
+         FROM dynamic_template_surat
+         WHERE id = ? AND status = 'aktif'
+         LIMIT 1`,
+        [dynamicTemplateId.trim()]
+      );
+
+      const row = rows?.[0];
+      if (row) {
+        return {
+          id: row.id,
+          nama: row.nama,
+          jenisSurat: row.jenis_surat,
+          htmlTemplate: row.html_template,
+        };
+      }
+    }
+
+    const [rows] = await db.query<DynamicTemplateGenerationRow[]>(
+      `SELECT id, nama, jenis_surat, html_template
+       FROM dynamic_template_surat
+       WHERE LOWER(TRIM(jenis_surat)) = LOWER(TRIM(?))
+         AND status = 'aktif'
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      [jenisSurat]
+    );
+
+    const row = rows?.[0];
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      nama: row.nama,
+      jenisSurat: row.jenis_surat,
+      htmlTemplate: row.html_template,
+    };
+  } catch (error: unknown) {
+    const message = String((error as { message?: unknown })?.message || '').toLowerCase();
+    if (message.includes("doesn't exist") || message.includes('does not exist')) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function buildDynamicTemplateValuesForGeneration(
+  permohonan: PermohonanRow,
+  detailData: DetailData,
+  nomorSurat: string,
+  tanggalSurat: Date
+): Record<string, string> {
+  const createdAtDate = asDate(permohonan.created_at) || tanggalSurat;
+  const values: Record<string, string> = {
+    nama: String(permohonan.nama_pemohon || '').trim(),
+    nik: String(permohonan.nik || '').trim(),
+    alamat: String(permohonan.alamat || '').trim(),
+    keperluan: String(permohonan.keperluan || '-').trim() || '-',
+    jenis_surat: String(permohonan.jenis_surat || '').trim(),
+    tanggal_permohonan: formatDateIndonesian(createdAtDate),
+    ...buildOfficialDynamicSystemValues(formatDateIndonesian(tanggalSurat), nomorSurat),
+  };
+
+  for (const [key, rawValue] of Object.entries(detailData)) {
+    if (rawValue == null) continue;
+
+    if (typeof rawValue === 'string') {
+      values[key] = rawValue;
+      continue;
+    }
+
+    if (typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+      values[key] = String(rawValue);
+      continue;
+    }
+
+    if (rawValue instanceof Date && !Number.isNaN(rawValue.getTime())) {
+      values[key] = formatDateIndonesian(rawValue);
+    }
+  }
+
+  return values;
+}
+
+function renderDynamicSuratDocument(
+  jenisSurat: string,
+  renderedHtml: string,
+  signatureOpts?: { signatureImageUrl?: string; qrCodeDataUrl?: string }
+): string {
+  // Official KOP surat header — same as static surat types
+  const kopHtml = `
+    <div style="margin-bottom:0.7cm;">
+      <div style="display:grid;grid-template-columns:98px 1fr;column-gap:10px;align-items:center;">
+        <div style="width:98px;height:98px;display:flex;align-items:center;justify-content:center;">
+          <img src="/images/logo-loteng.png" alt="Logo Lombok Tengah" style="width:88px;height:88px;object-fit:contain;" />
+        </div>
+        <div style="text-align:center;padding-right:98px;font-family:'Times New Roman',serif;">
+          <div style="font-size:14pt;font-weight:bold;letter-spacing:0.03em;text-transform:uppercase;">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
+          <div style="font-size:14pt;font-weight:bold;text-transform:uppercase;">KECAMATAN PRAYA</div>
+          <div style="font-size:14pt;font-weight:bold;text-transform:uppercase;margin-bottom:1px;">DESA AIKMUAL</div>
+          <div style="font-size:9pt;border:1px solid #111;padding:2px 6px;display:inline-block;min-width:86%;white-space:nowrap;">Alamat : Jln raya Praya &ndash; Mantang KM 07 Aikmual Praya Phone 08175726709 / 08175790747 Kode Post 83500</div>
+        </div>
+      </div>
+      <div style="margin-top:4px;border-top:1px solid #000;border-bottom:2px solid #000;height:3px;"></div>
+    </div>`;
+
+  // Replace the blank signature spacer with actual TTD images when signing
+  let body = renderedHtml;
+  const hasSignature = signatureOpts?.signatureImageUrl || signatureOpts?.qrCodeDataUrl;
+  if (hasSignature) {
+    const parts: string[] = [];
+    if (signatureOpts!.qrCodeDataUrl) {
+      parts.push(
+        `<div style="width:2.35cm;text-align:center;order:1;">` +
+        `<img src="${signatureOpts!.qrCodeDataUrl}" alt="QR verifikasi surat" ` +
+        `style="width:1.95cm;height:1.95cm;object-fit:contain;border:1px solid #111;padding:0.04cm;background:#fff;" /></div>`
+      );
+    }
+    if (signatureOpts!.signatureImageUrl) {
+      parts.push(
+        `<img src="${signatureOpts!.signatureImageUrl}" alt="Tanda tangan Kepala Desa" ` +
+        `style="width:3.2cm;height:2.1cm;object-fit:contain;order:2;" />`
+      );
+    }
+    const assetsHtml =
+      `<div style="margin-top:0.35cm;min-height:2.35cm;display:flex;justify-content:center;` +
+      `align-items:flex-end;gap:0.3cm;flex-direction:row;break-inside:avoid;">` +
+      parts.join('') + `</div>`;
+    // Replace spacer used in OFFICIAL_SIGNATURE_BLOCK
+    body = body.replace('<div style="height: 2.2cm;"></div>', assetsHtml);
+    // Replace spacer used in fallback template
+    body = body.replace('<div style="height: 78px;"></div>', assetsHtml);
+  }
+
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Surat ${jenisSurat}</title>
+  <style>
+    body { margin: 0; background: #f1f5f9; padding: 16px; font-family: 'Bookman Old Style', 'Book Antiqua', serif; font-size: 12pt; line-height: 1.5; color: #000; }
+    .paper { width: 21cm; min-height: 29.7cm; margin: 0 auto; background: #fff; padding: 1.2cm 1.3cm; box-shadow: 0 10px 25px rgba(15,23,42,0.12); }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .paper { width: 100%; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="paper">${kopHtml}${body}</div>
+</body>
+</html>`;
+}
+
 function asDate(value: unknown): Date | undefined {
   if (!value) return undefined;
   const dateValue = value instanceof Date ? value : new Date(String(value));
@@ -588,13 +809,14 @@ async function getNextNomorSuratWithLock(
 async function saveGeneratedSuratHtml(
   htmlContent: string,
   nomorSurat: string,
-  jenisSurat: JenisSurat
+  jenisSurat: string
 ): Promise<string> {
   const outputDir = path.join(process.cwd(), 'public', 'generated-surat');
   await mkdir(outputDir, { recursive: true });
 
   const safeNomor = nomorSurat.replace(/[^a-zA-Z0-9.-]+/g, '-');
-  const fileName = `${safeNomor}-${jenisSurat}.html`;
+  const safeJenisSurat = String(jenisSurat || 'surat').replace(/[^a-zA-Z0-9.-]+/g, '-').toLowerCase();
+  const fileName = `${safeNomor}-${safeJenisSurat}.html`;
   const absolutePath = path.join(outputDir, fileName);
 
   await writeFile(absolutePath, htmlContent, 'utf-8');
@@ -649,11 +871,10 @@ export async function PUT(
     const payload = await request.json();
     const normalizedStatus = normalizeStatus(payload?.status);
     const catatan = typeof payload?.catatan === 'string' ? payload.catatan.trim() : null;
-    const noteByRole =
-      authUser.role === 'admin'
-        ? 'Admin'
-        : 'Kepala Desa';
-    const effectiveCatatan = catatan || `Status diperbarui oleh ${noteByRole}`;
+    const actorRole: InternalRole = authUser.role === 'kepala_desa' ? 'kepala_desa' : 'admin';
+    const effectiveCatatan = normalizedStatus
+      ? (catatan || getDefaultStatusNote(normalizedStatus, actorRole))
+      : catatan;
 
     const processedByNumber = Number(authUser.id);
     const processedBy = Number.isFinite(processedByNumber) && processedByNumber > 0
@@ -699,17 +920,81 @@ export async function PUT(
     const shouldGenerateSurat = ['dikirim_ke_kepala_desa', 'ditandatangani', 'selesai'].includes(normalizedStatus);
 
     if (shouldGenerateSurat) {
+      const detailData = parseDetailData(permohonan.data_detail);
       const jenisSurat = toJenisSurat(permohonan.jenis_surat);
-      if (!jenisSurat) {
-        await connection.rollback();
-        return NextResponse.json(
-          { error: 'Jenis surat pada permohonan tidak dikenali' },
-          { status: 400 }
-        );
-      }
+      const dynamicTemplateId = asText(detailData.dynamic_template_id);
+      const dynamicTemplate = !jenisSurat
+        ? await findDynamicTemplateForGeneration(permohonan.jenis_surat, dynamicTemplateId)
+        : null;
 
       const tanggalSurat = new Date();
-      const detailData = parseDetailData(permohonan.data_detail);
+      const generatedJenisSuratKey = jenisSurat || dynamicTemplate?.id || permohonan.jenis_surat;
+
+      if (!nomorSurat) {
+        nomorSurat = await getNextNomorSuratWithLock(connection, tanggalSurat, jenisSurat || undefined);
+      }
+
+      const shouldEmbedSignature = ['ditandatangani', 'selesai'].includes(normalizedStatus);
+      const shouldRegenerateSurat = !generatedFilePath || shouldEmbedSignature;
+
+      if (!jenisSurat) {
+        if (shouldRegenerateSurat) {
+          const renderValues = buildDynamicTemplateValuesForGeneration(permohonan, detailData, nomorSurat, tanggalSurat);
+
+          if (shouldEmbedSignature) {
+            const signatureImageUrl = await resolveKepalaDesaSignatureUrl(processedBy);
+            const qr = await createPermohonanQrCode({
+              id: Number(params.id),
+              nomorSurat,
+              nik: permohonan.nik,
+              namaPemohon: permohonan.nama_pemohon,
+              jenisSurat: permohonan.jenis_surat,
+              keperluan: permohonan.keperluan,
+              suratUntuk: `${permohonan.nama_pemohon} (${permohonan.nik})`,
+              pembuatSurat: authUser.nama || 'Admin',
+            });
+
+            renderValues.qr_code = qr.dataUrl;
+            renderValues.kode_verifikasi = qr.verificationCode;
+            renderValues.ttd_kepala_desa = signatureImageUrl;
+            renderValues.signature_image_url = signatureImageUrl;
+          }
+
+          const fallbackTemplate = `
+            <div style="font-family: 'Bookman Old Style', 'Book Antiqua', serif; font-size: 12pt; line-height: 1.5; color: #000;">
+              <h2 style="text-align:center; margin: 0 0 6px 0; text-transform: uppercase; text-decoration: underline;">{{jenis_surat}}</h2>
+              <div style="text-align:center; margin-bottom: 16px;">Nomor : {{nomor_surat}}</div>
+              <p style="margin: 0 0 10px 0; text-align: justify; text-indent: 1.2cm;">Yang bertanda tangan di bawah ini Kepala Desa {{nama_desa}} menerangkan bahwa:</p>
+              <table style="width:100%; border-collapse:collapse; margin: 0 0 14px 0;">
+                <tr><td style="width:200px; vertical-align:top;">Nama</td><td style="width:12px; vertical-align:top;">:</td><td style="vertical-align:top;">{{nama}}</td></tr>
+                <tr><td style="vertical-align:top;">NIK</td><td style="vertical-align:top;">:</td><td style="vertical-align:top;">{{nik}}</td></tr>
+                <tr><td style="vertical-align:top;">Alamat</td><td style="vertical-align:top;">:</td><td style="vertical-align:top;">{{alamat}}</td></tr>
+                <tr><td style="vertical-align:top;">Keperluan</td><td style="vertical-align:top;">:</td><td style="vertical-align:top;">{{keperluan}}</td></tr>
+              </table>
+              <p style="margin: 0; text-align: justify; text-indent: 1.2cm;">Demikian surat ini dibuat agar dapat dipergunakan sebagaimana mestinya.</p>
+              <div style="margin-top: 22px; display: flex; justify-content: flex-end;">
+                <div style="width: 290px; text-align: center;">
+                  <div>{{kota}}, {{tanggal_surat}}</div>
+                  <div style="text-transform: uppercase;">Kepala Desa {{nama_desa}}</div>
+                  <div style="height: 78px;"></div>
+                  <div style="font-weight: bold; text-transform: uppercase; text-decoration: underline;">{{nama_kepala_desa}}</div>
+                </div>
+              </div>
+            </div>
+          `;
+
+          const templateBody = dynamicTemplate
+            ? normalizeCustomTemplateHtml(dynamicTemplate.htmlTemplate)
+            : fallbackTemplate;
+          const templateTitle = dynamicTemplate?.jenisSurat || permohonan.jenis_surat || 'Surat Keterangan';
+          const htmlBody = renderTemplateWithValues(templateBody, renderValues);
+          const htmlContent = renderDynamicSuratDocument(templateTitle, htmlBody, {
+            signatureImageUrl: renderValues.ttd_kepala_desa,
+            qrCodeDataUrl: renderValues.qr_code,
+          });
+          generatedFilePath = await saveGeneratedSuratHtml(htmlContent, nomorSurat, generatedJenisSuratKey);
+        }
+      } else {
       const tempatLahir = getTextWithDetail(permohonan.tempat_lahir, detailData, [
         'tempat_lahir',
         'tempatLahir',
@@ -1085,7 +1370,7 @@ export async function PUT(
             jenisSurat: permohonan.jenis_surat,
             keperluan: permohonan.keperluan,
             suratUntuk: `${permohonan.nama_pemohon} (${permohonan.nik})`,
-            pembuatSurat: authUser.nama || noteByRole,
+            pembuatSurat: authUser.nama || (actorRole === 'kepala_desa' ? 'Kepala Desa' : 'Admin'),
           });
           qrCodeDataUrl = qr.dataUrl;
           verificationCode = qr.verificationCode;
@@ -1224,8 +1509,9 @@ export async function PUT(
         };
 
         const htmlContent = generateSuratTemplate(suratData);
-        generatedFilePath = await saveGeneratedSuratHtml(htmlContent, nomorSurat, jenisSurat);
+        generatedFilePath = await saveGeneratedSuratHtml(htmlContent, nomorSurat, generatedJenisSuratKey);
       }
+    }
     }
 
     await updatePermohonanStatusRow(connection, {

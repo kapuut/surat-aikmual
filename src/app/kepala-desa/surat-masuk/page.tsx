@@ -10,15 +10,57 @@ interface SuratMasukItem {
   tanggal_surat: string;
   tanggal_terima: string;
   asal_surat: string;
+  urgensi?: "rendah" | "sedang" | "tinggi" | string;
   perihal: string;
   file_path?: string;
   latest_disposisi_tujuan?: string | null;
   latest_disposisi_tujuan_label?: string | null;
+  latest_disposisi_status?: string | null;
   latest_disposisi_at?: string | null;
 }
 
 const FIXED_TUJUAN_ROLE = "sekretaris";
 const FIXED_TUJUAN_LABEL = "Sekretaris Desa";
+
+type PenangananSurat = "baru" | "diproses" | "selesai";
+
+function getUrgensiLabel(rawValue: unknown): "Rendah" | "Sedang" | "Tinggi" {
+  const value = String(rawValue || "").trim().toLowerCase();
+  if (value === "tinggi") return "Tinggi";
+  if (value === "rendah") return "Rendah";
+  return "Sedang";
+}
+
+function getUrgensiClass(rawValue: unknown): string {
+  const value = String(rawValue || "").trim().toLowerCase();
+  if (value === "tinggi") return "status-chip-danger";
+  if (value === "rendah") return "status-chip-neutral";
+  return "status-chip-warning";
+}
+
+function normalizeDisposisiStatus(rawValue: unknown): string {
+  return String(rawValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
+}
+
+function getPenangananStatus(item: SuratMasukItem): PenangananSurat {
+  const status = normalizeDisposisiStatus(item.latest_disposisi_status);
+  if (!item.latest_disposisi_tujuan && !status) return "baru";
+  if (["pending", "diproses", "proses", "menunggu"].includes(status)) return "diproses";
+  if (["didisposisikan", "diteruskan", "selesai", "terlaksana", "completed", "done", "ditindaklanjuti", "tuntas"].includes(status)) return "selesai";
+  if (item.latest_disposisi_tujuan) return "selesai";
+  if (status) return "diproses";
+  return "diproses";
+}
+
+function getPenangananMeta(status: PenangananSurat) {
+  if (status === "baru") return { label: "Baru masuk", className: "status-chip-info" };
+  if (status === "selesai") return { label: "Selesai ditangani", className: "status-chip-success" };
+  return { label: "Sedang diproses", className: "status-chip-warning" };
+}
 
 export default function KepalaDesaSuratMasukPage() {
   const [suratMasuk, setSuratMasuk] = useState<SuratMasukItem[]>([]);
@@ -168,8 +210,10 @@ export default function KepalaDesaSuratMasukPage() {
                 <th className="px-4 py-3 text-left font-semibold">Nomor Surat</th>
                 <th className="px-4 py-3 text-left font-semibold">Tanggal</th>
                 <th className="px-4 py-3 text-left font-semibold">Pengirim</th>
+                <th className="px-4 py-3 text-left font-semibold">Urgensi</th>
                 <th className="px-4 py-3 text-left font-semibold">Perihal</th>
                 <th className="px-4 py-3 text-left font-semibold">Disposisi</th>
+                <th className="px-4 py-3 text-left font-semibold">Status</th>
                 <th className="px-4 py-3 text-center font-semibold">Aksi</th>
               </tr>
             </thead>
@@ -180,20 +224,25 @@ export default function KepalaDesaSuratMasukPage() {
                   <td className="px-4 py-3 font-medium">{surat.nomor_surat}</td>
                   <td className="px-4 py-3">{formatDate(surat.tanggal_terima)}</td>
                   <td className="px-4 py-3">{surat.asal_surat}</td>
+                  <td className="px-4 py-3">
+                    <span className={`status-chip ${getUrgensiClass(surat.urgensi)}`}>
+                      {getUrgensiLabel(surat.urgensi)}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">{surat.perihal}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-2">
                       {surat.latest_disposisi_tujuan ? (
-                        <div className="text-xs text-emerald-700">
-                          <span className="inline-flex w-fit rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+                        <div className="text-[10px] text-emerald-700">
+                          <span className="status-chip status-chip-success">
                             Sudah didisposisikan
                           </span>
-                          <p className="mt-1 font-semibold text-gray-700">
+                          <p className="mt-1 text-[10px] font-semibold text-gray-700">
                             Tujuan: {surat.latest_disposisi_tujuan_label || surat.latest_disposisi_tujuan}
                           </p>
                         </div>
                       ) : (
-                        <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                        <span className="status-chip status-chip-neutral">
                           Tanpa disposisi
                         </span>
                       )}
@@ -202,34 +251,44 @@ export default function KepalaDesaSuratMasukPage() {
                         type="button"
                         onClick={() => openDisposisiDialog(surat)}
                         disabled={submittingId === surat.id}
-                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                        className="aksi-btn aksi-btn-primary"
                       >
                         <FiSend className="h-3.5 w-3.5" />
                         {submittingId === surat.id ? "Memproses..." : "Kirim ke Sekretaris"}
                       </button>
                     </div>
                   </td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const meta = getPenangananMeta(getPenangananStatus(surat));
+                      return (
+                        <span className={`status-chip ${meta.className}`}>
+                          {meta.label}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex gap-2 justify-center">
                       <Link
                         href={`/kepala-desa/surat-masuk/${surat.id}`}
-                        className="bg-slate-500 text-white px-2 py-1 rounded hover:bg-slate-600"
+                        className="aksi-btn-icon aksi-btn-view"
                         title="Lihat detail surat"
                       >
                         <FiEye className="w-4 h-4" />
                       </Link>
                       {surat.file_path ? (
                         <>
-                          <button
-                            onClick={() => window.open(surat.file_path as string, "_blank")}
-                            className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                          <Link
+                            href={`/kepala-desa/surat-masuk/${surat.id}/preview`}
+                            className="aksi-btn-icon aksi-btn-download"
                             title="Lihat file surat"
                           >
                             <FiDownload className="w-4 h-4" />
-                          </button>
+                          </Link>
                         </>
                       ) : (
-                        <span className="text-xs text-gray-400">Tidak ada file</span>
+                        <span className="status-chip status-chip-neutral">Tidak ada file</span>
                       )}
                     </div>
                   </td>

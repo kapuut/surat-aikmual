@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FiUsers, FiActivity, FiClock, FiRefreshCw, FiUser, FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiSave, FiEye, FiEyeOff, FiCheck } from "react-icons/fi";
+import { FiUsers, FiActivity, FiClock, FiRefreshCw, FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiSave, FiEye, FiEyeOff, FiCheck } from "react-icons/fi";
 import { AuthUser, UserRole } from "@/lib/types";
 import Notification from "@/components/shared/Notification";
 
@@ -52,7 +52,6 @@ export default function PemantauanUserPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterRole, setFilterRole] = useState<string>("all");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -201,10 +200,7 @@ export default function PemantauanUserPage() {
 
   const filteredUsersMonitoring = usersData?.users.filter(user => {
     const roleMatch = filterRole === "all" || user.role === filterRole;
-    const statusMatch = filterStatus === "all" || 
-      (filterStatus === "online" && user.isOnline) ||
-      (filterStatus === "offline" && !user.isOnline);
-    return roleMatch && statusMatch;
+    return roleMatch;
   }) || [];
 
   const filteredUsersAccess = users.filter(u => {
@@ -515,19 +511,6 @@ export default function PemantauanUserPage() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Filter Status</label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="all">Semua Status</option>
-                  <option value="online">Online</option>
-                  <option value="offline">Offline</option>
-                </select>
-              </div>
-
               <div className="ml-auto flex items-end">
                 <p className="text-sm text-gray-600">
                   Menampilkan {filteredUsersMonitoring.length} dari {usersData?.totalUsers || 0} user
@@ -541,8 +524,6 @@ export default function PemantauanUserPage() {
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-100">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Username</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Nama</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Email</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Role</th>
@@ -553,33 +534,13 @@ export default function PemantauanUserPage() {
               <tbody className="divide-y divide-gray-200">
                 {filteredUsersMonitoring.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                       Tidak ada user yang sesuai filter
                     </td>
                   </tr>
                 ) : (
                   filteredUsersMonitoring.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`w-3 h-3 rounded-full ${
-                              user.isOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"
-                            }`}
-                          ></div>
-                          <span className={`text-xs font-medium ${
-                            user.isOnline ? "text-green-600" : "text-gray-600"
-                          }`}>
-                            {user.isOnline ? "Online" : "Offline"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <FiUser className="text-gray-400" />
-                          <span className="font-medium">{user.username}</span>
-                        </div>
-                      </td>
                       <td className="px-4 py-3">{user.nama}</td>
                       <td className="px-4 py-3 text-gray-600">{user.email}</td>
                       <td className="px-4 py-3">

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FiFileText, FiEye, FiCheck, FiX, FiFilter, FiRefreshCw } from "react-icons/fi";
+
+type ArchiveCategory = "Semua" | "Surat Menunggu" | "Surat Selesai" | "Ditolak";
 
 type WorkflowStatus =
   | "pending"
@@ -17,7 +18,12 @@ interface PermohonanItem {
   nomor_surat: string | null;
   created_at: string;
   nama_pemohon: string;
+  nik?: string;
   jenis_surat: string;
+  keperluan?: string;
+  catatan?: string | null;
+  file_path?: string | null;
+  attachment_paths?: string[];
   status: WorkflowStatus;
 }
 
@@ -42,23 +48,53 @@ function statusLabel(status: WorkflowStatus): string {
   }
 }
 
+function isPermohonanBaruStatus(status: WorkflowStatus): boolean {
+  return status === "pending" || status === "diproses" || status === "perlu_revisi";
+}
+
+function isMenungguTtdStatus(status: WorkflowStatus): boolean {
+  return status === "dikirim_ke_kepala_desa";
+}
+
+function isSuratMenungguStatus(status: WorkflowStatus): boolean {
+  return isPermohonanBaruStatus(status) || isMenungguTtdStatus(status);
+}
+
+function isPermohonanSelesaiStatus(status: WorkflowStatus): boolean {
+  return status === "ditandatangani" || status === "selesai";
+}
+
+function matchesArchiveCategory(status: WorkflowStatus, archiveCategory: ArchiveCategory): boolean {
+  switch (archiveCategory) {
+    case "Surat Menunggu":
+      return isSuratMenungguStatus(status);
+    case "Surat Selesai":
+      return isPermohonanSelesaiStatus(status);
+    case "Ditolak":
+      return status === "ditolak";
+    case "Semua":
+    default:
+      return true;
+  }
+}
+
 function statusClass(status: WorkflowStatus): string {
   switch (status) {
     case "pending":
-      return "bg-orange-100 text-orange-800";
+      return "status-chip-warning";
     case "diproses":
-      return "bg-blue-100 text-blue-800";
+      return "status-chip-primary";
     case "dikirim_ke_kepala_desa":
-      return "bg-indigo-100 text-indigo-800";
+      return "status-chip-info";
     case "perlu_revisi":
-      return "bg-yellow-100 text-yellow-800";
+      return "status-chip-warning";
     case "ditandatangani":
     case "selesai":
-      return "bg-green-100 text-green-800";
+      return "status-chip-success";
     case "ditolak":
-      return "bg-red-100 text-red-800";
+      return "status-chip-danger";
     default:
-      return "bg-gray-100 text-gray-800";
+      return "status-chip-neutral";
   }
 }
 
@@ -75,12 +111,41 @@ function isFinalizedStatus(status: WorkflowStatus): boolean {
   return status === "ditandatangani" || status === "selesai";
 }
 
+function isAttachmentFile(pathValue: string | null | undefined): boolean {
+  if (!pathValue) return false;
+  return pathValue.includes('/uploads/');
+}
+
+function isGeneratedSuratFile(pathValue: string | null | undefined): boolean {
+  if (!pathValue) return false;
+  const lowerPath = pathValue.toLowerCase();
+  return lowerPath.includes('/generated-surat/') || lowerPath.endsWith('.html') || lowerPath.includes('.html?');
+}
+
+function resolveAttachmentPaths(item: PermohonanItem): string[] {
+  const normalizedFromArray = Array.isArray(item.attachment_paths)
+    ? item.attachment_paths
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map((value) => value.trim())
+    : [];
+
+  if (normalizedFromArray.length > 0) {
+    return Array.from(new Set(normalizedFromArray));
+  }
+
+  return isAttachmentFile(item.file_path) && item.file_path ? [item.file_path] : [];
+}
+
 export default function SekretarisPermohonanPage() {
   const [permohonan, setPermohonan] = useState<PermohonanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState("Semua Status");
-  const [filterJenisSurat, setFilterJenisSurat] = useState("Semua Jenis Surat");
+  const [archiveCategory, setArchiveCategory] = useState<ArchiveCategory>("Semua");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedDayFrom, setSelectedDayFrom] = useState("");
+  const [selectedDayTo, setSelectedDayTo] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
 
   const fetchPermohonan = async () => {
     try {
@@ -108,55 +173,77 @@ export default function SekretarisPermohonanPage() {
     fetchPermohonan();
   }, []);
 
-  const statusOptions = [
-    "Semua Status",
-    "Menunggu Verifikasi",
-    "Diproses",
-    "Menunggu Konfirmasi Kepala Desa",
-    "Perlu Revisi",
-    "Ditandatangani",
-    "Selesai",
-    "Ditolak",
-  ];
+  const availableYears = useMemo(() => {
+    const years = permohonan
+      .map((p) => new Date(p.created_at).getFullYear())
+      .filter((year) => Number.isFinite(year));
 
-  const jenisSuratOptions = useMemo(() => {
-    const uniqueJenis = Array.from(
-      new Set(
-        permohonan
-          .map((item) => String(item.jenis_surat || "").trim())
-          .filter((value) => value.length > 0)
-      )
-    ).sort((a, b) => a.localeCompare(b, "id"));
-
-    return ["Semua Jenis Surat", ...uniqueJenis];
+    return Array.from(new Set(years)).sort((a, b) => b - a);
   }, [permohonan]);
+
+  const availableDays = useMemo(() => {
+    if (selectedMonth === "") {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const month = Number(selectedMonth);
+    const fallbackYear = new Date().getFullYear();
+    const year = selectedYear === "" ? fallbackYear : Number(selectedYear);
+
+    if (!Number.isFinite(month) || month < 1 || month > 12) {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  }, [selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    if (selectedDayFrom !== "") {
+      const selectedDayFromNumber = Number(selectedDayFrom);
+      if (!availableDays.includes(selectedDayFromNumber)) {
+        setSelectedDayFrom("");
+      }
+    }
+
+    if (selectedDayTo !== "") {
+      const selectedDayToNumber = Number(selectedDayTo);
+      if (!availableDays.includes(selectedDayToNumber)) {
+        setSelectedDayTo("");
+      }
+    }
+  }, [availableDays, selectedDayFrom, selectedDayTo]);
 
   const filteredPermohonan = useMemo(() => {
     return permohonan.filter((item) => {
-      const statusMatch =
-        filterStatus === "Semua Status" || statusLabel(item.status) === filterStatus;
+      const matchStatus = matchesArchiveCategory(item.status, archiveCategory);
+      const matchSearch =
+        item.nama_pemohon.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.jenis_surat.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(item.nik || "").includes(searchTerm);
+      const createdAt = new Date(item.created_at);
+      const day = createdAt.getDate();
+      const month = createdAt.getMonth() + 1;
+      const year = createdAt.getFullYear();
+      const parsedDayFrom = selectedDayFrom === "" ? null : Number(selectedDayFrom);
+      const parsedDayTo = selectedDayTo === "" ? null : Number(selectedDayTo);
+      const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
+      const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
+      const matchDayFrom = dayMin === null || day >= dayMin;
+      const matchDayTo = dayMax === null || day <= dayMax;
+      const matchMonth = selectedMonth === "" || month === Number(selectedMonth);
+      const matchYear = selectedYear === "" || year === Number(selectedYear);
 
-      const jenisMatch =
-        filterJenisSurat === "Semua Jenis Surat" || item.jenis_surat === filterJenisSurat;
-
-      return statusMatch && jenisMatch;
+      return matchStatus && matchSearch && matchDayFrom && matchDayTo && matchMonth && matchYear;
     });
-  }, [permohonan, filterJenisSurat, filterStatus]);
+  }, [permohonan, archiveCategory, searchTerm, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear]);
 
-  const totalMenungguVerifikasi = permohonan.filter((item) => {
-    return (
-      item.status === "pending" ||
-      item.status === "diproses" ||
-      item.status === "dikirim_ke_kepala_desa" ||
-      item.status === "perlu_revisi"
-    );
-  }).length;
-
-  const totalDisetujui = permohonan.filter((item) => {
-    return item.status === "ditandatangani" || item.status === "selesai";
-  }).length;
-
-  const totalDitolak = permohonan.filter((item) => item.status === "ditolak").length;
+  const stats = {
+    menungguVerifikasi: permohonan.filter((p) => p.status === "pending" || p.status === "diproses").length,
+    dikirimKeKepala: permohonan.filter((p) => p.status === "dikirim_ke_kepala_desa").length,
+    selesai: permohonan.filter((p) => p.status === "ditandatangani" || p.status === "selesai").length,
+    ditolak: permohonan.filter((p) => p.status === "ditolak").length,
+  };
 
   return (
     <section>
@@ -166,106 +253,132 @@ export default function SekretarisPermohonanPage() {
         </div>
       )}
 
-      {/* Header */}
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <FiFileText className="text-blue-600" /> Permohonan Surat
-        </h2>
-        <p className="text-gray-500 mt-1">
-          Kelola permohonan surat dari masyarakat
-        </p>
+        <h2 className="text-3xl font-bold text-gray-800">Permohonan Surat</h2>
+        <p className="text-gray-500 mt-1">Kelola permohonan, approval, dan penandatanganan surat oleh warga desa.</p>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex gap-2">
-          <select
-            value={filterStatus}
-            onChange={(event) => setFilterStatus(event.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {statusOptions.map((option) => (
-              <option key={option}>{option}</option>
-            ))}
-          </select>
-          <select
-            value={filterJenisSurat}
-            onChange={(event) => setFilterJenisSurat(event.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {jenisSuratOptions.map((option) => (
-              <option key={option}>{option}</option>
-            ))}
-          </select>
-          <button
-            onClick={fetchPermohonan}
-            className="flex items-center gap-2 border rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
-          >
-            <FiRefreshCw className="w-4 h-4" />
-            Muat Ulang
-          </button>
-          <div className="hidden items-center rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-500 md:flex">
-            <FiFilter className="mr-2 h-4 w-4" />
-            Filter aktif: {filteredPermohonan.length} data
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Permohonan</p>
-              <p className="text-2xl font-bold text-gray-900">{permohonan.length}</p>
-            </div>
-            <div className="bg-blue-100 p-2 rounded-full">
-              <FiFileText className="w-5 h-5 text-blue-600" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <div className="flex items-center justify-between">
-            <div>
               <p className="text-sm font-medium text-gray-500">Menunggu Verifikasi</p>
-              <p className="text-2xl font-bold text-orange-600">
-                {totalMenungguVerifikasi}
-              </p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.menungguVerifikasi}</p>
             </div>
-            <div className="bg-orange-100 p-2 rounded-full">
-              <span className="inline-block w-10 h-10 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center text-xs font-bold">WAIT</span>
-            </div>
+            <div className="w-3 h-3 rounded-full bg-yellow-300" />
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Disetujui</p>
-              <p className="text-2xl font-bold text-green-600">
-                {totalDisetujui}
-              </p>
+              <p className="text-sm font-medium text-gray-500">Menunggu Konfirmasi Kepala Desa</p>
+              <p className="text-2xl font-bold text-indigo-600">{stats.dikirimKeKepala}</p>
             </div>
-            <div className="bg-green-100 p-2 rounded-full">
-              <FiCheck className="w-5 h-5 text-green-600" />
-            </div>
+            <div className="w-3 h-3 rounded-full bg-indigo-300" />
           </div>
         </div>
-        
+
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Selesai / Ditandatangani</p>
+              <p className="text-2xl font-bold text-green-600">{stats.selesai}</p>
+            </div>
+            <div className="w-3 h-3 rounded-full bg-green-300" />
+          </div>
+        </div>
+
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Ditolak</p>
-              <p className="text-2xl font-bold text-red-600">
-                {totalDitolak}
-              </p>
+              <p className="text-2xl font-bold text-red-600">{stats.ditolak}</p>
             </div>
-            <div className="bg-red-100 p-2 rounded-full">
-              <FiX className="w-5 h-5 text-red-600" />
+            <div className="bg-red-100 text-red-700 rounded-full w-10 h-10 flex items-center justify-center text-xs font-bold">
+              NO
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <input
+            type="text"
+            placeholder="Cari nama, NIK, atau jenis surat..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          />
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Semua Bulan</option>
+            <option value="1">Januari</option>
+            <option value="2">Februari</option>
+            <option value="3">Maret</option>
+            <option value="4">April</option>
+            <option value="5">Mei</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">Agustus</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+
+          <select
+            value={selectedDayFrom}
+            onChange={(e) => setSelectedDayFrom(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Tanggal Dari</option>
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>{day}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedDayTo}
+            onChange={(e) => setSelectedDayTo(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Tanggal Sampai</option>
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>{day}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Semua Tahun</option>
+            {availableYears.map((year) => (
+              <option key={year} value={String(year)}>{year}</option>
+            ))}
+          </select>
+
+          <select
+            value={archiveCategory}
+            onChange={(e) => setArchiveCategory(e.target.value as ArchiveCategory)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="Semua">Semua</option>
+            <option value="Surat Menunggu">Surat Menunggu</option>
+            <option value="Surat Selesai">Surat Selesai</option>
+            <option value="Ditolak">Ditolak</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="mb-4 text-sm text-gray-600">
+        Menampilkan {filteredPermohonan.length} data berdasarkan filter yang dipilih
       </div>
 
       {/* Table */}
@@ -274,54 +387,70 @@ export default function SekretarisPermohonanPage() {
           <thead className="bg-gray-100">
             <tr>
               <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">No Permohonan</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor</th>
               <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Pemohon</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-700">Nama Pemohon</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-700">NIK</th>
               <th className="px-4 py-3 text-left font-semibold text-gray-700">Jenis Surat</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-700">Keperluan</th>
               <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-700">File</th>
               <th className="px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td className="px-4 py-5 text-center text-gray-500" colSpan={7}>
+                <td className="px-4 py-5 text-center text-gray-500" colSpan={10}>
                   Memuat data permohonan...
                 </td>
               </tr>
             ) : filteredPermohonan.length === 0 ? (
               <tr>
-                <td className="px-4 py-5 text-center text-gray-500" colSpan={7}>
+                <td className="px-4 py-5 text-center text-gray-500" colSpan={10}>
                   Belum ada data permohonan
                 </td>
               </tr>
             ) : (
               filteredPermohonan.map((item, i) => {
                 const isFinalized = isFinalizedStatus(item.status);
-                const previewUrl = isFinalized
-                  ? `/api/admin/permohonan/${item.id}/preview`
-                  : `/api/admin/permohonan/${item.id}/preview?mode=admin`;
+                const previewUrl = `/sekretaris/permohonan/${item.id}/preview`;
+                const previewLabel = isFinalized ? "File Final" : "Lihat Draft Surat";
 
                 return (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">{i + 1}</td>
                   <td className="px-4 py-3 font-medium">{nomorPermohonan(item)}</td>
                   <td className="px-4 py-3">{new Date(item.created_at).toLocaleDateString("id-ID")}</td>
-                  <td className="px-4 py-3">{item.nama_pemohon}</td>
+                  <td className="px-4 py-3 font-medium">{item.nama_pemohon}</td>
+                  <td className="px-4 py-3">{item.nik || "-"}</td>
                   <td className="px-4 py-3">{item.jenis_surat}</td>
+                  <td className="px-4 py-3">{item.keperluan || "-"}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusClass(item.status)}`}>
+                    <span className={`status-chip ${statusClass(item.status)}`}>
                       {statusLabel(item.status)}
                     </span>
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-1">
+                      <a
+                        href={previewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`aksi-btn ${isFinalized ? "aksi-btn-success" : "aksi-btn-view"}`}
+                      >
+                        {previewLabel}
+                      </a>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-center">
-                    <div className="flex gap-2 justify-center">
+                    <div className="flex justify-center">
                       <button
                         onClick={() => window.open(previewUrl, "_blank")}
-                        className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                        className={`aksi-btn ${isFinalized ? "aksi-btn-success" : "aksi-btn-view"}`}
                         title={isFinalized ? "Lihat surat final" : "Lihat draft surat"}
                       >
-                        <FiEye className="w-4 h-4" />
+                        Lihat
                       </button>
                     </div>
                   </td>

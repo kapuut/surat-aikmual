@@ -9,7 +9,6 @@ import {
   FiInbox, 
   FiSend, 
   FiFileText, 
-  FiFile, 
   FiUser,
   FiEdit,
   FiLogOut,
@@ -43,11 +42,6 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
     eyebrow: 'Portal Administrasi Terpadu',
     title: 'Permohonan Warga',
     description: 'Verifikasi kelengkapan berkas sebelum diteruskan ke kepala desa.',
-  },
-  '/sekretaris/template-surat': {
-    eyebrow: 'Portal Administrasi Terpadu',
-    title: 'Template Surat',
-    description: 'Perbarui format surat resmi agar sesuai standar administrasi.',
   },
   '/sekretaris/disposisi': {
     eyebrow: 'Portal Administrasi Terpadu',
@@ -216,17 +210,6 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
             >
               <FiFileText className="w-4 h-4" />
               <span>Permohonan Warga</span>
-            </Link>
-            <Link
-              href="/sekretaris/template-surat"
-              className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
-                pathname === '/sekretaris/template-surat' 
-                  ? 'bg-slate-800 text-white font-semibold' 
-                  : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <FiFile className="w-4 h-4" />
-              <span>Template Surat</span>
             </Link>
           </div>
           

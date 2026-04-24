@@ -7,6 +7,24 @@ import { FiAlertCircle, FiArrowLeft, FiCheckCircle, FiSave, FiUpload } from "rea
 
 type AlertType = "success" | "error";
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_FILE_MIME_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+const ALLOWED_FILE_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp", "gif"] as const;
+
+function isAllowedUploadedFile(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  return ALLOWED_FILE_MIME_TYPES.includes(file.type as (typeof ALLOWED_FILE_MIME_TYPES)[number])
+    || ALLOWED_FILE_EXTENSIONS.includes(extension as (typeof ALLOWED_FILE_EXTENSIONS)[number]);
+}
+
 export default function TambahSuratMasukPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -15,27 +33,69 @@ export default function TambahSuratMasukPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
+    if (!file) {
+      setFileName("");
+      return;
     }
+
+    if (!isAllowedUploadedFile(file)) {
+      setAlert({
+        type: "error",
+        message: "Format file tidak valid. Gunakan file gambar, PDF, DOC, atau DOCX.",
+      });
+      setFileName("");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setAlert({
+        type: "error",
+        message: "Ukuran file terlalu besar. Maksimal 5MB.",
+      });
+      setFileName("");
+      e.target.value = "";
+      return;
+    }
+
+    setAlert(null);
+    setFileName(file.name);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
-    setAlert(null);
+    const formElement = e.currentTarget;
 
-    const formData = new FormData(e.currentTarget);
+    // Trigger native browser validation tooltip for any required field including file input.
+    if (!formElement.reportValidity()) {
+      return;
+    }
+
+    const formData = new FormData(formElement);
     const selectedFile = formData.get("file_surat");
 
     if (!(selectedFile instanceof File) || selectedFile.size === 0) {
-      setAlert({
-        type: "error",
-        message: "Dokumen surat wajib diupload dalam format PDF.",
-      });
-      setLoading(false);
       return;
     }
+
+    if (!isAllowedUploadedFile(selectedFile)) {
+      setAlert({
+        type: "error",
+        message: "Format file tidak valid. Gunakan file gambar, PDF, DOC, atau DOCX.",
+      });
+      return;
+    }
+
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setAlert({
+        type: "error",
+        message: "Ukuran file terlalu besar. Maksimal 5MB.",
+      });
+      return;
+    }
+
+    setLoading(true);
+    setAlert(null);
 
     try {
       const response = await fetch("/api/admin/surat-masuk", {
@@ -169,6 +229,26 @@ export default function TambahSuratMasukPage() {
               </p>
             </div>
 
+            {/* Urgensi */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tingkat Urgensi <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="urgensi"
+                required
+                defaultValue="sedang"
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="tinggi">Tinggi</option>
+                <option value="sedang">Sedang</option>
+                <option value="rendah">Rendah</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Digunakan untuk menandai prioritas penanganan surat
+              </p>
+            </div>
+
             {/* Perihal */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -189,10 +269,10 @@ export default function TambahSuratMasukPage() {
             {/* Upload File */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload File Surat (PDF)
+                Upload File Surat <span className="text-red-500">*</span>
               </label>
               <div className="flex items-center gap-4">
-                <label className="flex-1 cursor-pointer">
+                <label className="relative flex-1 cursor-pointer">
                   <div className="w-full px-4 py-3 bg-white border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors">
                     <div className="flex items-center justify-center gap-2 text-gray-600">
                       <FiUpload className="w-5 h-5" />
@@ -209,15 +289,15 @@ export default function TambahSuratMasukPage() {
                   <input
                     type="file"
                     name="file_surat"
-                    accept=".pdf"
+                    accept=".pdf,.doc,.docx,image/*"
                     onChange={handleFileChange}
                     required
-                    className="hidden"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                   />
                 </label>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Format: PDF, Maksimal 5MB. File akan disimpan di arsip digital.
+                Format: gambar, PDF, DOC, DOCX. Maksimal 5MB. File wajib diupload dan akan disimpan di arsip digital.
               </p>
             </div>
           </div>

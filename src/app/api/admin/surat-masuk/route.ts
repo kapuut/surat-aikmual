@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { RowDataPacket } from "mysql2";
-import { mkdir, writeFile } from "fs/promises";
+import { access, mkdir, writeFile } from "fs/promises";
 import path from "path";
 
 export const runtime = "nodejs";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_FILE_TYPES = ["application/pdf"];
+const ALLOWED_FILE_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+const ALLOWED_FILE_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp", "gif"] as const;
 const SURAT_MASUK_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "surat-masuk");
+
+type UrgensiLevel = "rendah" | "sedang" | "tinggi";
 
 function isTableMissingError(error: unknown): boolean {
   const message = String((error as { message?: string })?.message || "").toLowerCase();
@@ -20,8 +31,55 @@ function isDuplicateColumnError(error: unknown): boolean {
   return message.includes("duplicate column") || message.includes("already exists");
 }
 
+function normalizeUrgensi(rawValue: unknown): UrgensiLevel {
+  const value = String(rawValue || "").trim().toLowerCase();
+
+  if (["tinggi", "high", "urgent", "darurat"].includes(value)) {
+    return "tinggi";
+  }
+
+  if (["rendah", "low"].includes(value)) {
+    return "rendah";
+  }
+
+  return "sedang";
+}
+
 function sanitizeFileName(originalName: string): string {
-  return originalName.replace(/[^a-zA-Z0-9_.-]/g, "_");
+  const normalized = path.basename(originalName || "surat-masuk")
+    .replace(/[^a-zA-Z0-9_.()\-\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || "surat-masuk";
+}
+
+async function getAvailableFileName(fileName: string): Promise<string> {
+  const extension = path.extname(fileName);
+  const baseName = path.basename(fileName, extension);
+
+  let candidate = fileName;
+  let index = 1;
+
+  while (true) {
+    try {
+      await access(path.join(SURAT_MASUK_UPLOAD_DIR, candidate));
+      candidate = `${baseName} (${index})${extension}`;
+      index += 1;
+    } catch {
+      return candidate;
+    }
+  }
+}
+
+function isAllowedUploadFile(file: File): boolean {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  return ALLOWED_FILE_TYPES.includes(file.type as (typeof ALLOWED_FILE_TYPES)[number])
+    || ALLOWED_FILE_EXTENSIONS.includes(extension as (typeof ALLOWED_FILE_EXTENSIONS)[number]);
+}
+
+function isUploadValidationError(message: string): boolean {
+  return message.includes("Ukuran file") || message.includes("Format file") || message.includes("wajib diupload");
 }
 
 async function saveUploadedSuratMasuk(file: File): Promise<string> {
@@ -29,14 +87,14 @@ async function saveUploadedSuratMasuk(file: File): Promise<string> {
     throw new Error("Ukuran file terlalu besar. Maksimal 5MB.");
   }
 
-  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-    throw new Error("Format file tidak valid. Gunakan file PDF.");
+  if (!isAllowedUploadFile(file)) {
+    throw new Error("Format file tidak valid. Gunakan file gambar, PDF, atau Word.");
   }
 
   await mkdir(SURAT_MASUK_UPLOAD_DIR, { recursive: true });
 
   const safeFileName = sanitizeFileName(file.name || "surat-masuk.pdf");
-  const storedFileName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${safeFileName}`;
+  const storedFileName = await getAvailableFileName(safeFileName);
   const absolutePath = path.join(SURAT_MASUK_UPLOAD_DIR, storedFileName);
 
   const bytes = await file.arrayBuffer();
@@ -55,6 +113,42 @@ async function ensureSuratMasukFilePathColumn() {
   }
 }
 
+async function ensureSuratMasukUrgensiColumn() {
+  try {
+    await db.query(`ALTER TABLE surat_masuk ADD COLUMN urgensi VARCHAR(20) NOT NULL DEFAULT 'sedang' AFTER perihal`);
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) {
+      throw error;
+    }
+  }
+}
+
+async function ensureSuratMasukPenangananColumns() {
+  try {
+    await db.query(`ALTER TABLE surat_masuk ADD COLUMN status_penanganan VARCHAR(30) NOT NULL DEFAULT 'belum_ditangani' AFTER urgensi`);
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query(`ALTER TABLE surat_masuk ADD COLUMN ditangani_at DATETIME NULL AFTER status_penanganan`);
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query(`ALTER TABLE surat_masuk ADD COLUMN ditangani_by_name VARCHAR(191) NULL AFTER ditangani_at`);
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) {
+      throw error;
+    }
+  }
+}
+
 async function ensureDisposisiTable() {
   await db.query(
     `CREATE TABLE IF NOT EXISTS disposisi_surat_masuk (
@@ -63,6 +157,7 @@ async function ensureDisposisiTable() {
       tujuan_role VARCHAR(50) NOT NULL,
       tujuan_label VARCHAR(120) NULL,
       status VARCHAR(50) NOT NULL DEFAULT 'didisposisikan',
+      urgensi VARCHAR(20) NOT NULL DEFAULT 'sedang',
       catatan TEXT NULL,
       disposed_by_id VARCHAR(64) NULL,
       disposed_by_name VARCHAR(191) NULL,
@@ -82,11 +177,31 @@ async function ensureDisposisiTable() {
       throw error;
     }
   }
+
+  try {
+    await db.query(`ALTER TABLE disposisi_surat_masuk ADD COLUMN urgensi VARCHAR(20) NOT NULL DEFAULT 'sedang' AFTER status`);
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) {
+      throw error;
+    }
+  }
 }
 
 // GET - Ambil semua surat masuk
 export async function GET(request: NextRequest) {
   try {
+    try {
+      await ensureSuratMasukUrgensiColumn();
+    } catch (error) {
+      console.warn("Warning: unable to ensure urgensi column on surat_masuk", error);
+    }
+
+    try {
+      await ensureSuratMasukPenangananColumns();
+    } catch (error) {
+      console.warn("Warning: unable to ensure penanganan columns on surat_masuk", error);
+    }
+
     try {
       await ensureDisposisiTable();
     } catch (error) {
@@ -99,10 +214,14 @@ export async function GET(request: NextRequest) {
       const [result] = await db.query<RowDataPacket[]>(
         `SELECT 
           sm.*,
+          sm.status_penanganan,
+          sm.ditangani_at,
+          sm.ditangani_by_name,
           u.nama as created_by_name,
           ds.tujuan_role as latest_disposisi_tujuan,
           ds.tujuan_label as latest_disposisi_tujuan_label,
           ds.status as latest_disposisi_status,
+          ds.urgensi as latest_disposisi_urgensi,
           ds.catatan as latest_disposisi_catatan,
           ds.disposed_at as latest_disposisi_at,
           ds.disposed_by_name as latest_disposisi_by,
@@ -159,46 +278,53 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await ensureSuratMasukFilePathColumn();
+    await ensureSuratMasukUrgensiColumn();
 
     const contentType = request.headers.get("content-type") || "";
+    if (!contentType.includes("multipart/form-data")) {
+      return NextResponse.json(
+        { success: false, error: "Dokumen surat wajib diupload melalui form yang valid" },
+        { status: 400 }
+      );
+    }
+
     let nomor_surat = "";
     let tanggal_surat = "";
     let tanggal_terima = "";
     let asal_surat = "";
     let perihal = "";
+    let urgensi: UrgensiLevel = "sedang";
     let filePath: string | null = null;
 
-    if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
-      nomor_surat = String(formData.get("nomor_surat") || "").trim();
-      tanggal_surat = String(formData.get("tanggal_surat") || "").trim();
-      tanggal_terima = String(formData.get("tanggal_terima") || "").trim();
-      asal_surat = String(formData.get("asal_surat") || "").trim();
-      perihal = String(formData.get("perihal") || "").trim();
+    const formData = await request.formData();
+    nomor_surat = String(formData.get("nomor_surat") || "").trim();
+    tanggal_surat = String(formData.get("tanggal_surat") || "").trim();
+    tanggal_terima = String(formData.get("tanggal_terima") || "").trim();
+    asal_surat = String(formData.get("asal_surat") || "").trim();
+    perihal = String(formData.get("perihal") || "").trim();
+    urgensi = normalizeUrgensi(formData.get("urgensi"));
 
-      const rawFile = formData.get("file_surat");
-      if (rawFile instanceof File && rawFile.size > 0) {
-        filePath = await saveUploadedSuratMasuk(rawFile);
-      } else {
-        return NextResponse.json(
-          { success: false, error: "Dokumen surat wajib diupload dalam format PDF" },
-          { status: 400 }
-        );
-      }
+    const rawFile = formData.get("file_surat");
+    if (rawFile instanceof File && rawFile.size > 0) {
+      filePath = await saveUploadedSuratMasuk(rawFile);
     } else {
-      const body = await request.json();
-      nomor_surat = String(body?.nomor_surat || "").trim();
-      tanggal_surat = String(body?.tanggal_surat || "").trim();
-      tanggal_terima = String(body?.tanggal_terima || "").trim();
-      asal_surat = String(body?.asal_surat || "").trim();
-      perihal = String(body?.perihal || "").trim();
-      filePath = typeof body?.file_path === "string" && body.file_path.trim() ? body.file_path.trim() : null;
+      return NextResponse.json(
+        { success: false, error: "Dokumen surat wajib diupload sebelum data bisa disimpan" },
+        { status: 400 }
+      );
     }
 
     // Validasi input
     if (!nomor_surat || !tanggal_surat || !tanggal_terima || !asal_surat || !perihal) {
       return NextResponse.json(
         { success: false, error: "Semua field wajib diisi" },
+        { status: 400 }
+      );
+    }
+
+    if (!filePath) {
+      return NextResponse.json(
+        { success: false, error: "Dokumen surat wajib diupload sebelum data bisa disimpan" },
         { status: 400 }
       );
     }
@@ -210,9 +336,9 @@ export async function POST(request: NextRequest) {
     // Insert ke database
     const [result] = await db.query(
       `INSERT INTO surat_masuk 
-       (nomor_surat, tanggal_surat, tanggal_terima, asal_surat, perihal, file_path, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [nomor_surat, tanggal_surat, tanggal_terima, asal_surat, perihal, filePath, created_by]
+       (nomor_surat, tanggal_surat, tanggal_terima, asal_surat, perihal, urgensi, file_path, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [nomor_surat, tanggal_surat, tanggal_terima, asal_surat, perihal, urgensi, filePath, created_by]
     );
 
     return NextResponse.json({
@@ -222,9 +348,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error creating surat masuk:", error);
+    const message = error instanceof Error ? error.message : "Gagal menyimpan surat masuk";
     return NextResponse.json(
-      { success: false, error: "Gagal menyimpan surat masuk" },
-      { status: 500 }
+      { success: false, error: message },
+      { status: isUploadValidationError(message) ? 400 : 500 }
     );
   }
 }

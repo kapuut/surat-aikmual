@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
-import { RowDataPacket } from "mysql2";
+import { ResultSetHeader, RowDataPacket } from "mysql2";
 
 export const runtime = "nodejs";
 
@@ -123,6 +123,74 @@ export async function GET() {
     console.error("Error fetching disposisi surat masuk:", error);
     return NextResponse.json(
       { success: false, error: "Gagal mengambil data disposisi surat masuk" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const user = await getAuthenticatedUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (!["sekretaris", "admin"].includes(user.role)) {
+      return NextResponse.json(
+        { success: false, error: "Anda tidak memiliki akses" },
+        { status: 403 }
+      );
+    }
+
+    let body: { id?: number | string };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "Payload tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    const disposisiId = Number(body?.id);
+    if (!Number.isFinite(disposisiId) || disposisiId <= 0) {
+      return NextResponse.json(
+        { success: false, error: "ID disposisi tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    await ensureDisposisiTable();
+
+    const [result] = await db.query<ResultSetHeader>(
+      `DELETE FROM disposisi_surat_masuk
+       WHERE id = ?
+         AND (
+           LOWER(TRIM(COALESCE(tujuan_role, ''))) LIKE '%sekretaris%'
+           OR LOWER(TRIM(COALESCE(tujuan_label, ''))) LIKE '%sekretaris%'
+         )`,
+      [disposisiId]
+    );
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { success: false, error: "Data disposisi tidak ditemukan" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Disposisi surat berhasil dihapus",
+    });
+  } catch (error) {
+    console.error("Error deleting disposisi surat masuk:", error);
+    return NextResponse.json(
+      { success: false, error: "Gagal menghapus disposisi surat masuk" },
       { status: 500 }
     );
   }

@@ -1,54 +1,158 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
+
+interface SuratMasukApiItem {
+  id?: number;
+  nomor_surat?: string;
+  tanggal_surat?: string;
+  tanggal_terima?: string;
+  asal_surat?: string;
+  perihal?: string;
+  latest_disposisi_tujuan_label?: string | null;
+  latest_disposisi_tujuan?: string | null;
+}
+
+interface SuratMasukReportItem {
+  noRegistrasi: string;
+  noSurat: string;
+  tanggalSurat: string;
+  pengirim: string;
+  perihal: string;
+  penerima: string;
+}
+
+function parseValidDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function toIsoDate(value: string | null | undefined): string {
+  const parsed = parseValidDate(value);
+  return parsed ? parsed.toISOString().slice(0, 10) : "";
+}
+
+function formatDate(value: string): string {
+  const parsed = parseValidDate(value);
+  if (!parsed) return "-";
+  return parsed.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function buildRegistrasiCode(prefix: string, idValue: number, dateValue: string): string {
+  const year = parseValidDate(dateValue)?.getFullYear() || new Date().getFullYear();
+  return `${prefix}-${String(idValue).padStart(3, "0")}/${year}`;
+}
+
+function normalizePenerimaLabel(rawLabel: string | null | undefined): string {
+  const value = String(rawLabel || "").trim();
+  if (!value) return "Kantor Desa Aikmual";
+
+  if (value.toLowerCase() === "sekretaris") return "Sekretaris Desa";
+  if (value.toLowerCase() === "kepala_desa") return "Kepala Desa Aikmual";
+  if (value.toLowerCase() === "admin") return "Admin Desa";
+
+  return value;
+}
 
 export default function LaporanSuratMasukPage() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBulan, setFilterBulan] = useState("");
   const [filterTahun, setFilterTahun] = useState("");
-  
-  const [suratMasuk] = useState([
-    {
-      noRegistrasi: "REG-001/2025",
-      noSurat: "001/DISDIK/2025",
-      tanggalSurat: "2025-10-02",
-      pengirim: "Dinas Pendidikan NTB",
-      perihal: "Undangan Rapat Koordinasi Sekolah Digital",
-      penerima: "Kepala Desa Aikmual"
-    },
-    {
-      noRegistrasi: "REG-002/2025",
-      noSurat: "002/KEMENDESA/2025",
-      tanggalSurat: "2025-10-05",
-      pengirim: "Kementerian Desa",
-      perihal: "Sosialisasi Program P3MD",
-      penerima: "Sekretaris Desa"
-    },
-    {
-      noRegistrasi: "REG-003/2025",
-      noSurat: "003/BUPATI/2025",
-      tanggalSurat: "2025-10-08",
-      pengirim: "Kantor Bupati Lombok Tengah",
-      perihal: "Instruksi Pelaksanaan Gotong Royong",
-      penerima: "Kepala Desa Aikmual"
-    },
-    {
-      noRegistrasi: "REG-004/2025",
-      noSurat: "004/POLSEK/2025",
-      tanggalSurat: "2025-10-10",
-      pengirim: "Polsek Aikmual",
-      perihal: "Surat Edaran Keamanan Lingkungan",
-      penerima: "Babinsa Desa"
-    },
-    {
-      noRegistrasi: "REG-005/2025",
-      noSurat: "005/DINKES/2025",
-      tanggalSurat: "2025-10-12",
-      pengirim: "Dinas Kesehatan NTB",
-      perihal: "Program Imunisasi Anak dan Lansia",
-      penerima: "Kader Posyandu"
+  const [filterTanggalDari, setFilterTanggalDari] = useState("");
+  const [filterTanggalSampai, setFilterTanggalSampai] = useState("");
+  const [suratMasuk, setSuratMasuk] = useState<SuratMasukReportItem[]>([]);
+
+  useEffect(() => {
+    const fetchSuratMasuk = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch("/api/admin/surat-masuk", {
+          credentials: "include",
+        });
+        const result = await response.json();
+
+        if (!response.ok || !result?.success) {
+          throw new Error(result?.error || "Gagal memuat data surat masuk");
+        }
+
+        const rows = Array.isArray(result?.data) ? (result.data as SuratMasukApiItem[]) : [];
+        const mapped = rows.map((item, index) => {
+          const idValue = Number(item.id || index + 1);
+          const tanggalIso = toIsoDate(item.tanggal_surat) || toIsoDate(item.tanggal_terima);
+
+          return {
+            noRegistrasi: buildRegistrasiCode("REG-IN", Number.isFinite(idValue) ? idValue : index + 1, tanggalIso),
+            noSurat: String(item.nomor_surat || "-").trim() || "-",
+            tanggalSurat: tanggalIso,
+            pengirim: String(item.asal_surat || "-").trim() || "-",
+            perihal: String(item.perihal || "-").trim() || "-",
+            penerima: normalizePenerimaLabel(item.latest_disposisi_tujuan_label || item.latest_disposisi_tujuan || "Kantor Desa Aikmual"),
+          };
+        });
+
+        setSuratMasuk(mapped);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Terjadi kesalahan saat memuat laporan");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSuratMasuk();
+  }, []);
+
+  const availableYears = useMemo(() => {
+    const years = suratMasuk
+      .map((surat) => parseValidDate(surat.tanggalSurat)?.getFullYear() ?? null)
+      .filter((year): year is number => year !== null)
+      .filter((year) => Number.isFinite(year));
+
+    return Array.from(new Set(years)).sort((a, b) => b - a);
+  }, [suratMasuk]);
+
+  const availableDays = useMemo(() => {
+    if (filterBulan === "") {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
     }
-  ]);
+
+    const month = Number(filterBulan);
+    const fallbackYear = new Date().getFullYear();
+    const year = filterTahun === "" ? fallbackYear : Number(filterTahun);
+
+    if (!Number.isFinite(month) || month < 1 || month > 12) {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  }, [filterBulan, filterTahun]);
+
+  useEffect(() => {
+    if (filterTanggalDari !== "") {
+      const selectedDayFromNumber = Number(filterTanggalDari);
+      if (!availableDays.includes(selectedDayFromNumber)) {
+        setFilterTanggalDari("");
+      }
+    }
+
+    if (filterTanggalSampai !== "") {
+      const selectedDayToNumber = Number(filterTanggalSampai);
+      if (!availableDays.includes(selectedDayToNumber)) {
+        setFilterTanggalSampai("");
+      }
+    }
+  }, [availableDays, filterTanggalDari, filterTanggalSampai]);
 
   // Filter data berdasarkan search dan filter
   const filteredData = suratMasuk.filter(surat => {
@@ -57,50 +161,156 @@ export default function LaporanSuratMasukPage() {
       surat.pengirim.toLowerCase().includes(searchTerm.toLowerCase()) ||
       surat.perihal.toLowerCase().includes(searchTerm.toLowerCase()) ||
       surat.penerima.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const tanggalSurat = parseValidDate(surat.tanggalSurat);
+    const isValidDate = Boolean(tanggalSurat);
+    const month = isValidDate ? tanggalSurat.getMonth() + 1 : null;
+    const year = isValidDate ? tanggalSurat.getFullYear() : null;
+    const day = isValidDate ? tanggalSurat.getDate() : null;
     
     const matchBulan = filterBulan === "" || 
-      new Date(surat.tanggalSurat).getMonth() + 1 === parseInt(filterBulan);
+      month === Number(filterBulan);
     
     const matchTahun = filterTahun === "" || 
-      new Date(surat.tanggalSurat).getFullYear() === parseInt(filterTahun);
-    
-    return matchSearch && matchBulan && matchTahun;
+      year === Number(filterTahun);
+
+    const parsedDayFrom = filterTanggalDari === "" ? null : Number(filterTanggalDari);
+    const parsedDayTo = filterTanggalSampai === "" ? null : Number(filterTanggalSampai);
+    const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
+    const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
+    const matchDayFrom = dayMin === null || (day !== null && day >= dayMin);
+    const matchDayTo = dayMax === null || (day !== null && day <= dayMax);
+
+    return matchSearch && matchDayFrom && matchDayTo && matchBulan && matchTahun;
   });
 
-  const handleExportPDF = () => {
-    alert("Export PDF akan diimplementasikan");
-  };
-
   const handleExportExcel = () => {
-    alert("Export Excel akan diimplementasikan");
+    const exportRows = filteredData.map((surat, index) => ({
+      No: index + 1,
+      "No. Registrasi": surat.noRegistrasi,
+      "No. Surat": surat.noSurat,
+      "Tanggal Surat": formatDate(surat.tanggalSurat),
+      Pengirim: surat.pengirim,
+      Perihal: surat.perihal,
+      Penerima: surat.penerima,
+    }));
+
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["LAPORAN SURAT MASUK"],
+      [`Tanggal Export: ${new Date().toLocaleDateString("id-ID")}`],
+      [`Total Data: ${filteredData.length}`],
+      [],
+    ]);
+
+    XLSX.utils.sheet_add_json(worksheet, exportRows, {
+      origin: "A5",
+      skipHeader: false,
+    });
+
+    worksheet["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } },
+    ];
+
+    worksheet["!cols"] = [
+      { wch: 6 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 26 },
+      { wch: 38 },
+      { wch: 24 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Surat Masuk");
+
+    const exportDate = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `laporan-surat-masuk-${exportDate}.xlsx`);
   };
 
   return (
     <section>
+        {/* Summary */}
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total Surat Masuk</p>
+              <p className="text-2xl font-bold text-blue-600">{suratMasuk.length}</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Data Ditampilkan</p>
+              <p className="text-2xl font-bold text-green-600">{filteredData.length}</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Bulan Ini</p>
+              <p className="text-2xl font-bold text-purple-600">
+                {suratMasuk.filter((s) => {
+                  const currentDate = new Date();
+                  const suratDate = parseValidDate(s.tanggalSurat);
+                  if (!suratDate) return false;
+                  return suratDate.getMonth() === currentDate.getMonth() && suratDate.getFullYear() === currentDate.getFullYear();
+                }).length}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Search and Filter */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Pencarian
-              </label>
               <input
                 type="text"
                 placeholder="Cari berdasarkan nomor surat, pengirim, perihal, atau penerima..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                aria-label="Pencarian"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bulan
-              </label>
+              <select
+                value={filterTanggalDari}
+                onChange={(e) => setFilterTanggalDari(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                aria-label="Tanggal Dari"
+              >
+                <option value="">Tanggal Dari</option>
+                {availableDays.map((day) => (
+                  <option key={day} value={String(day)}>{day}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <select
+                value={filterTanggalSampai}
+                onChange={(e) => setFilterTanggalSampai(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                aria-label="Tanggal Sampai"
+              >
+                <option value="">Tanggal Sampai</option>
+                {availableDays.map((day) => (
+                  <option key={day} value={String(day)}>{day}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <select
                 value={filterBulan}
                 onChange={(e) => setFilterBulan(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                aria-label="Bulan"
               >
                 <option value="">Semua Bulan</option>
                 <option value="1">Januari</option>
@@ -119,18 +329,16 @@ export default function LaporanSuratMasukPage() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tahun
-              </label>
               <select
                 value={filterTahun}
                 onChange={(e) => setFilterTahun(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                aria-label="Tahun"
               >
                 <option value="">Semua Tahun</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
+                {availableYears.map((year) => (
+                  <option key={year} value={String(year)}>{year}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -142,20 +350,12 @@ export default function LaporanSuratMasukPage() {
             Menampilkan {filteredData.length} dari {suratMasuk.length} data
           </div>
           
-          <div className="flex gap-3">
-            <button 
-              onClick={handleExportPDF}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 flex items-center gap-2"
-            >
-              Export PDF
-            </button>
-            <button 
-              onClick={handleExportExcel}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 flex items-center gap-2"
-            >
-              Export Excel
-            </button>
-          </div>
+          <button 
+            onClick={handleExportExcel}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 flex items-center gap-2"
+          >
+            Export Excel
+          </button>
         </div>
 
         {/* Table */}
@@ -173,13 +373,25 @@ export default function LaporanSuratMasukPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredData.length > 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    Memuat data laporan...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-red-600">
+                    {error}
+                  </td>
+                </tr>
+              ) : filteredData.length > 0 ? (
                 filteredData.map((surat, i) => (
                   <tr key={i} className="hover:bg-gray-50">
                     <td className="px-4 py-3">{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-blue-600">{surat.noRegistrasi}</td>
                     <td className="px-4 py-3">{surat.noSurat}</td>
-                    <td className="px-4 py-3">{surat.tanggalSurat}</td>
+                    <td className="px-4 py-3">{formatDate(surat.tanggalSurat)}</td>
                     <td className="px-4 py-3">{surat.pengirim}</td>
                     <td className="px-4 py-3">{surat.perihal}</td>
                     <td className="px-4 py-3">{surat.penerima}</td>
@@ -196,46 +408,6 @@ export default function LaporanSuratMasukPage() {
           </table>
         </div>
 
-        {/* Summary */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Total Surat Masuk</p>
-                <p className="text-2xl font-bold text-blue-600">{suratMasuk.length}</p>
-              </div>
-              <div className="bg-blue-100 p-2 rounded-full">
-                <span className="inline-block w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">IN</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Data Ditampilkan</p>
-                <p className="text-2xl font-bold text-green-600">{filteredData.length}</p>
-              </div>
-              <div className="bg-green-100 p-2 rounded-full">
-                <span className="inline-block w-10 h-10 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-xs font-bold">CHT</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Bulan Ini</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {suratMasuk.filter(s => new Date(s.tanggalSurat).getMonth() === new Date().getMonth()).length}
-                </p>
-              </div>
-              <div className="bg-purple-100 p-2 rounded-full">
-                <span className="text-xl">📅</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
   );
 }

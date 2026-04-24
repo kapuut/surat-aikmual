@@ -3,6 +3,7 @@ import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { format, parseISO } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { checkBusinessHoursWita } from '@/lib/business-hours';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -139,33 +140,7 @@ export function isValidDate(date: string): boolean {
 }
 
 export function checkBusinessHours(): { isAllowed: boolean; message?: string } {
-  // Get current time in WITA (UTC+8)
-  const now = new Date();
-  const wita = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-  
-  const dayOfWeek = wita.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  const hours = wita.getUTCHours();
-  const minutes = wita.getUTCMinutes();
-  const currentTime = hours * 60 + minutes; // Convert to minutes for easier comparison
-  
-  // Weekend check (Saturday = 6, Sunday = 0)
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return {
-      isAllowed: false,
-      message: 'Maaf, permohonan surat hanya dapat diajukan pada hari kerja (Senin-Jumat). Silakan ajukan permohonan Anda pada hari Senin.',
-    };
-  }
-  
-  // Check if after 15:00 (3 PM) on weekdays
-  // 15:00 = 15 * 60 = 900 minutes
-  if (currentTime >= 15 * 60) {
-    return {
-      isAllowed: false,
-      message: 'Maaf, batas waktu pengajuan permohonan adalah jam 15.00 WITA. Silakan ajukan permohonan Anda besok.',
-    };
-  }
-  
-  return { isAllowed: true };
+  return checkBusinessHoursWita();
 }
 
 export function getCurrentMonthYear() {

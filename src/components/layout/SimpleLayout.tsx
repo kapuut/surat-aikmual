@@ -44,14 +44,11 @@ export default function SimpleLayout({ children, useSidebar = false }: SimpleLay
 
   if (useSidebar) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <UserNavbar showMainMenu={false} />
-        <UserDashboardLayout onLogout={handleLogout}>
-          <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-            {children}
-          </main>
-        </UserDashboardLayout>
-      </div>
+      <UserDashboardLayout onLogout={handleLogout}>
+        <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+          {children}
+        </main>
+      </UserDashboardLayout>
     );
   }
 
@@ -110,7 +107,7 @@ export default function SimpleLayout({ children, useSidebar = false }: SimpleLay
               <ul className="space-y-2 text-sm text-gray-600">
                 <li className="font-medium text-gray-700">Kantor Desa Aikmual</li>
                 <li>Email: info@aikmual.go.id</li>
-                <li>Telepon: (0xxx) xxx-xxxx</li>
+                <li>Telepon/WhatsApp: 085253271360</li>
                 <li>Jam Kerja: Senin-Jumat, 08:00-16:00</li>
               </ul>
             </div>

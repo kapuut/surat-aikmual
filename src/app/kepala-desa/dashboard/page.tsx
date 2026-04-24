@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { AuthUser } from '@/lib/types';
 import { useRequireRole, useSharedStats } from '@/lib/hooks';
 import { 
+  FiActivity,
   FiArrowRight,
   FiBarChart2,
   FiCheckCircle,
@@ -15,8 +16,18 @@ import {
   FiTrendingUp
 } from 'react-icons/fi';
 
-type ChartGroupBy = 'tanggal' | 'bulan' | 'tahun';
-type ChartSortDirection = 'desc' | 'asc';
+const BAR_COLOR_PALETTE = [
+  '#2563eb',
+  '#0891b2',
+  '#7c3aed',
+  '#16a34a',
+  '#f59e0b',
+  '#e11d48',
+  '#0ea5e9',
+  '#9333ea',
+  '#14b8a6',
+  '#ea580c',
+];
 
 interface SuratMasukDateRow {
   tanggal_terima?: string;
@@ -34,31 +45,21 @@ function parseDate(value?: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function monthLabel(monthNumber: string): string {
-  const month = Number(monthNumber);
-  if (month === 1) return 'Jan';
-  if (month === 2) return 'Feb';
-  if (month === 3) return 'Mar';
-  if (month === 4) return 'Apr';
-  if (month === 5) return 'Mei';
-  if (month === 6) return 'Jun';
-  if (month === 7) return 'Jul';
-  if (month === 8) return 'Agu';
-  if (month === 9) return 'Sep';
-  if (month === 10) return 'Okt';
-  if (month === 11) return 'Nov';
-  return 'Des';
-}
-
 export default function HeadVillageDashboardPage() {
   const { user: authorizedUser, loading, isAuthenticated } = useRequireRole(['kepala_desa']);
   const { stats, loading: statsLoading } = useSharedStats();
+  const now = useMemo(() => new Date(), []);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [suratMasukRows, setSuratMasukRows] = useState<SuratMasukDateRow[]>([]);
   const [suratKeluarRows, setSuratKeluarRows] = useState<SuratKeluarDateRow[]>([]);
-  const [chartLoading, setChartLoading] = useState(true);
-  const [chartGroupBy, setChartGroupBy] = useState<ChartGroupBy>('bulan');
-  const [chartSortDirection, setChartSortDirection] = useState<ChartSortDirection>('desc');
+  const [chartYear, setChartYear] = useState<string>(String(now.getFullYear()));
+  const [chartMonth, setChartMonth] = useState<string>('');
+  const [chartSort, setChartSort] = useState<'asc' | 'desc'>('desc');
+  const [chartData, setChartData] = useState<Array<{ jenis_surat: string; jumlah: number }>>([]);
+  const [chartYears, setChartYears] = useState<number[]>([now.getFullYear()]);
+  const [chartTotalSurat, setChartTotalSurat] = useState<number>(0);
+  const [chartLoading, setChartLoading] = useState<boolean>(false);
+  const [chartError, setChartError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -81,8 +82,6 @@ export default function HeadVillageDashboardPage() {
   useEffect(() => {
     const fetchChartData = async () => {
       try {
-        setChartLoading(true);
-
         const [masukResponse, keluarResponse] = await Promise.all([
           fetch('/api/admin/surat-masuk', { credentials: 'include' }),
           fetch('/api/surat-keluar', { credentials: 'include' }),
@@ -100,13 +99,47 @@ export default function HeadVillageDashboardPage() {
         }
       } catch (error) {
         console.error('Failed to fetch chart data:', error);
-      } finally {
-        setChartLoading(false);
       }
     };
 
     fetchChartData();
   }, []);
+
+  const fetchJenisSuratChart = async () => {
+    try {
+      setChartLoading(true);
+      setChartError(null);
+
+      const params = new URLSearchParams();
+      params.set('year', chartYear);
+      if (chartMonth) params.set('month', chartMonth);
+      params.set('sort', chartSort);
+
+      const response = await fetch(`/api/stats/surat-jenis?${params.toString()}`, {
+        credentials: 'include',
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || 'Gagal memuat diagram jenis surat');
+      }
+
+      setChartData(Array.isArray(result.data) ? result.data : []);
+      setChartYears(Array.isArray(result.availableYears) && result.availableYears.length > 0 ? result.availableYears : [now.getFullYear()]);
+      setChartTotalSurat(Number(result?.summary?.totalSurat || 0));
+    } catch (error) {
+      setChartError(error instanceof Error ? error.message : 'Gagal memuat diagram jenis surat');
+      setChartData([]);
+      setChartTotalSurat(0);
+    } finally {
+      setChartLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!authorizedUser) return;
+    fetchJenisSuratChart();
+  }, [authorizedUser, chartYear, chartMonth, chartSort]);
 
   const pendingApproval = stats?.permohonan.menunggu_tanda_tangan ?? stats?.permohonan.pending ?? 0;
   const totalApproved = stats?.permohonan.selesai_ditandatangani ?? stats?.permohonan.disetujui ?? 0;
@@ -128,51 +161,10 @@ export default function HeadVillageDashboardPage() {
   const totalBulanIni = (stats?.suratMasuk.bulanIni ?? 0) + totalSuratKeluarBulanIni;
   const totalBelumDibacaMasuk = stats?.suratMasuk.belumDibaca ?? 0;
 
-  const chartData = useMemo(() => {
-    const bucketMap = new Map<string, number>();
-
-    const addDateToBucket = (dateValue?: string) => {
-      const date = parseDate(dateValue);
-      if (!date) return;
-
-      const year = String(date.getFullYear());
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-
-      const key =
-        chartGroupBy === 'tanggal'
-          ? `${year}-${month}-${day}`
-          : chartGroupBy === 'bulan'
-            ? `${year}-${month}`
-            : year;
-
-      bucketMap.set(key, (bucketMap.get(key) || 0) + 1);
-    };
-
-    suratMasukRows.forEach((item) => addDateToBucket(item.tanggal_terima || item.tanggal_surat));
-    suratKeluarRows.forEach((item) => addDateToBucket(item.tanggal_surat));
-
-    const rows = Array.from(bucketMap.entries()).map(([key, count]) => ({ key, count }));
-    rows.sort((a, b) => (chartSortDirection === 'asc' ? a.key.localeCompare(b.key) : b.key.localeCompare(a.key)));
-
-    const limitedRows = chartGroupBy === 'tanggal' ? rows.slice(0, 20) : rows;
-
-    return limitedRows.map((item) => {
-      if (chartGroupBy === 'tahun') {
-        return { label: item.key, count: item.count };
-      }
-
-      if (chartGroupBy === 'bulan') {
-        const [year, month] = item.key.split('-');
-        return { label: `${monthLabel(month)} ${year.slice(2)}`, count: item.count };
-      }
-
-      const [year, month, day] = item.key.split('-');
-      return { label: `${day}/${month}/${year.slice(2)}`, count: item.count };
-    });
-  }, [suratMasukRows, suratKeluarRows, chartGroupBy, chartSortDirection]);
-
-  const maxChartValue = Math.max(1, ...chartData.map((item) => item.count));
+  const chartAxisMax = useMemo(() => {
+    if (chartData.length === 0) return 0;
+    return Math.max(...chartData.map((item) => item.jumlah), 0);
+  }, [chartData]);
 
   if (loading || !isAuthenticated || !authorizedUser || statsLoading || !user) {
     return (
@@ -269,54 +261,146 @@ export default function HeadVillageDashboardPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-2">
-            <FiBarChart2 className="text-indigo-600" /> Diagram Batang Aktivitas Surat
-          </h3>
-          <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-wrap items-start justify-end gap-3">
+          <button
+            onClick={fetchJenisSuratChart}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <FiActivity className="h-4 w-4" />
+            Segarkan Diagram
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tahun</label>
             <select
-              value={chartGroupBy}
-              onChange={(e) => setChartGroupBy(e.target.value as ChartGroupBy)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+              value={chartYear}
+              onChange={(e) => setChartYear(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="tanggal">Grouping: Tanggal</option>
-              <option value="bulan">Grouping: Bulan</option>
-              <option value="tahun">Grouping: Tahun</option>
+              {chartYears.map((year) => (
+                <option key={year} value={String(year)}>
+                  {year}
+                </option>
+              ))}
             </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Bulan</label>
             <select
-              value={chartSortDirection}
-              onChange={(e) => setChartSortDirection(e.target.value as ChartSortDirection)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+              value={chartMonth}
+              onChange={(e) => setChartMonth(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="desc">Urut: Terbaru</option>
-              <option value="asc">Urut: Terlama</option>
+              <option value="">Semua Bulan</option>
+              <option value="1">Januari</option>
+              <option value="2">Februari</option>
+              <option value="3">Maret</option>
+              <option value="4">April</option>
+              <option value="5">Mei</option>
+              <option value="6">Juni</option>
+              <option value="7">Juli</option>
+              <option value="8">Agustus</option>
+              <option value="9">September</option>
+              <option value="10">Oktober</option>
+              <option value="11">November</option>
+              <option value="12">Desember</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Urutan</label>
+            <select
+              value={chartSort}
+              onChange={(e) => setChartSort(e.target.value === 'asc' ? 'asc' : 'desc')}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="desc">Jumlah Terbanyak</option>
+              <option value="asc">Jumlah Tersedikit</option>
             </select>
           </div>
         </div>
 
-        {chartLoading ? (
-          <p className="text-sm text-gray-500">Memuat data diagram...</p>
-        ) : chartData.length === 0 ? (
-          <p className="text-sm text-gray-500">Data diagram belum tersedia.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <div className="min-w-[680px] h-64 flex items-end gap-3">
-              {chartData.map((item) => (
-                <div key={item.label} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs text-gray-600 font-medium">{item.count}</span>
-                  <div className="w-full rounded-md bg-indigo-100 h-44 flex items-end">
-                    <div
-                      className="w-full rounded-md bg-indigo-500 transition-all"
-                      style={{ height: `${(item.count / maxChartValue) * 100}%` }}
-                      title={`${item.label}: ${item.count}`}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-500 text-center">{item.label}</span>
-                </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
+          <span className="rounded-full bg-indigo-50 px-3 py-1 font-medium text-indigo-700">
+            Total Surat: {chartTotalSurat}
+          </span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
+            Total Jenis: {chartData.length}
+          </span>
+        </div>
+
+        <div className="mt-5">
+          {chartError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {chartError}
+            </div>
+          )}
+
+          {chartLoading && (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="h-10 animate-pulse rounded-lg bg-gray-100" />
               ))}
             </div>
-          </div>
-        )}
+          )}
+
+          {!chartLoading && !chartError && chartData.length === 0 && (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+              Belum ada data jenis surat untuk filter yang dipilih.
+            </div>
+          )}
+
+          {!chartLoading && !chartError && chartData.length > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
+              <div className="mb-4">
+                <p className="text-sm font-medium text-gray-700">Perbandingan Jumlah Surat per Jenis</p>
+              </div>
+
+              <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
+                <div className="mb-3 flex items-center justify-between text-[11px] text-gray-500">
+                  <span>Jenis Surat</span>
+                  <span>Skala 0 - {chartAxisMax}</span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {chartData.map((item, index) => {
+                    const scaleBase = chartAxisMax > 0 ? chartAxisMax : 1;
+                    const barWidthPercent = (item.jumlah / scaleBase) * 100;
+                    const barColor = BAR_COLOR_PALETTE[index % BAR_COLOR_PALETTE.length];
+
+                    return (
+                      <div
+                        key={item.jenis_surat}
+                        className="grid items-center gap-3"
+                        style={{ gridTemplateColumns: 'minmax(130px, 220px) minmax(220px, 1fr) 34px' }}
+                      >
+                        <p className="truncate text-xs sm:text-sm font-medium text-gray-700" title={item.jenis_surat}>
+                          {item.jenis_surat}
+                        </p>
+
+                        <div className="h-8 rounded-lg border border-gray-200 bg-gray-50 p-1">
+                          <div
+                            className="h-full rounded-md transition-all duration-500"
+                            title={`Jumlah: ${item.jumlah} (${item.jenis_surat})`}
+                            style={{
+                              width: `${barWidthPercent}%`,
+                              background: `linear-gradient(to right, ${barColor} 0%, ${barColor} 70%, rgba(255,255,255,0.35) 100%)`,
+                              border: `1px solid ${barColor}`,
+                              boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
+                            }}
+                          />
+                        </div>
+
+                        <span className="text-right text-xs font-semibold text-gray-700">{item.jumlah}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -334,8 +418,6 @@ export default function HeadVillageDashboardPage() {
               <p className="text-xs uppercase tracking-wide text-gray-500">Total</p>
               <p className="text-2xl font-bold text-gray-900">{totalSuratMasuk}</p>
             </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs uppercase tracking-wide text-gray-500">Bulan Ini</p>
               <p className="text-2xl font-bold text-gray-900">{stats?.suratMasuk.bulanIni ?? 0}</p>
@@ -368,8 +450,6 @@ export default function HeadVillageDashboardPage() {
               <p className="text-xs uppercase tracking-wide text-gray-500">Total</p>
               <p className="text-2xl font-bold text-gray-900">{totalSuratKeluar}</p>
             </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs uppercase tracking-wide text-gray-500">Bulan Ini</p>
               <p className="text-2xl font-bold text-gray-900">{totalSuratKeluarBulanIni}</p>

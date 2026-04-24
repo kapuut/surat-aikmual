@@ -10,6 +10,8 @@ import { generateSuratTemplate } from '@/lib/surat-generator';
 import type { JenisSurat } from '@/lib/surat-generator/types';
 import { buildSampleSuratData } from '@/lib/surat-generator/sample-data';
 import { normalizeSuratSlug } from '@/lib/surat-data';
+import { normalizeCustomTemplateHtml } from '@/lib/template-surat/official-layout';
+import { buildOfficialDynamicSystemValues } from '@/lib/template-surat/official-defaults';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -59,7 +61,16 @@ function parseFieldsJson(fieldsJson: string): TemplateField[] {
 }
 
 function buildSampleValues(fields: TemplateField[]): Record<string, string> {
-  const sampleValues: Record<string, string> = {};
+  const today = new Date();
+  const tanggalSurat = today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  const bulan = String(today.getMonth() + 1).padStart(2, '0');
+  const tahun = today.getFullYear();
+
+  // Common/system field values that are always present in every template
+  const sampleValues: Record<string, string> = buildOfficialDynamicSystemValues(
+    tanggalSurat,
+    `001/Ds.Aml/${bulan}.${tahun}`
+  );
 
   fields.forEach((field) => {
     if (field.type === 'date') {
@@ -84,23 +95,187 @@ function renderPreviewPage(template: DynamicSuratTemplate, renderedHtml: string)
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Preview Placeholder - ${template.nama}</title>
+  <title>Preview - ${template.nama}</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f8fafc; margin: 0; color: #0f172a; }
-    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
-    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06); }
-    h1 { margin: 0 0 10px; font-size: 22px; }
-    p { margin: 0 0 8px; color: #475569; }
-    .content { margin-top: 16px; line-height: 1.7; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Bookman Old Style', 'Book Antiqua', serif;
+      font-size: 12pt;
+      line-height: 1.5;
+      color: #000;
+      background-color: #efefef;
+      padding: 16px;
+    }
+
+    .page {
+      width: 21cm;
+      min-height: 29.7cm;
+      height: auto;
+      margin: 0 auto;
+      padding: 1.2cm 1.3cm 1.2cm 1.3cm;
+      font-size: 12pt;
+      line-height: 1.5;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    /* Kop Surat */
+    .kop-surat {
+      margin-bottom: 0.7cm;
+      position: relative;
+      padding-bottom: 0.15cm;
+    }
+
+    .kop-row {
+      display: grid;
+      grid-template-columns: 98px 1fr;
+      column-gap: 10px;
+      align-items: center;
+    }
+
+    .logo-wrap {
+      width: 98px;
+      height: 98px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-wrap img {
+      width: 88px;
+      height: 88px;
+      object-fit: contain;
+    }
+
+    .kop-text {
+      text-align: center;
+      padding-right: 98px;
+      font-family: 'Times New Roman', serif;
+    }
+
+    .kop-text .kabupaten {
+      font-size: 14pt;
+      font-weight: bold;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .kop-text .kecamatan {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .kop-text .desa {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 1px;
+    }
+
+    .kop-text .alamat {
+      font-size: 9pt;
+      border: 1px solid #111;
+      padding: 2px 6px;
+      display: inline-block;
+      min-width: 86%;
+      white-space: nowrap;
+    }
+
+    .kop-divider {
+      margin-top: 4px;
+      border-top: 1px solid #000;
+      border-bottom: 2px solid #000;
+      height: 3px;
+    }
+
+    /* Judul Surat */
+    .judul-surat {
+      text-align: center;
+      margin: 0.3cm 0 0.02cm 0;
+      font-size: 12pt;
+      font-weight: bold;
+      text-decoration: underline;
+      text-transform: uppercase;
+    }
+
+    /* Nomor Surat */
+    .nomor-surat {
+      text-align: center;
+      margin-bottom: 0.32cm;
+      font-size: 12pt;
+      line-height: 1.2;
+    }
+
+    /* Isi Surat */
+    .isi-surat, .surat-body {
+      font-size: 12pt;
+      margin: 0.2cm 0 0.6cm 0;
+    }
+
+    .isi-surat p, .surat-body p {
+      margin-bottom: 0.35cm;
+      line-height: 1.5;
+    }
+
+    .isi-surat table, .surat-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.15cm 0 0.35cm 0;
+      font-size: 12pt;
+    }
+
+    .isi-surat td, .surat-body td {
+      padding: 0.03cm 0;
+      border: none;
+      vertical-align: top;
+    }
+
+    .isi-surat .label, .surat-body .label {
+      width: 3.8cm;
+      white-space: nowrap;
+    }
+
+    .isi-surat .colon, .surat-body .colon {
+      width: 0.35cm;
+      text-align: center;
+    }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .page { width: 100%; min-height: auto; box-shadow: none; margin: 0; padding: 0; }
+    }
+
+    @media (max-width: 900px) {
+      body { padding: 8px; }
+      .page { width: 100%; }
+      .kop-row { grid-template-columns: 72px 1fr; }
+      .kop-text { padding-right: 0; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>${template.nama}</h1>
-      <p>Jenis Surat: <strong>${template.jenisSurat}</strong></p>
-      <p>${template.deskripsi}</p>
-      <div class="content">${renderedHtml}</div>
+  <div class="page">
+    <!-- KOP SURAT -->
+    <div class="kop-surat">
+      <div class="kop-row">
+        <div class="logo-wrap">
+          <img src="/images/logo-loteng.png" alt="Logo Lombok Tengah" />
+        </div>
+        <div class="kop-text">
+          <div class="kabupaten">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
+          <div class="kecamatan">KECAMATAN PRAYA</div>
+          <div class="desa">DESA AIKMUAL</div>
+          <div class="alamat">Alamat : Jln raya Praya – Mantang KM 07 Aikmual Praya Phone 08175726709 / 08175790747 Kode Post 83500</div>
+        </div>
+      </div>
+      <div class="kop-divider"></div>
+    </div>
+
+    <!-- Isi Template -->
+    <div class="surat-body">
+      ${renderedHtml}
     </div>
   </div>
 </body>
@@ -171,7 +346,10 @@ export async function GET(
       });
     }
 
-    const renderedHtml = renderTemplateWithValues(template.htmlTemplate, buildSampleValues(template.fields));
+    const renderedHtml = renderTemplateWithValues(
+      normalizeCustomTemplateHtml(template.htmlTemplate),
+      buildSampleValues(template.fields)
+    );
     return new NextResponse(renderPreviewPage(template, renderedHtml), {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { FiCalendar, FiDownload, FiInbox, FiRefreshCw, FiSend, FiUserCheck } from "react-icons/fi";
+import * as XLSX from "xlsx";
+import { FiCalendar, FiCheckCircle, FiDownload, FiInbox, FiRefreshCw, FiSend, FiUserCheck } from "react-icons/fi";
 
 interface SuratMasukItem {
   id: number;
@@ -10,19 +11,28 @@ interface SuratMasukItem {
   tanggal_surat: string;
   tanggal_terima: string;
   asal_surat: string;
+  urgensi?: "rendah" | "sedang" | "tinggi" | string;
   perihal: string;
   file_path?: string | null;
   created_by_name?: string | null;
   latest_disposisi_tujuan?: string | null;
   latest_disposisi_tujuan_label?: string | null;
   latest_disposisi_status?: string | null;
+  latest_disposisi_urgensi?: "rendah" | "sedang" | "tinggi" | string | null;
   latest_disposisi_catatan?: string | null;
   latest_disposisi_at?: string | null;
   latest_disposisi_by?: string | null;
+  status_penanganan?: string | null;
+  ditangani_at?: string | null;
+  ditangani_by_name?: string | null;
 }
 
 const FIXED_TUJUAN_ROLE = "sekretaris";
 const FIXED_TUJUAN_LABEL = "Sekretaris Desa";
+type DisposisiUrgensi = "rendah" | "sedang" | "tinggi";
+type StatusFilter = "semua" | "belum" | "sudah";
+
+type PenangananSurat = "baru" | "diproses" | "selesai";
 
 function parseDate(value?: string): Date | null {
   if (!value) return null;
@@ -40,9 +50,145 @@ function formatDate(value?: string): string {
   });
 }
 
-function normalizeCsvCell(value: string): string {
-  const text = value.replace(/\r?\n/g, " ").replace(/"/g, '""');
-  return `"${text}"`;
+function getStoredFileName(filePath?: string | null): string {
+  if (!filePath) {
+    return "-";
+  }
+
+  const trimmed = filePath.trim();
+  if (!trimmed) {
+    return "-";
+  }
+
+  const segments = trimmed.split("/").filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : trimmed;
+}
+
+function getExportDateLabel(): string {
+  return new Date().toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function normalizeDisposisiStatus(rawValue: unknown): string {
+  return String(rawValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
+}
+
+function isKonfirmasiKepalaDesa(item: SuratMasukItem): boolean {
+  const tujuan = String(item.latest_disposisi_tujuan || "").trim().toLowerCase();
+  const label = String(item.latest_disposisi_tujuan_label || "").trim().toLowerCase();
+
+  return tujuan === "kepala_desa" || label.includes("konfirmasi kepala desa");
+}
+
+function hasRealDisposisi(item: SuratMasukItem): boolean {
+  return Boolean(item.latest_disposisi_tujuan) && !isKonfirmasiKepalaDesa(item);
+}
+
+function normalizePenangananStatus(rawValue: unknown): string {
+  return String(rawValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
+}
+
+function getUrgensiRank(rawValue: unknown): number {
+  const value = String(rawValue || "").trim().toLowerCase();
+  if (value === "tinggi") return 3;
+  if (value === "sedang") return 2;
+  if (value === "rendah") return 1;
+  return 2;
+}
+
+function getPenangananStatus(item: SuratMasukItem): PenangananSurat {
+  const handledStatus = normalizePenangananStatus(item.status_penanganan);
+  if (["selesai", "sudah", "done", "completed", "selesai_ditangani", "sudah_ditangani"].includes(handledStatus)) {
+    return "selesai";
+  }
+
+  const hasDisposisi = hasRealDisposisi(item);
+  const status = normalizeDisposisiStatus(item.latest_disposisi_status);
+
+  if (isKonfirmasiKepalaDesa(item) && ["selesai", "terlaksana", "completed", "done", "tuntas"].includes(status)) {
+    return "selesai";
+  }
+
+  if (!hasDisposisi && !status) {
+    return "baru";
+  }
+
+  if (!hasDisposisi && status) {
+    return "baru";
+  }
+
+  if (["pending", "diproses", "proses", "menunggu"].includes(status)) {
+    return "diproses";
+  }
+
+  if (
+    ["didisposisikan", "diteruskan", "selesai", "terlaksana", "completed", "done", "ditindaklanjuti", "tuntas"].includes(status)
+  ) {
+    return "selesai";
+  }
+
+  if (hasDisposisi) {
+    return "diproses";
+  }
+
+  if (status) {
+    return "baru";
+  }
+
+  return "baru";
+}
+
+function getPenangananMeta(status: PenangananSurat) {
+  if (status === "baru") {
+    return {
+      label: "Baru masuk",
+      className: "bg-blue-100 text-blue-700",
+    };
+  }
+
+  if (status === "selesai") {
+    return {
+      label: "Selesai ditangani",
+      className: "bg-emerald-100 text-emerald-700",
+    };
+  }
+
+  return {
+    label: "Sedang diproses",
+    className: "bg-amber-100 text-amber-700",
+  };
+}
+
+function getUrgensiLabel(rawValue: unknown): "Rendah" | "Sedang" | "Tinggi" {
+  const value = String(rawValue || "").trim().toLowerCase();
+  if (value === "tinggi") return "Tinggi";
+  if (value === "rendah") return "Rendah";
+  return "Sedang";
+}
+
+function getUrgensiClass(rawValue: unknown): string {
+  const value = String(rawValue || "").trim().toLowerCase();
+  if (value === "tinggi") return "bg-red-100 text-red-700";
+  if (value === "rendah") return "bg-slate-100 text-slate-700";
+  return "bg-amber-100 text-amber-700";
+}
+
+function normalizeUrgensiValue(rawValue: unknown): DisposisiUrgensi {
+  const value = String(rawValue || "").trim().toLowerCase();
+  if (value === "tinggi") return "tinggi";
+  if (value === "rendah") return "rendah";
+  return "sedang";
 }
 
 export default function KepalaDesaLaporanSuratMasukPage() {
@@ -50,17 +196,21 @@ export default function KepalaDesaLaporanSuratMasukPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [disposisiTarget, setDisposisiTarget] = useState<SuratMasukItem | null>(null);
   const [tujuanLanjutan, setTujuanLanjutan] = useState<string>("");
+  const [urgensiDisposisi, setUrgensiDisposisi] = useState<DisposisiUrgensi>("sedang");
   const [catatanDisposisi, setCatatanDisposisi] = useState<string>("");
+  const [confirmTarget, setConfirmTarget] = useState<SuratMasukItem | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterMonth, setFilterMonth] = useState("");
-  const [filterYear, setFilterYear] = useState("");
+  const [filterFromDate, setFilterFromDate] = useState("");
+  const [filterToDate, setFilterToDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("semua");
   const [sortBy, setSortBy] = useState<
-    "tanggal-desc" | "tanggal-asc" | "bulan-desc" | "bulan-asc" | "tahun-desc" | "tahun-asc"
-  >("tanggal-desc");
+    "prioritas-tindak-lanjut" | "urgensi-desc" | "urgensi-asc" | "tanggal-desc" | "tanggal-asc"
+  >("prioritas-tindak-lanjut");
 
   const fetchData = async () => {
     try {
@@ -89,12 +239,14 @@ export default function KepalaDesaLaporanSuratMasukPage() {
   const openDisposisiDialog = (item: SuratMasukItem) => {
     setDisposisiTarget(item);
     setTujuanLanjutan("");
+    setUrgensiDisposisi(normalizeUrgensiValue(item.urgensi));
     setCatatanDisposisi(`Mohon ditindaklanjuti terkait surat masuk ${item.nomor_surat || ""}.`.trim());
   };
 
   const closeDisposisiDialog = () => {
     setDisposisiTarget(null);
     setTujuanLanjutan("");
+    setUrgensiDisposisi("sedang");
     setCatatanDisposisi("");
   };
 
@@ -117,6 +269,7 @@ export default function KepalaDesaLaporanSuratMasukPage() {
           tujuan_role: FIXED_TUJUAN_ROLE,
           tujuan_label: FIXED_TUJUAN_LABEL,
           tujuan_lanjutan: tujuanLanjutan,
+          urgensi_disposisi: urgensiDisposisi,
           catatan: catatanDisposisi,
         }),
       });
@@ -137,6 +290,7 @@ export default function KepalaDesaLaporanSuratMasukPage() {
                 latest_disposisi_tujuan: FIXED_TUJUAN_ROLE,
                 latest_disposisi_tujuan_label: FIXED_TUJUAN_LABEL,
                 latest_disposisi_status: "didisposisikan",
+                latest_disposisi_urgensi: urgensiDisposisi,
                 latest_disposisi_catatan: catatanDisposisi,
                 latest_disposisi_at: nowIso,
                 latest_disposisi_by: "Kepala Desa",
@@ -160,17 +314,57 @@ export default function KepalaDesaLaporanSuratMasukPage() {
     }
   };
 
-  const years = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const values = new Set<number>([currentYear]);
+  const handleKonfirmasiSelesai = async (item: SuratMasukItem) => {
+    try {
+      setConfirmingId(item.id);
+      setFeedback(null);
 
-    data.forEach((item) => {
-      const parsed = parseDate(item.tanggal_terima || item.tanggal_surat);
-      if (parsed) values.add(parsed.getFullYear());
-    });
+      const response = await fetch(`/api/kepala-desa/surat-masuk/${item.id}/konfirmasi`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          catatan: `Surat ${item.nomor_surat || ""} telah dibaca dan dikonfirmasi selesai oleh Kepala Desa.`,
+        }),
+      });
 
-    return Array.from(values).sort((a, b) => b - a);
-  }, [data]);
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Gagal mengonfirmasi surat selesai");
+      }
+
+      const nowIso = new Date().toISOString();
+
+      setData((current) =>
+        current.map((row) =>
+          row.id === item.id
+            ? {
+                ...row,
+                status_penanganan: "selesai",
+                ditangani_at: nowIso,
+                ditangani_by_name: "Kepala Desa",
+              }
+            : row
+        )
+      );
+
+      setFeedback({
+        type: "success",
+        text: `Surat ${item.nomor_surat || ""} ditandai selesai ditangani.`,
+      });
+    } catch (err) {
+      setFeedback({
+        type: "error",
+        text: err instanceof Error ? err.message : "Terjadi kesalahan saat mengonfirmasi surat selesai",
+      });
+    } finally {
+      setConfirmingId(null);
+      setConfirmTarget(null);
+    }
+  };
 
   const filteredData = useMemo(() => {
     return data.filter((item) => {
@@ -178,7 +372,7 @@ export default function KepalaDesaLaporanSuratMasukPage() {
         item.nomor_surat,
         item.asal_surat,
         item.perihal,
-        item.created_by_name || "",
+        item.urgensi || "",
       ]
         .join(" ")
         .toLowerCase();
@@ -186,12 +380,23 @@ export default function KepalaDesaLaporanSuratMasukPage() {
       const matchesSearch = !searchTerm.trim() || searchPool.includes(searchTerm.trim().toLowerCase());
 
       const dateSource = parseDate(item.tanggal_terima || item.tanggal_surat);
-      const matchesMonth = !filterMonth || (dateSource ? dateSource.getMonth() + 1 === Number(filterMonth) : false);
-      const matchesYear = !filterYear || (dateSource ? dateSource.getFullYear() === Number(filterYear) : false);
+      const fromDate = filterFromDate ? new Date(`${filterFromDate}T00:00:00`) : null;
+      const toDate = filterToDate ? new Date(`${filterToDate}T23:59:59`) : null;
 
-      return matchesSearch && matchesMonth && matchesYear;
+      const matchesFromDate = !fromDate || (dateSource ? dateSource.getTime() >= fromDate.getTime() : false);
+      const matchesToDate = !toDate || (dateSource ? dateSource.getTime() <= toDate.getTime() : false);
+
+      const penanganan = getPenangananStatus(item);
+      const matchesStatus =
+        statusFilter === "semua"
+          ? true
+          : statusFilter === "belum"
+            ? penanganan === "baru"
+            : penanganan === "diproses" || penanganan === "selesai";
+
+      return matchesSearch && matchesFromDate && matchesToDate && matchesStatus;
     });
-  }, [data, searchTerm, filterMonth, filterYear]);
+  }, [data, searchTerm, filterFromDate, filterToDate, statusFilter]);
 
   const sortedData = useMemo(() => {
     const rows = [...filteredData];
@@ -202,24 +407,23 @@ export default function KepalaDesaLaporanSuratMasukPage() {
 
       const timeA = dateA?.getTime() ?? 0;
       const timeB = dateB?.getTime() ?? 0;
-      const monthA = dateA ? dateA.getMonth() + 1 : 0;
-      const monthB = dateB ? dateB.getMonth() + 1 : 0;
-      const yearA = dateA?.getFullYear() ?? 0;
-      const yearB = dateB?.getFullYear() ?? 0;
+      const urgensiA = getUrgensiRank(a.urgensi);
+      const urgensiB = getUrgensiRank(b.urgensi);
+
+      const needsFollowUpA = getPenangananStatus(a) !== "selesai" ? 1 : 0;
+      const needsFollowUpB = getPenangananStatus(b) !== "selesai" ? 1 : 0;
 
       switch (sortBy) {
         case "tanggal-asc":
           return timeA - timeB;
         case "tanggal-desc":
           return timeB - timeA;
-        case "bulan-asc":
-          return monthA - monthB || yearA - yearB || timeA - timeB;
-        case "bulan-desc":
-          return monthB - monthA || yearB - yearA || timeB - timeA;
-        case "tahun-asc":
-          return yearA - yearB || monthA - monthB || timeA - timeB;
-        case "tahun-desc":
-          return yearB - yearA || monthB - monthA || timeB - timeA;
+        case "urgensi-desc":
+          return urgensiB - urgensiA || timeB - timeA;
+        case "urgensi-asc":
+          return urgensiA - urgensiB || timeB - timeA;
+        case "prioritas-tindak-lanjut":
+          return needsFollowUpB - needsFollowUpA || urgensiB - urgensiA || timeB - timeA;
         default:
           return timeB - timeA;
       }
@@ -230,97 +434,115 @@ export default function KepalaDesaLaporanSuratMasukPage() {
 
   const totalSuratMasuk = data.length;
   const totalFiltered = sortedData.length;
+  const totalBaruMasuk = data.filter((item) => getPenangananStatus(item) === "baru").length;
+  const totalDiproses = data.filter((item) => getPenangananStatus(item) === "diproses").length;
+  const totalSelesai = data.filter((item) => getPenangananStatus(item) === "selesai").length;
   const bulanIniCount = data.filter((item) => {
     const parsed = parseDate(item.tanggal_terima || item.tanggal_surat);
     if (!parsed) return false;
     const now = new Date();
     return parsed.getMonth() === now.getMonth() && parsed.getFullYear() === now.getFullYear();
   }).length;
-  const pengirimUnik = new Set(data.map((item) => (item.asal_surat || "").trim()).filter(Boolean)).size;
+  const handleExportExcel = () => {
+    const exportRows = sortedData.map((item, index) => ({
+      No: index + 1,
+      "Nomor Surat": item.nomor_surat || "-",
+      "Tanggal Surat": formatDate(item.tanggal_surat),
+      "Tanggal Terima": formatDate(item.tanggal_terima || item.tanggal_surat),
+      "Asal Surat": item.asal_surat || "-",
+      Urgensi: getUrgensiLabel(item.urgensi),
+      Perihal: item.perihal || "-",
+      "Status Penanganan": getPenangananMeta(getPenangananStatus(item)).label,
+      "Nama File": getStoredFileName(item.file_path),
+      "Status File": item.file_path ? "Tersedia" : "Tidak ada",
+    }));
 
-  const downloadCsv = () => {
-    const header = ["No", "Nomor Surat", "Tanggal Terima", "Asal Surat", "Perihal", "Petugas Input"];
-    const rows = sortedData.map((item, index) => [
-      String(index + 1),
-      item.nomor_surat || "-",
-      formatDate(item.tanggal_terima || item.tanggal_surat),
-      item.asal_surat || "-",
-      item.perihal || "-",
-      item.created_by_name || "-",
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["LAPORAN SURAT MASUK"],
+      [`Tanggal Export: ${getExportDateLabel()}`],
+      [`Total Data: ${sortedData.length}`],
+      [],
     ]);
 
-    const csvContent = [header, ...rows]
-      .map((row) => row.map((cell) => normalizeCsvCell(cell)).join(","))
-      .join("\n");
+    XLSX.utils.sheet_add_json(worksheet, exportRows, {
+      origin: "A5",
+      skipHeader: false,
+    });
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `laporan-surat-masuk-${new Date().toISOString().slice(0, 10)}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    worksheet["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 9 } },
+    ];
+
+    worksheet["!cols"] = [
+      { wch: 6 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 12 },
+      { wch: 32 },
+      { wch: 20 },
+      { wch: 38 },
+      { wch: 14 },
+    ];
+
+    worksheet["!autofilter"] = {
+      ref: `A5:J${Math.max(exportRows.length + 5, 5)}`,
+    };
+
+    worksheet["!rows"] = [
+      { hpt: 24 },
+      { hpt: 20 },
+      { hpt: 20 },
+      { hpt: 8 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Surat Masuk");
+
+    const exportDate = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `laporan-surat-masuk-${exportDate}.xlsx`);
   };
 
   return (
     <section>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2.5">
-          <FiInbox className="text-purple-600" /> Surat Masuk
-        </h2>
-        <p className="mt-1 text-sm text-gray-500">Ringkasan surat masuk berdasarkan filter periode dan pencarian.</p>
-      </div>
+      <p className="mb-3 text-sm text-gray-600">
+        Ringkasan surat masuk berdasarkan filter periode, pencarian, sorting, dan rentang tanggal.
+      </p>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <div className="md:col-span-2">
             <label className="mb-1.5 block text-xs font-medium text-gray-700">Pencarian</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cari nomor surat, asal surat, perihal, atau petugas..."
+              placeholder="Cari nomor surat, asal surat, perihal, atau urgensi..."
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">Bulan</label>
-            <select
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
+            <label className="mb-1.5 block text-xs font-medium text-gray-700">Tanggal Dari</label>
+            <input
+              type="date"
+              value={filterFromDate}
+              onChange={(e) => setFilterFromDate(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua Bulan</option>
-              <option value="1">Januari</option>
-              <option value="2">Februari</option>
-              <option value="3">Maret</option>
-              <option value="4">April</option>
-              <option value="5">Mei</option>
-              <option value="6">Juni</option>
-              <option value="7">Juli</option>
-              <option value="8">Agustus</option>
-              <option value="9">September</option>
-              <option value="10">Oktober</option>
-              <option value="11">November</option>
-              <option value="12">Desember</option>
-            </select>
+            />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">Tahun</label>
-            <select
-              value={filterYear}
-              onChange={(e) => setFilterYear(e.target.value)}
+            <label className="mb-1.5 block text-xs font-medium text-gray-700">Tanggal Sampai</label>
+            <input
+              type="date"
+              value={filterToDate}
+              onChange={(e) => setFilterToDate(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua Tahun</option>
-              {years.map((year) => (
-                <option key={year} value={String(year)}>
-                  {year}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>
@@ -330,12 +552,24 @@ export default function KepalaDesaLaporanSuratMasukPage() {
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
+              <option value="prioritas-tindak-lanjut">Prioritas tindak lanjut dulu</option>
+              <option value="urgensi-desc">Urgensi tertinggi dulu</option>
+              <option value="urgensi-asc">Urgensi terendah dulu</option>
               <option value="tanggal-desc">Tanggal Terbaru</option>
               <option value="tanggal-asc">Tanggal Terlama</option>
-              <option value="bulan-desc">Bulan Terbesar ke Kecil</option>
-              <option value="bulan-asc">Bulan Terkecil ke Besar</option>
-              <option value="tahun-desc">Tahun Terbaru</option>
-              <option value="tahun-asc">Tahun Terlama</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-700">Status Penanganan</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="semua">Semua</option>
+              <option value="belum">Belum ditangani</option>
+              <option value="sudah">Sudah ditangani</option>
             </select>
           </div>
         </div>
@@ -367,16 +601,16 @@ export default function KepalaDesaLaporanSuratMasukPage() {
             Refresh
           </button>
           <button
-            onClick={downloadCsv}
+            onClick={handleExportExcel}
             className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs text-white hover:bg-green-700"
           >
             <FiDownload className="w-4 h-4" />
-            Export CSV
+            Export Excel
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <p className="text-xs text-gray-500">Total Surat Masuk</p>
           <p className="text-xl font-bold text-blue-700">{totalSuratMasuk}</p>
@@ -390,8 +624,16 @@ export default function KepalaDesaLaporanSuratMasukPage() {
           <p className="text-xl font-bold text-purple-700">{bulanIniCount}</p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <p className="text-xs text-gray-500">Pengirim Unik</p>
-          <p className="text-xl font-bold text-slate-700">{pengirimUnik}</p>
+          <p className="text-xs text-gray-500">Baru Masuk</p>
+          <p className="text-xl font-bold text-blue-700">{totalBaruMasuk}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <p className="text-xs text-gray-500">Selesai Ditangani</p>
+          <p className="text-xl font-bold text-emerald-700">{totalSelesai}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <p className="text-xs text-gray-500">Sedang Diproses</p>
+          <p className="text-xl font-bold text-amber-700">{totalDiproses}</p>
         </div>
       </div>
 
@@ -403,42 +645,45 @@ export default function KepalaDesaLaporanSuratMasukPage() {
         ) : sortedData.length === 0 ? (
           <div className="p-8 text-center text-gray-500">Tidak ada data yang sesuai filter.</div>
         ) : (
-          <table className="min-w-[1160px] divide-y divide-gray-200 text-xs">
+          <table className="min-w-[1280px] divide-y divide-gray-200 text-xs">
             <thead className="bg-gray-100">
               <tr>
                 <th className="w-12 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">No</th>
                 <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Nomor Surat</th>
                 <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Tanggal Terima</th>
                 <th className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Asal Surat</th>
+                <th className="w-24 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Urgensi</th>
                 <th className="min-w-[200px] px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Perihal</th>
-                <th className="w-44 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Petugas Input</th>
                 <th className="w-[260px] px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Disposisi</th>
-                <th className="w-32 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">File</th>
+                <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Status Penanganan</th>
+                <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {sortedData.map((item, index) => (
+              {sortedData.map((item, index) => {
+                const penanganan = getPenangananStatus(item);
+                const meta = getPenangananMeta(penanganan);
+                const hasDisposisi = hasRealDisposisi(item);
+
+                return (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-3 py-3 align-top text-gray-700">{index + 1}</td>
                   <td className="px-3 py-3 align-top whitespace-nowrap font-semibold text-gray-900">{item.nomor_surat || "-"}</td>
                   <td className="px-3 py-3 align-top whitespace-nowrap text-gray-700">{formatDate(item.tanggal_terima || item.tanggal_surat)}</td>
                   <td className="px-3 py-3 align-top text-gray-700">{item.asal_surat || "-"}</td>
+                  <td className="px-3 py-3 align-top">
+                    <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${getUrgensiClass(item.urgensi)}`}>
+                      {getUrgensiLabel(item.urgensi)}
+                    </span>
+                  </td>
                   <td className="px-3 py-3 align-top text-gray-700">{item.perihal || "-"}</td>
-                  <td className="px-3 py-3 align-top text-gray-700">{item.created_by_name || "-"}</td>
                   <td className="px-3 py-3 align-top">
                     <div className="flex flex-col gap-2">
-                      {item.latest_disposisi_tujuan ? (
-                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-[11px] text-emerald-800">
-                          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800">
+                      {hasDisposisi ? (
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] text-emerald-800">
+                          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-800">
                             Sudah didisposisikan
                           </span>
-                          <p className="mt-1 font-semibold text-gray-700">
-                            Ke: {item.latest_disposisi_tujuan_label || item.latest_disposisi_tujuan}
-                          </p>
-                          <p className="mt-1 text-gray-600">
-                            {formatDate(item.latest_disposisi_at || undefined)}
-                            {item.latest_disposisi_by ? ` • oleh ${item.latest_disposisi_by}` : ""}
-                          </p>
                         </div>
                       ) : (
                         <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
@@ -446,41 +691,53 @@ export default function KepalaDesaLaporanSuratMasukPage() {
                         </span>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => openDisposisiDialog(item)}
-                        disabled={submittingId === item.id}
-                        className="inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-                      >
-                        <FiSend className="h-3 w-3" />
-                        {submittingId === item.id ? "Memproses..." : "Kirim Sekretaris"}
-                      </button>
+                      {penanganan !== "selesai" && !hasDisposisi ? (
+                        <button
+                          type="button"
+                          onClick={() => openDisposisiDialog(item)}
+                          disabled={submittingId === item.id}
+                          className="inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-md bg-blue-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                        >
+                          <FiSend className="h-3 w-3" />
+                          {submittingId === item.id ? "Memproses..." : "Kirim Sekretaris"}
+                        </button>
+                      ) : null}
                     </div>
+                  </td>
+                  <td className="px-3 py-3 align-top">
+                    <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${meta.className}`}>
+                      {meta.label}
+                    </span>
                   </td>
                   <td className="px-3 py-3 align-top">
                     <div className="flex flex-col items-start gap-1.5">
                       <Link
                         href={`/kepala-desa/surat-masuk/${item.id}`}
-                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        className="inline-flex rounded-md bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-700"
                       >
                         Lihat Detail
                       </Link>
-                      {item.file_path ? (
-                        <a
-                          href={item.file_path}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex text-[11px] font-medium text-blue-600 hover:text-blue-700 hover:underline"
+
+                      {penanganan !== "selesai" ? (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmTarget(item)}
+                          disabled={confirmingId === item.id}
+                          className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                         >
-                          Lihat File
-                        </a>
+                          <FiCheckCircle className="h-3 w-3" />
+                          {confirmingId === item.id ? "Memproses..." : "Centang Selesai"}
+                        </button>
                       ) : (
-                        <span className="text-[11px] text-gray-400">Belum ada file</span>
+                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+                          Sudah selesai
+                        </span>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -520,6 +777,19 @@ export default function KepalaDesaLaporanSuratMasukPage() {
               </div>
 
               <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Urgensi Disposisi</label>
+                <select
+                  value={urgensiDisposisi}
+                  onChange={(e) => setUrgensiDisposisi(normalizeUrgensiValue(e.target.value))}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="tinggi">Tinggi</option>
+                  <option value="sedang">Sedang</option>
+                  <option value="rendah">Rendah</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Keterangan Disposisi (instruksi tindak lanjut)
                 </label>
@@ -549,6 +819,40 @@ export default function KepalaDesaLaporanSuratMasukPage() {
               >
                 <FiSend className="h-4 w-4" />
                 {submittingId === disposisiTarget.id ? "Memproses..." : "Simpan Disposisi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">Konfirmasi Selesai Ditangani</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Tandai surat <span className="font-semibold text-gray-800">{confirmTarget.nomor_surat || "-"}</span> sebagai selesai ditangani?
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Aksi ini tidak membuat disposisi otomatis. Keterangan disposisi hanya muncul jika Anda memang mengirim disposisi.
+            </p>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmTarget(null)}
+                disabled={confirmingId === confirmTarget.id}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleKonfirmasiSelesai(confirmTarget)}
+                disabled={confirmingId === confirmTarget.id}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                <FiCheckCircle className="h-4 w-4" />
+                {confirmingId === confirmTarget.id ? "Memproses..." : "Ya, tandai selesai"}
               </button>
             </div>
           </div>

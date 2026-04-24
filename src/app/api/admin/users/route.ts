@@ -1,3 +1,55 @@
+// PUT - Update user by admin (reset password, update data)
+export async function PUT(request: Request) {
+  try {
+    const auth = await ensureAdminAuth();
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    const body = await request.json();
+    const id = body?.id;
+    if (!id) {
+      return NextResponse.json({ error: 'ID user wajib diisi' }, { status: 400 });
+    }
+
+    const columnMap = await getUsersColumnMap();
+    const fieldsToUpdate: string[] = [];
+    const values: any[] = [];
+
+    // Data yang bisa diupdate
+    const updatableFields = ['nama', 'email', 'nik', 'alamat', 'telepon', 'role', 'status', 'username'];
+    for (const field of updatableFields) {
+      if (body[field] !== undefined && columnMap.has(field)) {
+        fieldsToUpdate.push(`${field} = ?`);
+        values.push(body[field] === '' ? null : body[field]);
+      }
+    }
+
+    // Password: jika diisi, hash dan update
+    if (body.password && typeof body.password === 'string' && body.password.length >= 6) {
+      const passwordHash = await bcrypt.hash(body.password, 10);
+      fieldsToUpdate.push('password = ?');
+      values.push(passwordHash);
+    }
+
+    if (fieldsToUpdate.length === 0) {
+      return NextResponse.json({ error: 'Tidak ada data yang diupdate' }, { status: 400 });
+    }
+
+    // Update user
+    const idField = columnMap.has('id') ? 'id' : 'id_user';
+    values.push(id);
+    await db.execute(
+      `UPDATE users SET ${fieldsToUpdate.join(', ')}, updated_at = NOW() WHERE ${idField} = ?`,
+      values
+    );
+
+    return NextResponse.json({ success: true, message: 'Data pengguna berhasil diupdate' });
+  } catch (error: any) {
+    console.error('Admin users PUT error:', error);
+    return NextResponse.json({ error: 'Gagal mengupdate data pengguna' }, { status: 500 });
+  }
+}
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verify } from 'jsonwebtoken';

@@ -14,6 +14,15 @@ type AuthUser = {
 const FIXED_TUJUAN_ROLE = "sekretaris";
 const FIXED_TUJUAN_LABEL = "Sekretaris Desa";
 
+type DisposisiUrgensi = "rendah" | "sedang" | "tinggi";
+
+function normalizeUrgensi(rawValue: unknown): DisposisiUrgensi {
+  const value = String(rawValue || "").trim().toLowerCase();
+  if (value === "tinggi") return "tinggi";
+  if (value === "rendah") return "rendah";
+  return "sedang";
+}
+
 async function getAuthenticatedUser(): Promise<AuthUser | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get("auth-token")?.value;
@@ -42,6 +51,7 @@ async function ensureDisposisiTable() {
       tujuan_role VARCHAR(50) NOT NULL,
       tujuan_label VARCHAR(120) NULL,
       status VARCHAR(50) NOT NULL DEFAULT 'didisposisikan',
+      urgensi VARCHAR(20) NOT NULL DEFAULT 'sedang',
       catatan TEXT NULL,
       disposed_by_id VARCHAR(64) NULL,
       disposed_by_name VARCHAR(191) NULL,
@@ -56,6 +66,15 @@ async function ensureDisposisiTable() {
 
   try {
     await db.query(`ALTER TABLE disposisi_surat_masuk ADD COLUMN tujuan_label VARCHAR(120) NULL AFTER tujuan_role`);
+  } catch (error) {
+    const message = String((error as { message?: string })?.message || "").toLowerCase();
+    if (!message.includes("duplicate column") && !message.includes("already exists")) {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query(`ALTER TABLE disposisi_surat_masuk ADD COLUMN urgensi VARCHAR(20) NOT NULL DEFAULT 'sedang' AFTER status`);
   } catch (error) {
     const message = String((error as { message?: string })?.message || "").toLowerCase();
     if (!message.includes("duplicate column") && !message.includes("already exists")) {
@@ -98,9 +117,14 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const tujuanLanjutanRaw = typeof body?.tujuan_lanjutan === "string" ? body.tujuan_lanjutan : "";
     const tujuanLanjutan = tujuanLanjutanRaw.trim().slice(0, 120);
+    const urgensiDisposisi = normalizeUrgensi(body?.urgensi_disposisi);
     const catatanRaw = typeof body?.catatan === "string" ? body.catatan : "";
     const catatanFromInput = catatanRaw.trim();
-    const catatanCombined = [catatanFromInput, tujuanLanjutan ? `Arahan tujuan lanjutan: ${tujuanLanjutan}` : ""]
+    const catatanCombined = [
+      `Urgensi disposisi: ${urgensiDisposisi}`,
+      catatanFromInput,
+      tujuanLanjutan ? `Arahan tujuan lanjutan: ${tujuanLanjutan}` : "",
+    ]
       .filter(Boolean)
       .join("\n");
     const catatan = catatanCombined.slice(0, 1000);
@@ -125,15 +149,17 @@ export async function POST(
         tujuan_role,
         tujuan_label,
         status,
+        urgensi,
         catatan,
         disposed_by_id,
         disposed_by_name,
         disposed_by_role
-      ) VALUES (?, ?, ?, 'didisposisikan', ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, 'didisposisikan', ?, ?, ?, ?, ?)`,
       [
         suratMasukId,
         FIXED_TUJUAN_ROLE,
         FIXED_TUJUAN_LABEL,
+        urgensiDisposisi,
         catatan || null,
         user.id || null,
         user.nama || "Kepala Desa",
@@ -150,6 +176,7 @@ export async function POST(
         tujuan_role: FIXED_TUJUAN_ROLE,
         tujuan_label: FIXED_TUJUAN_LABEL,
         status: "didisposisikan",
+        urgensi: urgensiDisposisi,
         catatan,
       },
     });

@@ -1,7 +1,9 @@
 "use client";
 
+
 import Link from "next/link";
 import { FiShield, FiUsers, FiStar, FiArrowLeft } from "react-icons/fi";
+import Header from "@/components/layout/Header";
 
 export default function StaffLoginSelectionPage() {
   const roles = [
@@ -41,19 +43,18 @@ export default function StaffLoginSelectionPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-5xl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
+      <Header />
+      <main className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-5xl">
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-block bg-gradient-to-r from-slate-600 to-blue-600 text-white p-4 rounded-2xl mb-6 shadow-lg">
             <FiShield className="w-10 h-10" />
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-3">
-            Portal Staff Desa
+            Login Staff Desa
           </h1>
-          <p className="text-lg text-gray-600">
-            Pilih peran Anda untuk melanjutkan
-          </p>
         </div>
 
         {/* Role Cards */}
@@ -67,9 +68,6 @@ export default function StaffLoginSelectionPage() {
                 className={`${role.cardBg} ${role.borderColor} border-2 rounded-2xl p-8 transition-all transform hover:scale-105 hover:shadow-xl group`}
               >
                 <div className="flex flex-col items-center text-center">
-                  <div className={`${role.iconBg} text-white p-5 rounded-2xl mb-5 shadow-lg group-hover:shadow-xl transition-shadow`}>
-                    <IconComponent className="w-10 h-10" />
-                  </div>
                   <h3 className={`text-2xl font-bold mb-3 ${role.iconColor}`}>
                     {role.title}
                   </h3>
@@ -98,7 +96,12 @@ export default function StaffLoginSelectionPage() {
             </Link>
           </div>
         </div>
-      </div>
+        </div>
+      </main>
+      {/* Footer */}
+      <footer className="w-full text-center py-4 text-gray-500 text-sm bg-white/70 border-t border-gray-100">
+        &copy; {new Date().getFullYear()} Desa Aikmual. Sistem Informasi Surat.
+      </footer>
     </div>
   );
 }

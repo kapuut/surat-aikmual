@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FiArrowLeft, FiCheckCircle, FiFileText } from "react-icons/fi";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+import {
+  buildOfficialDynamicRequirements,
+  OFFICIAL_DYNAMIC_PROCEDURE,
+} from "@/lib/template-surat/official-defaults";
 
 type TemplateField = {
   name: string;
@@ -71,112 +77,115 @@ export default function DynamicSuratDetailPage({ params }: DynamicSuratDetailPag
     return template.fields.filter((field) => field.required).map((field) => field.label);
   }, [template]);
 
+  const persyaratan = useMemo(() => {
+    if (!template) return [];
+
+    return buildOfficialDynamicRequirements(requiredFields);
+  }, [requiredFields, template]);
+
+  const prosedur = useMemo(() => [...OFFICIAL_DYNAMIC_PROCEDURE], []);
+
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-20 text-center text-gray-600">
-        Memuat informasi surat dinamis...
-      </div>
+      <>
+        <Header />
+        <div className="min-h-screen bg-gradient-to-br from-green-50 to-white pt-20">
+          <div className="mx-auto max-w-4xl px-4 py-20 text-center text-gray-600">
+            Memuat informasi surat dinamis...
+          </div>
+        </div>
+        <Footer />
+      </>
     );
   }
 
   if (!template) {
     return (
-      <div className="container mx-auto px-4 py-20 text-center">
-        <h1 className="text-3xl font-bold text-gray-800">Jenis surat dinamis tidak ditemukan</h1>
-        <p className="mt-4 text-gray-600">Template mungkin belum aktif atau sudah dihapus oleh admin.</p>
-        <Link
-          href="/permohonan"
-          className="inline-block mt-6 bg-blue-600 text-white px-5 py-3 rounded-lg font-semibold hover:bg-blue-700"
-        >
-          Kembali ke Daftar Surat
-        </Link>
-      </div>
+      <>
+        <Header />
+        <div className="min-h-screen bg-gradient-to-br from-green-50 to-white pt-20">
+          <div className="mx-auto max-w-4xl px-4 py-20 text-center">
+            <h1 className="text-3xl font-bold text-gray-800">Jenis surat dinamis tidak ditemukan</h1>
+            <p className="mt-4 text-gray-600">Template mungkin belum aktif atau sudah dihapus oleh admin.</p>
+            <Link
+              href="/permohonan"
+              className="mt-6 inline-block rounded-lg bg-green-500 px-5 py-3 font-semibold text-white hover:bg-green-600"
+            >
+              Kembali ke Daftar Surat
+            </Link>
+          </div>
+        </div>
+        <Footer />
+      </>
     );
   }
 
   return (
-    <main className="bg-gray-50 min-h-screen py-10">
-      <div className="container mx-auto px-4 max-w-5xl">
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Link href="/permohonan" className="hover:text-blue-600 flex items-center gap-2">
+    <>
+      <Header />
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-white pt-20">
+        <div className="mx-auto max-w-4xl px-4 py-12">
+          <Link
+            href="/permohonan"
+            className="mb-6 inline-flex items-center gap-2 text-sm text-green-600 hover:text-green-700"
+          >
             <FiArrowLeft /> Kembali
           </Link>
-        </div>
 
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">{template.jenisSurat}</h1>
-        <p className="text-lg text-gray-600 mb-10">{template.deskripsi || "Template surat dinamis dari admin."}</p>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-10">
-            <div className="card">
-              <div className="card-header">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <FiCheckCircle className="text-blue-600" />
-                  Ringkasan Isian
-                </h2>
-              </div>
-              <div className="card-body">
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-3">
-                    <span className="text-blue-600">•</span>
-                    <span>Field dari admin: {template.fields.length} kolom</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="text-blue-600">•</span>
-                    <span>Field wajib sistem: Nama, NIK, Alamat, No. WhatsApp</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="text-blue-600">•</span>
-                    <span>Paragraf surat akan mengikuti template HTML yang diatur admin</span>
-                  </li>
-                </ul>
-              </div>
+          <div className="mb-12 text-center">
+            <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-500">
+              <FiFileText className="text-4xl text-white" />
             </div>
+            <h1 className="mb-4 text-4xl font-bold text-gray-800">{template.jenisSurat}</h1>
+            <p className="mx-auto max-w-2xl text-lg text-gray-600">
+              {template.deskripsi || "Surat dinamis yang dibuat admin dengan field dan isi sesuai kebutuhan layanan."}
+            </p>
+          </div>
 
-            <div className="card">
-              <div className="card-header">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <FiFileText className="text-blue-600" />
-                  Field Wajib dari Admin
-                </h2>
-              </div>
-              <div className="card-body">
-                {requiredFields.length > 0 ? (
-                  <ul className="list-disc list-inside space-y-2 text-gray-700">
-                    {requiredFields.map((fieldLabel) => (
-                      <li key={fieldLabel}>{fieldLabel}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-600">Tidak ada field tambahan yang ditandai wajib.</p>
-                )}
-              </div>
+          <div className="mb-8 rounded-lg bg-white p-8 shadow-lg">
+            <div className="mb-6 flex items-center">
+              <FiFileText className="mr-3 text-3xl text-green-500" />
+              <h2 className="text-2xl font-bold text-gray-800">Persyaratan Dokumen</h2>
+            </div>
+            <div className="space-y-4">
+              {persyaratan.map((item, index) => (
+                <div key={index} className="flex items-start">
+                  <FiCheckCircle className="mr-3 mt-1 shrink-0 text-xl text-green-500" />
+                  <p className="text-gray-700">{item}</p>
+                </div>
+              ))}
             </div>
           </div>
 
-          <aside className="lg:col-span-1">
-            <div className="sticky top-24 card">
-              <div className="card-body">
-                <h3 className="font-bold text-lg mb-4">Ajukan Permohonan</h3>
-                <Link
-                  href={`/permohonan/dinamis/${encodeURIComponent(template.id)}/form`}
-                  className="btn btn-primary w-full"
-                >
-                  Buat Permohonan
-                </Link>
-
-                <div className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4">
-                  <h4 className="text-sm font-semibold text-blue-800">Catatan</h4>
-                  <ul className="mt-2 space-y-2 text-sm text-blue-700">
-                    <li>1. Pastikan data sesuai dokumen resmi</li>
-                    <li>2. Upload lampiran pendukung bila diperlukan</li>
-                  </ul>
+          <div className="mb-8 rounded-lg bg-white p-8 shadow-lg">
+            <h2 className="mb-6 text-2xl font-bold text-gray-800">Prosedur Permohonan</h2>
+            <div className="space-y-6">
+              {prosedur.map((item) => (
+                <div key={item.step} className="flex items-start">
+                  <div className="mr-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500 font-bold text-white">
+                    {item.step}
+                  </div>
+                  <div>
+                    <h3 className="mb-1 text-lg font-semibold text-gray-800">{item.title}</h3>
+                    <p className="text-gray-600">{item.desc}</p>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          </aside>
+          </div>
+
+          <div className="text-center">
+            <Link
+              href={`/permohonan/dinamis/${encodeURIComponent(template.id)}/form`}
+              className="inline-flex transform items-center justify-center rounded-lg bg-green-500 px-8 py-4 text-lg font-bold text-white shadow-lg transition duration-300 hover:-translate-y-1 hover:bg-green-600 hover:shadow-xl"
+            >
+              Ajukan Permohonan Sekarang
+            </Link>
+            <p className="mt-4 text-sm text-gray-500">Pastikan semua persyaratan dokumen sudah disiapkan</p>
+          </div>
         </div>
       </div>
-    </main>
+      <Footer />
+    </>
   );
 }

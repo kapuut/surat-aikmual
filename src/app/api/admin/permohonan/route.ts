@@ -107,7 +107,7 @@ function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown, note?:
   if (inferredFromNote) return inferredFromNote;
 
   if (typeof nomorSurat === 'string' && nomorSurat.trim()) {
-    return 'selesai';
+    return 'dikirim_ke_kepala_desa';
   }
 
   return 'pending';
@@ -148,9 +148,13 @@ export async function GET(request: NextRequest) {
         p.processed_by
       FROM permohonan_surat p
       LEFT JOIN (
-        SELECT nomor_surat, perihal, MAX(file_path) AS archived_file_path
-        FROM surat_keluar
-        GROUP BY nomor_surat, perihal
+        SELECT sk1.nomor_surat, sk1.perihal, sk1.file_path AS archived_file_path
+        FROM surat_keluar sk1
+        INNER JOIN (
+          SELECT nomor_surat, perihal, MAX(id) AS latest_id
+          FROM surat_keluar
+          GROUP BY nomor_surat, perihal
+        ) latest_sk ON latest_sk.latest_id = sk1.id
         ) sk ON sk.nomor_surat = p.nomor_surat
           AND LOWER(TRIM(sk.perihal)) LIKE CONCAT(LOWER(TRIM(p.jenis_surat)), '%')
       ORDER BY p.created_at DESC
@@ -174,9 +178,13 @@ export async function GET(request: NextRequest) {
         p.processed_by
       FROM permohonan_surat p
       LEFT JOIN (
-        SELECT nomor_surat, perihal, MAX(file_path) AS archived_file_path
-        FROM surat_keluar
-        GROUP BY nomor_surat, perihal
+        SELECT sk1.nomor_surat, sk1.perihal, sk1.file_path AS archived_file_path
+        FROM surat_keluar sk1
+        INNER JOIN (
+          SELECT nomor_surat, perihal, MAX(id) AS latest_id
+          FROM surat_keluar
+          GROUP BY nomor_surat, perihal
+        ) latest_sk ON latest_sk.latest_id = sk1.id
         ) sk ON sk.nomor_surat = p.nomor_surat
           AND LOWER(TRIM(sk.perihal)) LIKE CONCAT(LOWER(TRIM(p.jenis_surat)), '%')
       ORDER BY p.created_at DESC

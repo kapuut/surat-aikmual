@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FiArrowRight, FiEye, FiCheck, FiClock, FiDownload } from "react-icons/fi";
+import { FiArrowRight, FiEye, FiCheck, FiClock, FiDownload, FiTrash2 } from "react-icons/fi";
 
 interface DisposisiRow {
   id: number;
@@ -36,6 +36,7 @@ export default function SekretarisDisposisiPage() {
   const [disposisi, setDisposisi] = useState<DisposisiRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchDisposisi = async () => {
     try {
@@ -62,6 +63,41 @@ export default function SekretarisDisposisiPage() {
   useEffect(() => {
     fetchDisposisi();
   }, []);
+
+  const handleDeleteDisposisi = async (item: DisposisiRow) => {
+    const confirmDelete = window.confirm(
+      `Hapus disposisi untuk surat ${item.nomor_surat || "-"}? Tindakan ini tidak dapat dibatalkan.`
+    );
+
+    if (!confirmDelete) {
+      return;
+    }
+
+    try {
+      setDeletingId(item.id);
+
+      const response = await fetch("/api/sekretaris/disposisi-surat-masuk", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ id: item.id }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Gagal menghapus disposisi");
+      }
+
+      setDisposisi((prev) => prev.filter((row) => row.id !== item.id));
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Terjadi kesalahan saat menghapus disposisi");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const totalDisposisi = disposisi.length;
   const menungguCount = useMemo(
@@ -216,6 +252,15 @@ export default function SekretarisDisposisiPage() {
                       ) : (
                         <span className="text-xs text-gray-400">Tidak ada file</span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDisposisi(item)}
+                        disabled={deletingId === item.id}
+                        className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed"
+                        title="Hapus disposisi"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>

@@ -233,16 +233,6 @@ export default function UserNavbar({ showMainMenu = true }: UserNavbarProps) {
                   Kelola Akun
                 </Link>
 
-                {/* Ganti Password - hanya untuk user biasa, tidak untuk staff/admin */}
-                {user.role === 'masyarakat' && (
-                  <Link
-                    href="/change-password"
-                    className="block px-4 py-2 text-gray-600 hover:bg-gray-50"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Ganti Password
-                  </Link>
-                )}
                 <button
                   onClick={() => {
                     setIsMenuOpen(false);

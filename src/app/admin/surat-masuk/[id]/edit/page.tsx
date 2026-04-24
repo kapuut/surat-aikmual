@@ -7,17 +7,43 @@ import { FiArrowLeft, FiSave, FiUpload } from "react-icons/fi";
 
 type AlertType = "success" | "error";
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_FILE_MIME_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+const ALLOWED_FILE_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp", "gif"] as const;
+
 interface SuratMasukForm {
   nomor_surat: string;
   tanggal_surat: string;
   tanggal_terima: string;
   asal_surat: string;
+  urgensi: "rendah" | "sedang" | "tinggi";
   perihal: string;
 }
 
 interface SuratMasukDetail extends SuratMasukForm {
   id: number;
   file_path?: string | null;
+}
+
+function normalizeUrgensi(rawValue: unknown): "rendah" | "sedang" | "tinggi" {
+  const value = String(rawValue || "").trim().toLowerCase();
+  if (value === "tinggi") return "tinggi";
+  if (value === "rendah") return "rendah";
+  return "sedang";
+}
+
+function isAllowedUploadedFile(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  return ALLOWED_FILE_MIME_TYPES.includes(file.type as (typeof ALLOWED_FILE_MIME_TYPES)[number])
+    || ALLOWED_FILE_EXTENSIONS.includes(extension as (typeof ALLOWED_FILE_EXTENSIONS)[number]);
 }
 
 function toDateInput(value: string | null | undefined): string {
@@ -52,6 +78,7 @@ export default function EditSuratMasukPage() {
     tanggal_surat: "",
     tanggal_terima: "",
     asal_surat: "",
+    urgensi: "sedang",
     perihal: "",
   });
 
@@ -82,6 +109,7 @@ export default function EditSuratMasukPage() {
           tanggal_surat: toDateInput(data.tanggal_surat),
           tanggal_terima: toDateInput(data.tanggal_terima),
           asal_surat: data.asal_surat || "",
+          urgensi: normalizeUrgensi(data.urgensi),
           perihal: data.perihal || "",
         });
         setSelectedFile(null);
@@ -100,7 +128,7 @@ export default function EditSuratMasukPage() {
     fetchDetail();
   }, [suratId]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -110,8 +138,37 @@ export default function EditSuratMasukPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    setSelectedFile(file || null);
-    setFileName(file?.name || "");
+    if (!file) {
+      setSelectedFile(null);
+      setFileName("");
+      return;
+    }
+
+    if (!isAllowedUploadedFile(file)) {
+      setAlert({
+        type: "error",
+        message: "Format file tidak valid. Gunakan file gambar, PDF, DOC, atau DOCX.",
+      });
+      setSelectedFile(null);
+      setFileName("");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setAlert({
+        type: "error",
+        message: "Ukuran file terlalu besar. Maksimal 5MB.",
+      });
+      setSelectedFile(null);
+      setFileName("");
+      e.target.value = "";
+      return;
+    }
+
+    setAlert(null);
+    setSelectedFile(file);
+    setFileName(file.name);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -126,6 +183,7 @@ export default function EditSuratMasukPage() {
       payload.set("tanggal_surat", formData.tanggal_surat);
       payload.set("tanggal_terima", formData.tanggal_terima);
       payload.set("asal_surat", formData.asal_surat);
+      payload.set("urgensi", formData.urgensi);
       payload.set("perihal", formData.perihal);
 
       if (selectedFile) {
@@ -253,6 +311,23 @@ export default function EditSuratMasukPage() {
                 />
               </div>
 
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Tingkat Urgensi <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="urgensi"
+                  value={formData.urgensi}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="tinggi">Tinggi</option>
+                  <option value="sedang">Sedang</option>
+                  <option value="rendah">Rendah</option>
+                </select>
+              </div>
+
               <div className="md:col-span-2">
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Perihal/Isi Singkat <span className="text-red-500">*</span>
@@ -268,28 +343,28 @@ export default function EditSuratMasukPage() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">Dokumen Surat (PDF)</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Dokumen Surat (Gambar/PDF/Word)</label>
                 <label className="block cursor-pointer">
                   <div className="w-full rounded-lg border-2 border-dashed border-gray-300 bg-white px-4 py-3 transition-colors hover:border-blue-400">
                     <div className="flex items-center justify-center gap-2 text-gray-600">
                       <FiUpload className="h-5 w-5" />
-                      <span className="text-sm">{fileName || "Pilih file PDF untuk mengganti dokumen (opsional)"}</span>
+                      <span className="text-sm">{fileName || "Pilih file gambar/PDF/Word untuk mengganti dokumen (opsional)"}</span>
                     </div>
                   </div>
                   <input
                     type="file"
                     name="file_surat"
-                    accept=".pdf"
+                    accept=".pdf,.doc,.docx,image/*"
                     onChange={handleFileChange}
                     className="hidden"
                   />
                 </label>
                 {existingFilePath ? (
                   <p className="mt-2 text-xs text-gray-500">
-                    File saat ini: <a href={existingFilePath} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Lihat dokumen</a>
+                    File saat ini: <a href={suratId ? `/admin/surat-masuk/${suratId}/preview` : existingFilePath} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Lihat dokumen</a>
                   </p>
                 ) : (
-                  <p className="mt-2 text-xs text-gray-500">Belum ada dokumen tersimpan. Anda bisa menambahkan PDF di sini.</p>
+                  <p className="mt-2 text-xs text-gray-500">Belum ada dokumen tersimpan. Anda bisa menambahkan file gambar, PDF, DOC, atau DOCX di sini.</p>
                 )}
               </div>
             </div>

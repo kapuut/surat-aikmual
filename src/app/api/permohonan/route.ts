@@ -5,39 +5,14 @@ import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { getSuratBySlug, normalizeSuratSlug } from '@/lib/surat-data';
 import { getUser } from '@/lib/auth';
+import { checkBusinessHoursWita } from '@/lib/business-hours';
 
 export const runtime = 'nodejs';
 
 const nikRegex = /^\d{16}$/;
 
 function checkBusinessHours(): { isAllowed: boolean; message?: string } {
-  // Get current time in WITA (UTC+8)
-  const now = new Date();
-  const wita = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-  
-  const dayOfWeek = wita.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  const hours = wita.getUTCHours();
-  const minutes = wita.getUTCMinutes();
-  const currentTime = hours * 60 + minutes; // Convert to minutes for easier comparison
-  
-  // Weekend check (Saturday = 6, Sunday = 0)
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return {
-      isAllowed: false,
-      message: 'Maaf, permohonan surat hanya dapat diajukan pada hari kerja (Senin-Jumat). Silakan ajukan permohonan Anda pada hari Senin.',
-    };
-  }
-  
-  // Check if after 15:00 (3 PM) on weekdays
-  // 15:00 = 15 * 60 = 900 minutes
-  if (currentTime >= 15 * 60) {
-    return {
-      isAllowed: false,
-      message: 'Maaf, batas waktu pengajuan permohonan adalah jam 15.00 WITA. Silakan ajukan permohonan Anda besok.',
-    };
-  }
-  
-  return { isAllowed: true };
+  return checkBusinessHoursWita();
 }
 
 type WorkflowStatus =
@@ -245,9 +220,8 @@ function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown, note?:
   const inferredFromNote = inferStatusFromNote(note);
   if (inferredFromNote) return inferredFromNote;
 
-  // Data lama kadang menyimpan status kosong walau nomor surat sudah ada.
   if (typeof nomorSurat === 'string' && nomorSurat.trim()) {
-    return 'selesai';
+    return 'dikirim_ke_kepala_desa';
   }
 
   return 'pending';
@@ -1293,9 +1267,13 @@ export async function GET(request: NextRequest) {
         sk.archived_file_path
       FROM permohonan_surat p
       LEFT JOIN (
-        SELECT nomor_surat, perihal, MAX(file_path) AS archived_file_path
-        FROM surat_keluar
-        GROUP BY nomor_surat, perihal
+        SELECT sk1.nomor_surat, sk1.perihal, sk1.file_path AS archived_file_path
+        FROM surat_keluar sk1
+        INNER JOIN (
+          SELECT nomor_surat, perihal, MAX(id) AS latest_id
+          FROM surat_keluar
+          GROUP BY nomor_surat, perihal
+        ) latest_sk ON latest_sk.latest_id = sk1.id
         ) sk ON sk.nomor_surat = p.nomor_surat
           AND LOWER(TRIM(sk.perihal)) LIKE CONCAT(LOWER(TRIM(p.jenis_surat)), '%')
       WHERE (p.nik = ? OR p.nik = ? OR SUBSTRING_INDEX(p.nik, '_', 1) = ?)
@@ -1317,9 +1295,13 @@ export async function GET(request: NextRequest) {
         sk.archived_file_path
       FROM permohonan_surat p
       LEFT JOIN (
-        SELECT nomor_surat, perihal, MAX(file_path) AS archived_file_path
-        FROM surat_keluar
-        GROUP BY nomor_surat, perihal
+        SELECT sk1.nomor_surat, sk1.perihal, sk1.file_path AS archived_file_path
+        FROM surat_keluar sk1
+        INNER JOIN (
+          SELECT nomor_surat, perihal, MAX(id) AS latest_id
+          FROM surat_keluar
+          GROUP BY nomor_surat, perihal
+        ) latest_sk ON latest_sk.latest_id = sk1.id
         ) sk ON sk.nomor_surat = p.nomor_surat
           AND LOWER(TRIM(sk.perihal)) LIKE CONCAT(LOWER(TRIM(p.jenis_surat)), '%')
       WHERE (p.nik = ? OR p.nik = ? OR SUBSTRING_INDEX(p.nik, '_', 1) = ?)

@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { FiCalendar, FiDownload, FiRefreshCw, FiSend } from "react-icons/fi";
+import * as XLSX from "xlsx";
+import { FiCalendar, FiDownload, FiRefreshCw } from "react-icons/fi";
 
 type SuratKeluarStatus = "Draft" | "Menunggu" | "Terkirim";
 
@@ -32,9 +34,26 @@ function formatDate(value?: string): string {
   });
 }
 
-function normalizeCsvCell(value: string): string {
-  const text = value.replace(/\r?\n/g, " ").replace(/"/g, '""');
-  return `"${text}"`;
+function getStoredFileName(filePath?: string | null): string {
+  if (!filePath) {
+    return "-";
+  }
+
+  const trimmed = filePath.trim();
+  if (!trimmed) {
+    return "-";
+  }
+
+  const segments = trimmed.split("/").filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : trimmed;
+}
+
+function getExportDateLabel(): string {
+  return new Date().toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 export default function KepalaDesaLaporanSuratKeluarPage() {
@@ -91,7 +110,6 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
         item.nomor_surat,
         item.tujuan,
         item.perihal,
-        item.created_by_name || "",
       ]
         .join(" ")
         .toLowerCase();
@@ -153,40 +171,68 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
     return parsed.getMonth() === now.getMonth() && parsed.getFullYear() === now.getFullYear();
   }).length;
 
-  const downloadCsv = () => {
-    const header = ["No", "Nomor Surat", "Tanggal Surat", "Tujuan", "Perihal", "Status", "Pembuat", "File"];
-    const rows = sortedData.map((item, index) => [
-      String(index + 1),
-      item.nomor_surat || "-",
-      formatDate(item.tanggal_surat),
-      item.tujuan || "-",
-      item.perihal || "-",
-      item.status || "-",
-      item.created_by_name || "-",
-      item.file_path || "-",
+  const handleExportExcel = () => {
+    const exportRows = sortedData.map((item, index) => ({
+      No: index + 1,
+      "Nomor Surat": item.nomor_surat || "-",
+      "Tanggal Kirim": formatDate(item.tanggal_surat),
+      Tujuan: item.tujuan || "-",
+      Perihal: item.perihal || "-",
+      Status: item.status || "-",
+      "Nama File": getStoredFileName(item.file_path),
+      "Status File": item.file_path ? "Tersedia" : "Tidak ada",
+    }));
+
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["LAPORAN SURAT KELUAR"],
+      [`Tanggal Export: ${getExportDateLabel()}`],
+      [`Total Data: ${sortedData.length}`],
+      [],
     ]);
 
-    const csvContent = [header, ...rows]
-      .map((row) => row.map((cell) => normalizeCsvCell(cell)).join(","))
-      .join("\n");
+    XLSX.utils.sheet_add_json(worksheet, exportRows, {
+      origin: "A5",
+      skipHeader: false,
+    });
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `laporan-surat-keluar-${new Date().toISOString().slice(0, 10)}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    worksheet["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 7 } },
+    ];
+
+    worksheet["!cols"] = [
+      { wch: 6 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 24 },
+      { wch: 38 },
+      { wch: 14 },
+      { wch: 38 },
+      { wch: 14 },
+    ];
+
+    worksheet["!autofilter"] = {
+      ref: `A5:H${Math.max(exportRows.length + 5, 5)}`,
+    };
+
+    worksheet["!rows"] = [
+      { hpt: 24 },
+      { hpt: 20 },
+      { hpt: 20 },
+      { hpt: 8 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Surat Keluar");
+
+    const exportDate = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `laporan-surat-keluar-${exportDate}.xlsx`);
   };
 
   return (
     <section>
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <FiSend className="text-purple-600" /> Surat Keluar
-        </h2>
-        <p className="text-gray-500 mt-1">Ringkasan surat keluar berdasarkan filter periode dan pencarian.</p>
-      </div>
+      <p className="mb-3 text-sm text-gray-600">Ringkasan surat keluar berdasarkan filter periode dan pencarian.</p>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -196,7 +242,7 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cari nomor surat, tujuan, perihal, atau pembuat..."
+              placeholder="Cari nomor surat, tujuan, atau perihal..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             />
           </div>
@@ -272,11 +318,11 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
             Refresh
           </button>
           <button
-            onClick={downloadCsv}
+            onClick={handleExportExcel}
             className="inline-flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700"
           >
             <FiDownload className="w-4 h-4" />
-            Export CSV
+            Export Excel
           </button>
         </div>
       </div>
@@ -321,7 +367,6 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">Tujuan</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">Perihal</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Pembuat</th>
                 <th className="px-4 py-3 text-center font-semibold text-gray-700">File</th>
               </tr>
             </thead>
@@ -346,12 +391,14 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
                       {item.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{item.created_by_name || "-"}</td>
                   <td className="px-4 py-3 text-center">
                     {item.file_path ? (
-                      <a href={item.file_path} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                      <Link
+                        href={`/kepala-desa/surat-keluar/${item.id}`}
+                        className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                      >
                         Lihat File
-                      </a>
+                      </Link>
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}

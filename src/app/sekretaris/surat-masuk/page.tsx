@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { FiInbox, FiDownload, FiEye, FiFilter } from "react-icons/fi";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { FiDownload, FiEye, FiSearch } from "react-icons/fi";
+import * as XLSX from "xlsx";
 
 interface SuratMasukItem {
   id: number;
@@ -11,19 +13,112 @@ interface SuratMasukItem {
   asal_surat: string;
   perihal: string;
   file_path?: string;
+  created_by_name?: string;
+}
+
+const MONTH_OPTIONS = [
+  { value: "1", label: "Januari" },
+  { value: "2", label: "Februari" },
+  { value: "3", label: "Maret" },
+  { value: "4", label: "April" },
+  { value: "5", label: "Mei" },
+  { value: "6", label: "Juni" },
+  { value: "7", label: "Juli" },
+  { value: "8", label: "Agustus" },
+  { value: "9", label: "September" },
+  { value: "10", label: "Oktober" },
+  { value: "11", label: "November" },
+  { value: "12", label: "Desember" },
+] as const;
+
+function buildYearOptions() {
+  const startYear = 2016;
+  const currentYear = new Date().getFullYear();
+  const endYear = Math.max(currentYear, startYear);
+
+  return Array.from({ length: endYear - startYear + 1 }, (_, index) => String(endYear - index));
+}
+
+function parseValidDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
+function getExportDateLabel() {
+  return new Date().toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getStoredFileName(filePath?: string) {
+  if (!filePath) {
+    return "-";
+  }
+
+  const parts = filePath.split("/");
+  return parts[parts.length - 1] || filePath;
 }
 
 export default function SekretarisSuratMasukPage() {
   const [suratMasuk, setSuratMasuk] = useState<SuratMasukItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedDayFrom, setSelectedDayFrom] = useState("");
+  const [selectedDayTo, setSelectedDayTo] = useState("");
+
+  const yearOptions = buildYearOptions();
+
+  const availableDays = useMemo(() => {
+    if (selectedMonth === "") {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const month = Number(selectedMonth);
+    const fallbackYear = new Date().getFullYear();
+    const year = selectedYear === "" ? fallbackYear : Number(selectedYear);
+
+    if (!Number.isFinite(month) || month < 1 || month > 12) {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  }, [selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    if (selectedDayFrom !== "") {
+      const selectedDayFromNumber = Number(selectedDayFrom);
+      if (!availableDays.includes(selectedDayFromNumber)) {
+        setSelectedDayFrom("");
+      }
+    }
+
+    if (selectedDayTo !== "") {
+      const selectedDayToNumber = Number(selectedDayTo);
+      if (!availableDays.includes(selectedDayToNumber)) {
+        setSelectedDayTo("");
+      }
+    }
+  }, [availableDays, selectedDayFrom, selectedDayTo]);
 
   useEffect(() => {
     const fetchSuratMasuk = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch("/api/admin/surat-masuk", { credentials: "include" });
+
+        const response = await fetch("/api/admin/surat-masuk", {
+          credentials: "include",
+        });
         const result = await response.json();
 
         if (!response.ok || !result?.success) {
@@ -41,140 +136,232 @@ export default function SekretarisSuratMasukPage() {
     fetchSuratMasuk();
   }, []);
 
-  const formatDate = (value: string) =>
-    new Date(value).toLocaleDateString("id-ID", {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+
+    return date.toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "long",
       year: "numeric",
     });
+  };
+
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const filteredSuratMasuk = suratMasuk.filter((item) => {
+    const searchMatch = !normalizedSearchTerm || [item.nomor_surat, item.asal_surat, item.perihal, item.created_by_name]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(normalizedSearchTerm));
+
+    const tanggalSurat = parseValidDate(item.tanggal_surat);
+    const day = tanggalSurat?.getDate() ?? null;
+    const parsedDayFrom = selectedDayFrom === "" ? null : Number(selectedDayFrom);
+    const parsedDayTo = selectedDayTo === "" ? null : Number(selectedDayTo);
+    const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
+    const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
+    const dayFromMatch = dayMin === null || (day !== null && day >= dayMin);
+    const dayToMatch = dayMax === null || (day !== null && day <= dayMax);
+    const monthMatch = !selectedMonth || (!!tanggalSurat && String(tanggalSurat.getMonth() + 1) === selectedMonth);
+    const yearMatch = !selectedYear || (!!tanggalSurat && String(tanggalSurat.getFullYear()) === selectedYear);
+
+    return searchMatch && dayFromMatch && dayToMatch && monthMatch && yearMatch;
+  });
+
+  const hasFilter = Boolean(normalizedSearchTerm || selectedMonth || selectedYear || selectedDayFrom || selectedDayTo);
+
+  const handleExportExcel = () => {
+    const exportRows = filteredSuratMasuk.map((item, index) => ({
+      No: index + 1,
+      "Nomor Surat": item.nomor_surat,
+      "Tanggal Surat": formatDate(item.tanggal_surat),
+      "Tanggal Terima": formatDate(item.tanggal_terima),
+      "Asal Surat": item.asal_surat,
+      Perihal: item.perihal,
+      "Nama File": getStoredFileName(item.file_path),
+      "Status File": item.file_path ? "Tersedia" : "Tidak ada",
+    }));
+
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["LAPORAN SURAT MASUK"],
+      [`Tanggal Export: ${getExportDateLabel()}`],
+      [`Total Data: ${filteredSuratMasuk.length}`],
+      [],
+    ]);
+
+    XLSX.utils.sheet_add_json(worksheet, exportRows, {
+      origin: "A5",
+      skipHeader: false,
+    });
+
+    worksheet["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 7 } },
+    ];
+
+    worksheet["!cols"] = [
+      { wch: 6 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 32 },
+      { wch: 38 },
+      { wch: 14 },
+    ];
+
+    worksheet["!autofilter"] = {
+      ref: `A5:H${Math.max(exportRows.length + 5, 5)}`,
+    };
+
+    worksheet["!rows"] = [
+      { hpt: 24 },
+      { hpt: 20 },
+      { hpt: 20 },
+      { hpt: 8 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Surat Masuk");
+
+    const exportDate = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `laporan-surat-masuk-${exportDate}.xlsx`);
+  };
 
   return (
     <section>
-      {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <FiInbox className="text-blue-600" /> Surat Masuk
-        </h2>
-        <p className="text-gray-500 mt-1">
-          Kelola surat masuk yang diterima oleh kantor desa
-        </p>
-      </div>
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex gap-2">
-          <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option>Semua Status</option>
-            <option>Belum Dibaca</option>
-            <option>Sudah Dibaca</option>
-          </select>
-          <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option>Semua Prioritas</option>
-            <option>Urgent</option>
-            <option>Normal</option>
-          </select>
-          <button className="flex items-center gap-2 border rounded-lg px-3 py-2 text-sm hover:bg-gray-50">
-            <FiFilter className="w-4 h-4" />
-            Filter
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative w-full sm:w-80">
+            <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Cari nomor surat, asal surat, atau perihal"
+              className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={selectedDayFrom}
+              onChange={(event) => setSelectedDayFrom(event.target.value)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Tanggal Dari</option>
+              {availableDays.map((day) => (
+                <option key={day} value={String(day)}>{day}</option>
+              ))}
+            </select>
+            <select
+              value={selectedDayTo}
+              onChange={(event) => setSelectedDayTo(event.target.value)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Tanggal Sampai</option>
+              {availableDays.map((day) => (
+                <option key={day} value={String(day)}>{day}</option>
+              ))}
+            </select>
+            <select
+              value={selectedMonth}
+              onChange={(event) => setSelectedMonth(event.target.value)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Pilih Bulan</option>
+              {MONTH_OPTIONS.map((month) => (
+                <option key={month.value} value={month.value}>{month.label}</option>
+              ))}
+            </select>
+            <select
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(event.target.value)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Pilih Tahun</option>
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="rounded-lg bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700"
+          >
+            Export Excel
           </button>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
-          + Tambah Surat Masuk
-        </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Surat Masuk</p>
-              <p className="text-2xl font-bold text-gray-900">{suratMasuk.length}</p>
-            </div>
-            <div className="bg-blue-100 p-2 rounded-full">
-              <FiInbox className="w-5 h-5 text-blue-600" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Belum Dibaca</p>
-              <p className="text-2xl font-bold text-orange-600">
-                {suratMasuk.length}
-              </p>
-            </div>
-            <div className="bg-orange-100 p-2 rounded-full">
-              <span className="text-xl">📬</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Urgent</p>
-              <p className="text-2xl font-bold text-red-600">
-                0
-              </p>
-            </div>
-            <div className="bg-red-100 p-2 rounded-full">
-              <span className="text-xl">⚠️</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Memuat data surat masuk...</div>
-        ) : error ? (
-          <div className="p-8 text-center text-red-600">{error}</div>
-        ) : suratMasuk.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">Belum ada data surat masuk.</div>
+          <div className="p-8 text-center">
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
+            <p className="mt-4 text-gray-500">Memuat data...</p>
+          </div>
+        ) : filteredSuratMasuk.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <p>{hasFilter ? "Data surat masuk tidak ditemukan" : "Belum ada data surat masuk"}</p>
+          </div>
         ) : (
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-100">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tgl Terima</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tgl Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Pengirim</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal Surat</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal Terima</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">Asal Surat</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-700">Perihal</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
+                <th className="w-52 px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {suratMasuk.map((surat, i) => (
+              {filteredSuratMasuk.map((surat, index) => (
                 <tr key={surat.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{i + 1}</td>
+                  <td className="px-4 py-3">{index + 1}</td>
                   <td className="px-4 py-3 font-medium">{surat.nomor_surat}</td>
-                  <td className="px-4 py-3">{formatDate(surat.tanggal_terima)}</td>
                   <td className="px-4 py-3">{formatDate(surat.tanggal_surat)}</td>
+                  <td className="px-4 py-3">{formatDate(surat.tanggal_terima)}</td>
                   <td className="px-4 py-3">{surat.asal_surat}</td>
                   <td className="px-4 py-3">{surat.perihal}</td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex gap-2 justify-center">
+                  <td className="px-4 py-3 text-center align-middle">
+                    <div className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
                       {surat.file_path ? (
                         <>
-                          <button
-                            onClick={() => window.open(surat.file_path as string, "_blank")}
-                            className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                          <Link
+                            href={`/sekretaris/surat-masuk/${surat.id}/preview`}
+                            className="aksi-btn aksi-btn-view"
                           >
-                            <FiEye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => window.open(surat.file_path as string, "_blank")}
-                            className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                            <FiEye className="mr-1 h-4 w-4" />
+                            Lihat
+                          </Link>
+                          <a
+                            href={surat.file_path}
+                            download={getStoredFileName(surat.file_path)}
+                            className="aksi-btn aksi-btn-download"
                           >
-                            <FiDownload className="w-4 h-4" />
-                          </button>
+                            <FiDownload className="mr-1 h-4 w-4" />
+                            Unduh
+                          </a>
                         </>
                       ) : (
-                        <span className="text-xs text-gray-400">Tidak ada file</span>
+                        <span className="aksi-btn-muted">
+                          Tidak ada file
+                        </span>
                       )}
                     </div>
                   </td>

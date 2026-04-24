@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FiCheckCircle, FiCornerUpLeft, FiEye, FiPenTool, FiTrash2 } from "react-icons/fi";
+import { useRouter } from "next/navigation";
+import { FiPenTool, FiTrash2 } from "react-icons/fi";
 
 type WorkflowStatus =
   | "pending"
@@ -51,31 +52,6 @@ function normalizeFilePath(rawValue: string | null): string | null {
   return candidate.startsWith("/") ? candidate : `/${candidate}`;
 }
 
-function isGeneratedSuratFile(pathValue: string | null): boolean {
-  if (!pathValue) return false;
-  const lowerPath = pathValue.toLowerCase();
-  return lowerPath.includes("/generated-surat/") || lowerPath.endsWith(".html") || lowerPath.includes(".html?");
-}
-
-function isAttachmentFile(pathValue: string | null): boolean {
-  if (!pathValue) return false;
-  return pathValue.includes("/uploads/");
-}
-
-function resolveAttachmentPaths(item: PermohonanItem): string[] {
-  const fromApi = Array.isArray(item.attachment_paths)
-    ? item.attachment_paths
-        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-        .map((value) => value.trim())
-    : [];
-
-  if (fromApi.length > 0) {
-    return Array.from(new Set(fromApi));
-  }
-
-  return isAttachmentFile(item.file_path) && item.file_path ? [item.file_path] : [];
-}
-
 function statusLabel(status: WorkflowStatus): string {
   const labels: Record<WorkflowStatus, string> = {
     pending: "Menunggu Verifikasi",
@@ -92,16 +68,16 @@ function statusLabel(status: WorkflowStatus): string {
 
 function statusClass(status: WorkflowStatus): string {
   const classes: Record<WorkflowStatus, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    diproses: "bg-blue-100 text-blue-800",
-    dikirim_ke_kepala_desa: "bg-indigo-100 text-indigo-800",
-    perlu_revisi: "bg-orange-100 text-orange-800",
-    ditandatangani: "bg-green-100 text-green-800",
-    selesai: "bg-emerald-100 text-emerald-800",
-    ditolak: "bg-red-100 text-red-800",
+    pending: "status-chip-warning",
+    diproses: "status-chip-primary",
+    dikirim_ke_kepala_desa: "status-chip-info",
+    perlu_revisi: "status-chip-warning",
+    ditandatangani: "status-chip-success",
+    selesai: "status-chip-success",
+    ditolak: "status-chip-danger",
   };
 
-  return classes[status] ?? "bg-gray-100 text-gray-800";
+  return classes[status] ?? "status-chip-neutral";
 }
 
 function processNote(status: WorkflowStatus): string {
@@ -111,21 +87,56 @@ function processNote(status: WorkflowStatus): string {
   return "";
 }
 
+type ArchiveCategory = "Semua" | "Surat Menunggu" | "Surat Selesai" | "Ditolak";
+
+function isPermohonanBaruStatus(status: WorkflowStatus): boolean {
+  return status === "pending" || status === "diproses" || status === "perlu_revisi";
+}
+
+function isMenungguTtdStatus(status: WorkflowStatus): boolean {
+  return status === "dikirim_ke_kepala_desa";
+}
+
+function isSuratMenungguStatus(status: WorkflowStatus): boolean {
+  return isPermohonanBaruStatus(status) || isMenungguTtdStatus(status);
+}
+
+function isPermohonanSelesaiStatus(status: WorkflowStatus): boolean {
+  return status === "ditandatangani" || status === "selesai";
+}
+
+function matchesArchiveCategory(status: WorkflowStatus, archiveCategory: ArchiveCategory): boolean {
+  switch (archiveCategory) {
+    case "Surat Menunggu":
+      return isSuratMenungguStatus(status);
+    case "Surat Selesai":
+      return isPermohonanSelesaiStatus(status);
+    case "Ditolak":
+      return status === "ditolak";
+    case "Semua":
+    default:
+      return true;
+  }
+}
+
 function isFinalizedStatus(status: WorkflowStatus): boolean {
   return status === "ditandatangani" || status === "selesai";
 }
 
 export default function KepalaDesaWorkflowClient() {
+  const router = useRouter();
   const [data, setData] = useState<PermohonanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [ttdFilter, setTtdFilter] = useState<"belum" | "semua" | "selesai">("belum");
+  const [archiveCategory, setArchiveCategory] = useState<ArchiveCategory>("Semua");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedDayFrom, setSelectedDayFrom] = useState("");
+  const [selectedDayTo, setSelectedDayTo] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [revisionTargetId, setRevisionTargetId] = useState<number | null>(null);
-  const [revisionNote, setRevisionNote] = useState("");
-  const [revisionError, setRevisionError] = useState<string | null>(null);
 
   const fetchPermohonan = async () => {
     try {
@@ -191,7 +202,7 @@ export default function KepalaDesaWorkflowClient() {
 
   const handleUpdate = async (
     id: number,
-    status: "perlu_revisi" | "ditandatangani" | "selesai",
+    status: "ditandatangani" | "selesai",
     catatan: string,
     successMessage: string,
     confirmMessage?: string
@@ -228,79 +239,82 @@ export default function KepalaDesaWorkflowClient() {
     }
   };
 
-  const openRevisionModal = (id: number) => {
-    setRevisionTargetId(id);
-    setRevisionError(null);
-    setRevisionNote("");
+
+
+  const availableYears = useMemo(() => {
+    const years = data
+      .map((p) => new Date(p.created_at).getFullYear())
+      .filter((year) => Number.isFinite(year));
+
+    return Array.from(new Set(years)).sort((a, b) => b - a);
+  }, [data]);
+
+  const availableDays = useMemo(() => {
+    if (selectedMonth === "") {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const month = Number(selectedMonth);
+    const fallbackYear = new Date().getFullYear();
+    const year = selectedYear === "" ? fallbackYear : Number(selectedYear);
+
+    if (!Number.isFinite(month) || month < 1 || month > 12) {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  }, [selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    if (selectedDayFrom !== "") {
+      const selectedDayFromNumber = Number(selectedDayFrom);
+      if (!availableDays.includes(selectedDayFromNumber)) {
+        setSelectedDayFrom("");
+      }
+    }
+
+    if (selectedDayTo !== "") {
+      const selectedDayToNumber = Number(selectedDayTo);
+      if (!availableDays.includes(selectedDayToNumber)) {
+        setSelectedDayTo("");
+      }
+    }
+  }, [availableDays, selectedDayFrom, selectedDayTo]);
+
+  const filteredPermohonan = useMemo(() => {
+    return data.filter((item) => {
+      const matchStatus = matchesArchiveCategory(item.status, archiveCategory);
+      const matchSearch =
+        item.nama_pemohon.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.jenis_surat.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.nik.includes(searchTerm);
+      const createdAt = new Date(item.created_at);
+      const day = createdAt.getDate();
+      const month = createdAt.getMonth() + 1;
+      const year = createdAt.getFullYear();
+      const parsedDayFrom = selectedDayFrom === "" ? null : Number(selectedDayFrom);
+      const parsedDayTo = selectedDayTo === "" ? null : Number(selectedDayTo);
+      const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
+      const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
+      const matchDayFrom = dayMin === null || day >= dayMin;
+      const matchDayTo = dayMax === null || day <= dayMax;
+      const matchMonth = selectedMonth === "" || month === Number(selectedMonth);
+      const matchYear = selectedYear === "" || year === Number(selectedYear);
+
+      return matchStatus && matchSearch && matchDayFrom && matchDayTo && matchMonth && matchYear;
+    });
+  }, [data, archiveCategory, searchTerm, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear]);
+
+  const stats = {
+    menungguVerifikasi: data.filter((p) => p.status === "pending" || p.status === "diproses").length,
+    dikirimKeKepala: data.filter((p) => p.status === "dikirim_ke_kepala_desa").length,
+    selesai: data.filter((p) => p.status === "ditandatangani" || p.status === "selesai").length,
+    ditolak: data.filter((p) => p.status === "ditolak").length,
   };
-
-  const closeRevisionModal = () => {
-    if (actionId === revisionTargetId) {
-      return;
-    }
-
-    setRevisionTargetId(null);
-    setRevisionError(null);
-  };
-
-  const submitRevision = async () => {
-    if (revisionTargetId === null) {
-      return;
-    }
-
-    if (!revisionNote.trim()) {
-      setRevisionError("Catatan revisi tidak boleh kosong.");
-      return;
-    }
-
-    setRevisionError(null);
-    const success = await handleUpdate(
-      revisionTargetId,
-      "perlu_revisi",
-      revisionNote,
-      "Permohonan berhasil dikembalikan ke admin untuk revisi."
-    );
-
-    if (success) {
-      setRevisionTargetId(null);
-      setRevisionError(null);
-    }
-  };
-
-  const waitingSignatureCount = useMemo(
-    () => data.filter((item) => item.status === "dikirim_ke_kepala_desa").length,
-    [data]
-  );
-
-  const signedCount = useMemo(
-    () =>
-      data.filter(
-        (item) => (item.status === "ditandatangani" || item.status === "selesai") && isGeneratedSuratFile(item.file_path)
-      ).length,
-    [data]
-  );
-
-  const visibleData = useMemo(() => {
-    if (ttdFilter === "selesai") {
-      return data.filter((item) => isFinalizedStatus(item.status));
-    }
-
-    if (ttdFilter === "semua") {
-      return data;
-    }
-
-    return data.filter((item) => !isFinalizedStatus(item.status));
-  }, [data, ttdFilter]);
 
   return (
     <section>
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <FiCheckCircle className="text-purple-600" /> Permohonan Warga
-        </h2>
-        <p className="text-gray-500 mt-1">Tinjau, tandatangani digital, atau hapus dari daftar permohonan bila sudah selesai.</p>
-      </div>
-
       {notice && (
         <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800 text-sm">
           {notice}
@@ -313,33 +327,128 @@ export default function KepalaDesaWorkflowClient() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div className="bg-gradient-to-br from-indigo-50 to-white rounded-xl border border-indigo-100 shadow-sm p-4">
-          <p className="text-sm text-gray-500">Menunggu Tanda Tangan</p>
-          <p className="text-2xl font-bold text-indigo-700">{waitingSignatureCount}</p>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Menunggu Verifikasi</p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.menungguVerifikasi}</p>
+            </div>
+            <div className="w-3 h-3 rounded-full bg-yellow-300" />
+          </div>
         </div>
-        <div className="bg-gradient-to-br from-emerald-50 to-white rounded-xl border border-emerald-100 shadow-sm p-4">
-          <p className="text-sm text-gray-500">Ditandatangani / Selesai</p>
-          <p className="text-2xl font-bold text-emerald-700">{signedCount}</p>
+
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Menunggu Konfirmasi Kepala Desa</p>
+              <p className="text-2xl font-bold text-indigo-600">{stats.dikirimKeKepala}</p>
+            </div>
+            <div className="w-3 h-3 rounded-full bg-indigo-300" />
+          </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-end gap-3">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600">Filter TTD:</label>
-            <select
-              value={ttdFilter}
-              onChange={(event) => setTtdFilter(event.target.value as "belum" | "semua" | "selesai")}
-              className="rounded-lg border border-gray-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="belum">Belum</option>
-              <option value="semua">Semua</option>
-              <option value="selesai">Selesai</option>
-            </select>
+
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Selesai / Ditandatangani</p>
+              <p className="text-2xl font-bold text-green-600">{stats.selesai}</p>
+            </div>
+            <div className="w-3 h-3 rounded-full bg-green-300" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Ditolak</p>
+              <p className="text-2xl font-bold text-red-600">{stats.ditolak}</p>
+            </div>
+            <div className="bg-red-100 text-red-700 rounded-full w-10 h-10 flex items-center justify-center text-xs font-bold">
+              NO
+            </div>
           </div>
         </div>
       </div>
 
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <input
+            type="text"
+            placeholder="Cari nama, NIK, atau jenis surat..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          />
+
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Semua Bulan</option>
+            <option value="1">Januari</option>
+            <option value="2">Februari</option>
+            <option value="3">Maret</option>
+            <option value="4">April</option>
+            <option value="5">Mei</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">Agustus</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+
+          <select
+            value={selectedDayFrom}
+            onChange={(e) => setSelectedDayFrom(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Tanggal Dari</option>
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>{day}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedDayTo}
+            onChange={(e) => setSelectedDayTo(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Tanggal Sampai</option>
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>{day}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Semua Tahun</option>
+            {availableYears.map((year) => (
+              <option key={year} value={String(year)}>{year}</option>
+            ))}
+          </select>
+
+          <select
+            value={archiveCategory}
+            onChange={(e) => setArchiveCategory(e.target.value as ArchiveCategory)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="Semua">Semua</option>
+            <option value="Surat Menunggu">Surat Menunggu</option>
+            <option value="Surat Selesai">Surat Selesai</option>
+            <option value="Ditolak">Ditolak</option>
+          </select>
+        </div>
+      </div>
+
       <div className="mb-4 text-sm text-gray-600">
-        Menampilkan {visibleData.length} surat {ttdFilter === "belum" ? "belum TTD" : ttdFilter === "selesai" ? "selesai" : "(semua status)"}
+        Menampilkan {filteredPermohonan.length} data berdasarkan filter yang dipilih
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -362,22 +471,17 @@ export default function KepalaDesaWorkflowClient() {
                   Memuat data...
                 </td>
               </tr>
-            ) : visibleData.length === 0 ? (
+            ) : filteredPermohonan.length === 0 ? (
               <tr>
                 <td className="px-4 py-5 text-center text-gray-500" colSpan={7}>
-                  {ttdFilter === "selesai"
-                    ? "Belum ada surat dengan status selesai."
-                    : ttdFilter === "belum"
-                      ? "Tidak ada surat yang menunggu proses TTD."
-                      : "Belum ada data surat."}
+                  Belum ada data surat.
                 </td>
               </tr>
             ) : (
-              visibleData.map((item) => {
-                const attachmentLinks = resolveAttachmentPaths(item);
+              filteredPermohonan.map((item) => {
+                const suratPreviewPageUrl = `/kepala-desa/permohonan/${item.id}/preview`;
                 const shouldOpenFinalFile = isFinalizedStatus(item.status);
-                const suratPreviewUrl = `/api/admin/permohonan/${item.id}/preview`;
-                const suratPreviewLabel = shouldOpenFinalFile ? "Lihat Surat Final" : "Lihat Surat Draft";
+                const suratPreviewLabel = shouldOpenFinalFile ? "File Final" : "Lihat Draft Surat";
 
                 return (
                 <tr key={item.id} className="hover:bg-gray-50">
@@ -389,7 +493,7 @@ export default function KepalaDesaWorkflowClient() {
                   <td className="px-4 py-3">{item.keperluan}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
-                      <span className={`inline-flex w-fit px-2 py-1 rounded-full text-xs font-medium ${statusClass(item.status)}`}>
+                      <span className={`status-chip ${statusClass(item.status)}`}>
                         {statusLabel(item.status)}
                       </span>
                       {processNote(item.status) && (
@@ -400,54 +504,31 @@ export default function KepalaDesaWorkflowClient() {
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
                       <button
-                        onClick={() => window.open(suratPreviewUrl, "_blank")}
-                        className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                        onClick={() => router.push(suratPreviewPageUrl)}
+                        className={`aksi-btn ${shouldOpenFinalFile ? "aksi-btn-success" : "aksi-btn-view"}`}
                       >
-                        <FiEye className="w-3.5 h-3.5" />
                         {suratPreviewLabel}
                       </button>
-
-                      {attachmentLinks.length > 0 && (
-                        <a
-                          href={`/api/admin/permohonan/${item.id}/preview?attachments=1`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-amber-700 hover:underline"
-                        >
-                          Lihat Lampiran
-                        </a>
-                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-col items-center gap-2">
+                    <div className="flex flex-col items-center gap-1.5">
                       {item.status === "dikirim_ke_kepala_desa" && (
-                        <div className="flex flex-wrap justify-center gap-2">
-                          <button
-                            onClick={() => openRevisionModal(item.id)}
-                            disabled={actionId === item.id}
-                            className="inline-flex whitespace-nowrap items-center gap-1 bg-orange-500 text-white px-2 py-1 text-xs rounded hover:bg-orange-600 disabled:opacity-50"
-                          >
-                            <FiCornerUpLeft className="w-3.5 h-3.5" />
-                            Kirim Revisi
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleUpdate(
-                                item.id,
-                                "selesai",
-                                "",
-                                "Surat berhasil diverifikasi dan ditandatangani digital. Data otomatis masuk ke menu Surat Keluar.",
-                                "Pastikan data surat sudah benar. Lanjut verifikasi + tanda tangan digital sekarang?"
-                              )
-                            }
-                            disabled={actionId === item.id}
-                            className="inline-flex whitespace-nowrap items-center gap-1 bg-blue-600 text-white px-2 py-1 text-xs rounded hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            <FiPenTool className="w-3.5 h-3.5" />
-                            Verifikasi & TTD
-                          </button>
-                        </div>
+                        <button
+                          onClick={() =>
+                            handleUpdate(
+                              item.id,
+                              "selesai",
+                              "",
+                              "Surat berhasil diverifikasi dan ditandatangani digital. Data otomatis masuk ke menu Surat Keluar.",
+                              "Pastikan data surat sudah benar. Lanjut verifikasi + tanda tangan digital sekarang?"
+                            )
+                          }
+                          disabled={actionId === item.id}
+                          className="aksi-btn aksi-btn-primary w-full"
+                        >
+                          Verifikasi & TTD
+                        </button>
                       )}
 
                       {item.status === "ditandatangani" && (
@@ -461,23 +542,18 @@ export default function KepalaDesaWorkflowClient() {
                             )
                           }
                           disabled={actionId === item.id}
-                          className="whitespace-nowrap bg-green-600 text-white px-2 py-1 text-xs rounded hover:bg-green-700 disabled:opacity-50"
+                          className="aksi-btn aksi-btn-success w-full"
                         >
                           Tandai Selesai
                         </button>
                       )}
 
                       {(item.status === "perlu_revisi" || item.status === "selesai") && (
-                        <div className="flex flex-wrap justify-center gap-2">
-                          {item.status === "selesai" && (
-                            <span className="text-xs text-emerald-700 font-medium">
-                              Otomatis masuk Surat Keluar
-                            </span>
-                          )}
+                        <div className="flex flex-col w-full items-center gap-1.5">
                           <button
                             onClick={() => handleDelete(item.id)}
                             disabled={deleteId === item.id}
-                            className="inline-flex whitespace-nowrap items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                            className="aksi-btn aksi-btn-delete"
                           >
                             <FiTrash2 className="w-3.5 h-3.5" />
                             {deleteId === item.id ? "Menghapus..." : "Hapus"}
@@ -489,7 +565,7 @@ export default function KepalaDesaWorkflowClient() {
                         <button
                           onClick={() => handleDelete(item.id)}
                           disabled={deleteId === item.id}
-                          className="inline-flex whitespace-nowrap items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                          className="aksi-btn aksi-btn-delete w-full"
                         >
                           <FiTrash2 className="w-3.5 h-3.5" />
                           {deleteId === item.id ? "Menghapus..." : "Hapus"}
@@ -505,52 +581,7 @@ export default function KepalaDesaWorkflowClient() {
         </table>
       </div>
 
-      {revisionTargetId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
-          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white shadow-2xl">
-            <div className="border-b border-gray-100 px-6 py-4">
-              <h3 className="text-lg font-semibold text-gray-900">Kirim Catatan Revisi</h3>
-              <p className="mt-1 text-sm text-gray-500">Tulis arahan revisi untuk admin agar perbaikan lebih jelas.</p>
-            </div>
 
-            <div className="px-6 py-4">
-              <label htmlFor="revision-note" className="mb-2 block text-sm font-medium text-gray-700">
-                Catatan Revisi
-              </label>
-              <textarea
-                id="revision-note"
-                value={revisionNote}
-                onChange={(event) => setRevisionNote(event.target.value)}
-                rows={5}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                placeholder="Contoh: Mohon perbaiki NIK almarhum dan lengkapi dokumen pendukung."
-                disabled={actionId === revisionTargetId}
-              />
-
-              {revisionError && <p className="mt-2 text-sm text-red-600">{revisionError}</p>}
-            </div>
-
-            <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
-              <button
-                type="button"
-                onClick={closeRevisionModal}
-                disabled={actionId === revisionTargetId}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => void submitRevision()}
-                disabled={actionId === revisionTargetId}
-                className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {actionId === revisionTargetId ? "Mengirim..." : "Kirim Revisi"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

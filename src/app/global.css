@@ -96,6 +96,80 @@ p {
   @apply border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-500;
 }
 
+/* Unified Action Buttons */
+.aksi-btn {
+  @apply inline-flex min-w-[88px] items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.aksi-btn-compact {
+  @apply min-w-0 px-2.5 py-1;
+}
+
+.aksi-btn-icon {
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-md text-white shadow-sm transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.aksi-btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700;
+}
+
+.aksi-btn-view {
+  @apply bg-sky-500 hover:bg-sky-600;
+}
+
+.aksi-btn-edit {
+  @apply bg-amber-500 hover:bg-amber-600;
+}
+
+.aksi-btn-download {
+  @apply bg-emerald-500 hover:bg-emerald-600;
+}
+
+.aksi-btn-success {
+  @apply bg-green-600 hover:bg-green-700;
+}
+
+.aksi-btn-warning {
+  @apply bg-orange-500 hover:bg-orange-600;
+}
+
+.aksi-btn-delete {
+  @apply bg-rose-600 hover:bg-rose-700;
+}
+
+.aksi-btn-muted {
+  @apply inline-flex min-w-[88px] items-center justify-center whitespace-nowrap rounded-md border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-400;
+}
+
+/* Unified Status Chips */
+.status-chip {
+  @apply inline-flex w-fit items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold leading-none;
+}
+
+.status-chip-neutral {
+  @apply border-slate-200 bg-slate-100 text-slate-700;
+}
+
+.status-chip-info {
+  @apply border-sky-200 bg-sky-100 text-sky-700;
+}
+
+.status-chip-primary {
+  @apply border-blue-200 bg-blue-100 text-blue-700;
+}
+
+.status-chip-warning {
+  @apply border-amber-200 bg-amber-100 text-amber-700;
+}
+
+.status-chip-success {
+  @apply border-emerald-200 bg-emerald-100 text-emerald-700;
+}
+
+.status-chip-danger {
+  @apply border-red-200 bg-red-100 text-red-700;
+}
+
 /* Form Elements */
 .form-group {
   @apply mb-4;
@@ -119,6 +193,29 @@ p {
 
 .form-select {
   @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+/* Keep form fields visually consistent and avoid gray autofill background in Chromium browsers. */
+input,
+textarea,
+select {
+  background-color: #ffffff;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #1f2937 !important;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  transition: background-color 9999s ease-out 0s;
+  caret-color: #1f2937;
 }
 
 .form-error {

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { FiArrowRight } from 'react-icons/fi';
 import SimpleLayout from '@/components/layout/SimpleLayout';
-import Card, { CardHeader, CardBody } from '@/components/ui/Card';
+import Card, { CardBody } from '@/components/ui/Card';
 
 const SURAT_TYPES = [
   {
@@ -145,35 +145,6 @@ export default function PermohonanPage() {
           </Link>
         ))}
       </div>
-
-      {/* Info Card */}
-      <Card>
-        <CardHeader title="Panduan Pengajuan Surat" />
-        <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h4 className="font-bold text-gray-900 mb-3">Langkah-Langkah</h4>
-              <ol className="space-y-2 text-sm text-gray-700">
-                <li>1. Pilih jenis surat yang Anda butuhkan</li>
-                <li>2. Isi formulir dengan data yang lengkap dan benar</li>
-                <li>3. Upload dokumen pendukung jika diperlukan</li>
-                <li>4. Klik tombol Submit untuk mengirimkan permohonan</li>
-                <li>5. Pantau status di menu &ldquo;Lacak Surat&rdquo;</li>
-              </ol>
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-900 mb-3">Estimasi Waktu</h4>
-              <ul className="space-y-2 text-sm text-gray-700">
-                <li>• Surat Domisili: 1-2 hari kerja</li>
-                <li>• Surat Tidak Mampu: 2-3 hari kerja</li>
-                <li>• Surat Keterangan: 1-2 hari kerja</li>
-                <li>• Akta Kelahiran: 3-5 hari kerja</li>
-                <li className="text-xs text-gray-600 pt-2">*Waktu dapat berubah sesuai kelengkapan dokumen</li>
-              </ul>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
     </SimpleLayout>
   );
 }

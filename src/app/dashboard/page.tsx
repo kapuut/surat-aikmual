@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FiFileText, FiCheckCircle, FiClock, FiXCircle, FiRefreshCw } from 'react-icons/fi';
-import UserNavbar from '@/components/UserNavbar';
 import UserDashboardLayout from '@/components/layout/UserDashboardLayout';
 
 interface PermohonanSummary {
@@ -76,16 +75,16 @@ export default function DashboardPage() {
     return null;
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusClass = (status: string) => {
     switch (status) {
       case 'selesai':
-        return 'text-green-600';
+        return 'status-chip-success';
       case 'diproses':
-        return 'text-blue-600';
+        return 'status-chip-primary';
       case 'ditolak':
-        return 'text-red-600';
+        return 'status-chip-danger';
       default:
-        return 'text-gray-600';
+        return 'status-chip-neutral';
     }
   };
 
@@ -103,11 +102,8 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <UserNavbar showMainMenu={false} />
-
-      <UserDashboardLayout onLogout={handleLogout}>
-        <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+    <UserDashboardLayout onLogout={handleLogout}>
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
           {/* Welcome Section */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">
@@ -188,7 +184,7 @@ export default function DashboardPage() {
                       <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="px-4 py-3 text-gray-900 font-medium">{item.jenis_surat}</td>
                         <td className="px-4 py-3">
-                          <span className={`flex items-center gap-2 ${getStatusColor(item.status)}`}>
+                          <span className={`status-chip gap-1.5 ${getStatusClass(item.status)}`}>
                             {getStatusIcon(item.status)}
                             <span className="capitalize">{item.status}</span>
                           </span>
@@ -199,7 +195,7 @@ export default function DashboardPage() {
                         <td className="px-4 py-3">
                           <Link
                             href={`/tracking/${item.id}`}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            className="aksi-btn aksi-btn-view aksi-btn-compact"
                           >
                             Lihat Detail →
                           </Link>
@@ -219,9 +215,8 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </main>
-      </UserDashboardLayout>
-    </div>
+      </main>
+    </UserDashboardLayout>
   );
 }
 

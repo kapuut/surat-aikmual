@@ -11,12 +11,12 @@ export default function DynamicTemplateForm({ fields, values, onFieldChange }: D
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {fields.map((field) => {
         const commonClassName =
-          "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500";
+          "w-full rounded-lg border border-gray-400 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-black focus:outline-none focus:ring-2 focus:ring-black";
 
         if (field.type === "textarea") {
           return (
             <div key={field.name} className="md:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-slate-900">
                 {field.label}
                 {field.required ? " *" : ""}
               </label>
@@ -35,7 +35,7 @@ export default function DynamicTemplateForm({ fields, values, onFieldChange }: D
         if (field.type === "select") {
           return (
             <div key={field.name}>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-slate-900">
                 {field.label}
                 {field.required ? " *" : ""}
               </label>
@@ -58,7 +58,7 @@ export default function DynamicTemplateForm({ fields, values, onFieldChange }: D
 
         return (
           <div key={field.name}>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-slate-900">
               {field.label}
               {field.required ? " *" : ""}
             </label>

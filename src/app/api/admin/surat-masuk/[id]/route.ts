@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ResultSetHeader, RowDataPacket } from "mysql2";
-import { mkdir, writeFile } from "fs/promises";
+import { access, mkdir, writeFile } from "fs/promises";
 import path from "path";
 
 export const runtime = "nodejs";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_FILE_TYPES = ["application/pdf"];
+const ALLOWED_FILE_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+const ALLOWED_FILE_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp", "gif"] as const;
 const SURAT_MASUK_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "surat-masuk");
+
+type UrgensiLevel = "rendah" | "sedang" | "tinggi";
 
 type RouteContext = {
   params: {
@@ -26,7 +37,69 @@ function parseId(rawId: string): number | null {
 }
 
 function sanitizeFileName(originalName: string): string {
-  return originalName.replace(/[^a-zA-Z0-9_.-]/g, "_");
+  const normalized = path.basename(originalName || "surat-masuk")
+    .replace(/[^a-zA-Z0-9_.()\-\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || "surat-masuk";
+}
+
+async function getAvailableFileName(fileName: string): Promise<string> {
+  const extension = path.extname(fileName);
+  const baseName = path.basename(fileName, extension);
+
+  let candidate = fileName;
+  let index = 1;
+
+  while (true) {
+    try {
+      await access(path.join(SURAT_MASUK_UPLOAD_DIR, candidate));
+      candidate = `${baseName} (${index})${extension}`;
+      index += 1;
+    } catch {
+      return candidate;
+    }
+  }
+}
+
+function isAllowedUploadFile(file: File): boolean {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  return ALLOWED_FILE_TYPES.includes(file.type as (typeof ALLOWED_FILE_TYPES)[number])
+    || ALLOWED_FILE_EXTENSIONS.includes(extension as (typeof ALLOWED_FILE_EXTENSIONS)[number]);
+}
+
+function isUploadValidationError(message: string): boolean {
+  return message.includes("Ukuran file") || message.includes("Format file") || message.includes("wajib diupload");
+}
+
+function isDuplicateColumnError(error: unknown): boolean {
+  const message = String((error as { message?: string })?.message || "").toLowerCase();
+  return message.includes("duplicate column") || message.includes("already exists");
+}
+
+function normalizeUrgensi(rawValue: unknown): UrgensiLevel {
+  const value = String(rawValue || "").trim().toLowerCase();
+
+  if (["tinggi", "high", "urgent", "darurat"].includes(value)) {
+    return "tinggi";
+  }
+
+  if (["rendah", "low"].includes(value)) {
+    return "rendah";
+  }
+
+  return "sedang";
+}
+
+async function ensureSuratMasukUrgensiColumn() {
+  try {
+    await db.query(`ALTER TABLE surat_masuk ADD COLUMN urgensi VARCHAR(20) NOT NULL DEFAULT 'sedang' AFTER perihal`);
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) {
+      throw error;
+    }
+  }
 }
 
 async function saveUploadedSuratMasuk(file: File): Promise<string> {
@@ -34,14 +107,14 @@ async function saveUploadedSuratMasuk(file: File): Promise<string> {
     throw new Error("Ukuran file terlalu besar. Maksimal 5MB.");
   }
 
-  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-    throw new Error("Format file tidak valid. Gunakan file PDF.");
+  if (!isAllowedUploadFile(file)) {
+    throw new Error("Format file tidak valid. Gunakan file gambar, PDF, atau Word.");
   }
 
   await mkdir(SURAT_MASUK_UPLOAD_DIR, { recursive: true });
 
   const safeFileName = sanitizeFileName(file.name || "surat-masuk.pdf");
-  const storedFileName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${safeFileName}`;
+  const storedFileName = await getAvailableFileName(safeFileName);
   const absolutePath = path.join(SURAT_MASUK_UPLOAD_DIR, storedFileName);
 
   const bytes = await file.arrayBuffer();
@@ -52,6 +125,8 @@ async function saveUploadedSuratMasuk(file: File): Promise<string> {
 
 export async function GET(_request: NextRequest, { params }: RouteContext) {
   try {
+    await ensureSuratMasukUrgensiColumn();
+
     const suratId = parseId(params.id);
     if (!suratId) {
       return NextResponse.json(
@@ -93,6 +168,8 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 
 export async function PUT(request: NextRequest, { params }: RouteContext) {
   try {
+    await ensureSuratMasukUrgensiColumn();
+
     const suratId = parseId(params.id);
     if (!suratId) {
       return NextResponse.json(
@@ -107,6 +184,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     let tanggal_terima = "";
     let asal_surat = "";
     let perihal = "";
+    let urgensi: UrgensiLevel = "sedang";
     let newFilePath: string | null = null;
 
     if (contentType.includes("multipart/form-data")) {
@@ -116,6 +194,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       tanggal_terima = String(formData.get("tanggal_terima") || "").trim();
       asal_surat = String(formData.get("asal_surat") || "").trim();
       perihal = String(formData.get("perihal") || "").trim();
+      urgensi = normalizeUrgensi(formData.get("urgensi"));
 
       const rawFile = formData.get("file_surat");
       if (rawFile instanceof File && rawFile.size > 0) {
@@ -128,6 +207,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       tanggal_terima = String(body?.tanggal_terima || "").trim();
       asal_surat = String(body?.asal_surat || "").trim();
       perihal = String(body?.perihal || "").trim();
+      urgensi = normalizeUrgensi(body?.urgensi);
       newFilePath = typeof body?.file_path === "string" && body.file_path.trim() ? body.file_path.trim() : null;
     }
 
@@ -140,9 +220,9 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
 
     const [result] = await db.query<ResultSetHeader>(
       `UPDATE surat_masuk
-       SET nomor_surat = ?, tanggal_surat = ?, tanggal_terima = ?, asal_surat = ?, perihal = ?, file_path = COALESCE(?, file_path)
+       SET nomor_surat = ?, tanggal_surat = ?, tanggal_terima = ?, asal_surat = ?, perihal = ?, urgensi = ?, file_path = COALESCE(?, file_path)
        WHERE id = ?`,
-      [nomor_surat, tanggal_surat, tanggal_terima, asal_surat, perihal, newFilePath, suratId]
+      [nomor_surat, tanggal_surat, tanggal_terima, asal_surat, perihal, urgensi, newFilePath, suratId]
     );
 
     if (result.affectedRows === 0) {
@@ -158,9 +238,10 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     });
   } catch (error) {
     console.error("Error updating surat masuk:", error);
+    const message = error instanceof Error ? error.message : "Gagal memperbarui surat masuk";
     return NextResponse.json(
-      { success: false, error: "Gagal memperbarui surat masuk" },
-      { status: 500 }
+      { success: false, error: message },
+      { status: isUploadValidationError(message) ? 400 : 500 }
     );
   }
 }

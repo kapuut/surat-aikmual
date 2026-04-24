@@ -35,7 +35,7 @@ export default function PublicLoginPage() {
     const password = String(formData.get("password") || "").trim();
 
     if (!nik || !password) {
-      setError("NIK/email dan password wajib diisi");
+      setError("NIK dan password wajib diisi");
       setLoading(false);
       return;
     }
@@ -96,7 +96,7 @@ export default function PublicLoginPage() {
             <div className="inline-block bg-blue-600 text-white p-4 rounded-2xl mb-4 shadow-lg">
               <FiUser className="w-8 h-8" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Portal Masyarakat</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Login Masyarakat</h1>
             <p className="text-gray-600">SI Surat Desa Aikmual</p>
           </div>
 
@@ -119,7 +119,7 @@ export default function PublicLoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="nik" className="block text-sm font-medium text-gray-700 mb-2">
-                NIK atau Email
+                NIK
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -132,7 +132,7 @@ export default function PublicLoginPage() {
                   required
                   autoComplete="username"
                   className="block w-full pl-10 pr-3 py-3 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-400"
-                  placeholder="Masukkan NIK atau email"
+                  placeholder="Masukkan NIK"
                 />
               </div>
             </div>

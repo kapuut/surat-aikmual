@@ -2,9 +2,10 @@
 'use client';
 
 import { useAuth } from '@/lib/useAuth';
-import Image from 'next/image';
 import UserNavbar from '@/components/UserNavbar';
 import Link from 'next/link';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 import {
   FiFileText,
   FiClock,
@@ -21,63 +22,54 @@ const ALLOWED_SURAT_TYPES = [
     title: 'Surat Keterangan Domisili',
     href: '/permohonan/surat-domisili',
     description: 'Keterangan domisili resmi untuk administrasi warga.',
-    estimate: '1-2 hari kerja',
   },
   {
     slug: 'surat-masih-hidup',
     title: 'Surat Keterangan Masih Hidup',
     href: '/permohonan/surat-masih-hidup',
     description: 'Surat pernyataan bahwa seseorang masih hidup untuk kebutuhan administrasi.',
-    estimate: '1-2 hari kerja',
   },
   {
     slug: 'surat-kematian',
     title: 'Surat Keterangan Kematian',
     href: '/permohonan/surat-kematian',
     description: 'Surat keterangan kematian untuk pelaporan dan pengurusan dokumen keluarga.',
-    estimate: '1-2 hari kerja',
   },
   {
     slug: 'surat-cerai',
     title: 'Surat Keterangan Cerai',
     href: '/permohonan/surat-cerai',
     description: 'Surat pendukung status cerai untuk kebutuhan administrasi tertentu.',
-    estimate: '2-3 hari kerja',
   },
   {
     slug: 'surat-janda',
     title: 'Surat Keterangan Janda/Duda',
     href: '/permohonan/surat-janda',
     description: 'Keterangan status janda/duda untuk program atau layanan publik.',
-    estimate: '1-2 hari kerja',
   },
   {
     slug: 'surat-kehilangan',
     title: 'Surat Keterangan Kehilangan',
     href: '/permohonan/surat-kehilangan',
     description: 'Keterangan kehilangan dokumen/barang sebagai dasar pengurusan lanjutan.',
-    estimate: '1-2 hari kerja',
   },
   {
     slug: 'surat-penghasilan',
     title: 'Surat Keterangan Penghasilan',
     href: '/permohonan/surat-penghasilan',
     description: 'Surat penghasilan untuk syarat bantuan, pendidikan, atau administrasi lain.',
-    estimate: '1-2 hari kerja',
   },
   {
     slug: 'surat-tidak-punya-rumah',
     title: 'Surat Keterangan Tidak Memiliki Rumah',
     href: '/permohonan/surat-tidak-punya-rumah',
     description: 'Keterangan tidak memiliki rumah untuk syarat program bantuan perumahan.',
-    estimate: '2-3 hari kerja',
   },
   {
     slug: 'surat-usaha',
     title: 'Surat Keterangan Usaha',
     href: '/permohonan/surat-usaha',
     description: 'Keterangan usaha warga untuk kebutuhan perizinan dan dukungan pembiayaan.',
-    estimate: '1-2 hari kerja',
   },
 ];
 
@@ -100,8 +92,7 @@ const SERVICE_STEPS = [
 ];
 
 const SERVICE_ANNOUNCEMENTS = [
-  'Layanan online aktif 24 jam, verifikasi berkas dilakukan pada jam kerja kantor desa.',
-  'Pastikan NIK dan nomor WhatsApp aktif agar notifikasi proses dapat diterima.',
+  'Layanan pengajuan surat dibuka Senin-Jumat pukul 08.00-15.00 WITA.',
   'Pengajuan yang masuk di luar jam kerja diproses pada hari kerja berikutnya.',
 ];
 
@@ -123,7 +114,7 @@ const POPULAR_REQUIREMENTS = [
 const FAQ_ITEMS = [
   {
     question: 'Berapa lama proses surat diselesaikan?',
-    answer: 'Estimasi layanan 1-2 hari kerja tergantung jenis surat dan kelengkapan berkas.',
+    answer: 'Lama proses surat disesuaikan dengan jenis surat dan kelengkapan berkas yang diajukan.',
   },
   {
     question: 'Apakah pengajuan bisa dilakukan dari HP?',
@@ -143,6 +134,7 @@ export default function HomePage() {
   const { user, loading, isAuthenticated } = useAuth();
   const isMasyarakat = isAuthenticated && user?.role === 'masyarakat';
   const showCitizenActions = isMasyarakat;
+  const isPublicView = !isAuthenticated || !user;
 
   if (loading) {
     return (
@@ -160,40 +152,16 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen bg-gray-50 ${isPublicView ? 'pt-20' : ''}`}>
       {/* Header - Berubah jika authenticated */}
       {isAuthenticated && user ? (
         <UserNavbar />
       ) : (
-        <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur-sm">
-          <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <div className="flex-shrink-0">
-                <Image
-                  src="/images/logo-desa.png"
-                  alt="Logo Desa Aikmual"
-                  width={40}
-                  height={40}
-                  className="object-contain"
-                />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">Sistem Pelayanan Surat</h1>
-                <p className="text-xs text-gray-600">Desa Aikmual</p>
-              </div>
-            </Link>
-            <Link
-              href="/login"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-            >
-              Masuk/Daftar
-            </Link>
-          </div>
-        </header>
+        <Header />
       )}
 
       {/* Hero Section */}
-      <section className="relative w-full bg-[url('/images/gerbang-aikmual.png')] bg-cover bg-center bg-no-repeat text-white py-28 md:py-32 overflow-hidden">
+      <section id="beranda" className="relative w-full overflow-hidden bg-[url('/images/gerbang-aikmual.png')] bg-cover bg-center bg-no-repeat py-28 text-white md:py-32">
         <div className="absolute inset-0 bg-black/45"></div>
 
         <div className="relative w-full px-4 sm:px-6 lg:px-8 text-center">
@@ -235,13 +203,19 @@ export default function HomePage() {
                 <FiMapPin className="h-4 w-4" />
                 <span>Kantor Desa Aikmual</span>
               </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-black/20 px-4 py-2">
+                <FiPhone className="h-4 w-4" />
+                <a href="tel:085253271360" className="hover:text-white transition-colors">
+                  Kontak: 085253271360
+                </a>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Alur Pengajuan */}
-      <section className="w-full py-16 bg-white">
+      <section id="alur-pengajuan" className="w-full bg-white py-16">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Alur Pengajuan Surat</h2>
@@ -271,7 +245,7 @@ export default function HomePage() {
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-gray-900 mb-4">Layanan Surat Online</h2>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Pilih jenis surat yang Anda butuhkan. Setiap layanan dilengkapi persyaratan dan estimasi waktu penyelesaian.
+            Pilih jenis surat yang Anda butuhkan. Setiap layanan dilengkapi persyaratan yang jelas.
           </p>
         </div>
 
@@ -308,10 +282,7 @@ export default function HomePage() {
                     {item.title}
                   </h3>
                   <p className="text-sm text-gray-600 leading-relaxed mb-4 min-h-[44px]">{item.description}</p>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 border border-blue-100">
-                      Estimasi {item.estimate}
-                    </span>
+                  <div className="flex items-center justify-end gap-3">
                     <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 border border-gray-200 transition-all duration-300 group-hover:bg-blue-600 group-hover:border-blue-600">
                       <FiArrowRight className="w-4 h-4 text-gray-500 transition-all duration-300 group-hover:text-white group-hover:translate-x-0.5" />
                     </span>
@@ -322,7 +293,7 @@ export default function HomePage() {
           ))}
         </div>
 
-        <div className="mt-16">
+        <div id="persyaratan" className="mt-16 scroll-mt-28">
           <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Persyaratan Surat Populer</h3>
           <div className="grid gap-5 md:grid-cols-3">
             {POPULAR_REQUIREMENTS.map((item) => (
@@ -341,7 +312,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="mt-16">
+        <div id="faq" className="mt-16 scroll-mt-28">
           <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Pertanyaan Umum (FAQ)</h3>
           <div className="max-w-4xl mx-auto space-y-3">
             {FAQ_ITEMS.map((item) => (
@@ -381,63 +352,7 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t py-6 md:py-7">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
-            <div className="text-center md:text-left">
-              <div className="flex items-center gap-3 mb-4 justify-center md:justify-start">
-                <div className="relative h-11 w-11 flex-shrink-0">
-                  <Image
-                    src="/images/logo-desa.png"
-                    alt="Logo Desa Aikmual"
-                    fill
-                    sizes="44px"
-                    className="object-contain"
-                  />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">Desa Aikmual</h3>
-                  <p className="text-sm text-gray-600">Pelayanan Online</p>
-                </div>
-              </div>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Sistem informasi pelayanan surat online untuk mempermudah pelayanan administrasi desa.
-              </p>
-            </div>
-            <div className="text-center md:text-left md:justify-self-center">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Layanan</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                {ALLOWED_SURAT_TYPES.slice(0, 3).map((item) => (
-                  <li key={item.slug}>
-                    <Link href={item.href} className="hover:text-blue-600">
-                      {item.title}
-                    </Link>
-                  </li>
-                ))}
-                <li><Link href="/tracking" className="hover:text-blue-600">Cek Progres Surat</Link></li>
-                <li><Link href="/staff/login" className="hover:text-blue-600">Login Staff</Link></li>
-              </ul>
-            </div>
-            <div className="text-center md:text-left md:justify-self-end">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Kontak</h4>
-              <div className="space-y-2 text-sm text-gray-600">
-                <p>Kantor Desa Aikmual</p>
-                <p>Kecamatan Aikmual</p>
-                <p>Kabupaten Lombok Utara</p>
-                <p>Nusa Tenggara Barat</p>
-                <p>Senin-Jumat, 08.00-15.00 WITA</p>
-              </div>
-            </div>
-          </div>
-          <div className="border-t mt-6 pt-6">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-4">
-              <p className="text-sm text-gray-600">
-                &copy; {new Date().getFullYear()} SI Pengarsipan Surat Desa Aikmual. All rights reserved.
-              </p>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

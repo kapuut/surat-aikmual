@@ -9,6 +9,8 @@ import { normalizeSuratSlug } from '@/lib/surat-data';
 import type { JenisSurat, SuratData } from '@/lib/surat-generator/types';
 import { renderTemplateWithValues } from '@/lib/template-surat/render-template';
 import type { TemplateField } from '@/lib/template-surat/types';
+import { normalizeCustomTemplateHtml } from '@/lib/template-surat/official-layout';
+import { buildOfficialDynamicSystemValues } from '@/lib/template-surat/official-defaults';
 
 type WorkflowStatus =
   | 'pending'
@@ -105,7 +107,7 @@ function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown, note?:
   if (inferred) return inferred;
 
   if (typeof nomorSurat === 'string' && nomorSurat.trim()) {
-    return 'selesai';
+    return 'dikirim_ke_kepala_desa';
   }
 
   return 'pending';
@@ -268,6 +270,40 @@ async function getNextNomorSuratForPreview(
   return generateNomorSurat(nomorUrut, tanggal);
 }
 
+async function getNextNomorSuratForDynamicPreview(
+  tanggal: Date,
+  jenisSurat: string,
+  currentPermohonanId: number
+): Promise<string> {
+  const bulan = String(tanggal.getMonth() + 1).padStart(2, '0');
+  const tahun = String(tanggal.getFullYear());
+  const suffix = `/${bulan}.${tahun}`;
+
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT id, nomor_surat, jenis_surat, status, catatan
+     FROM permohonan_surat
+     WHERE nomor_surat LIKE ?
+       AND LOWER(TRIM(jenis_surat)) = LOWER(TRIM(?))
+     ORDER BY id DESC`,
+    [`%${suffix}`, jenisSurat]
+  );
+
+  const scopedRows = (rows || []).filter((row: any) => {
+    const id = Number(row?.id || 0);
+    if (id === currentPermohonanId) return false;
+    const rowStatus = normalizeWorkflowStatus(row?.status, row?.nomor_surat, row?.catatan);
+    return rowStatus !== 'ditolak';
+  });
+
+  let nomorUrut = 1;
+  if (scopedRows.length > 0 && typeof scopedRows[0].nomor_surat === 'string') {
+    const parsed = parseInt(String(scopedRows[0].nomor_surat).split('/')[0], 10);
+    nomorUrut = Number.isFinite(parsed) ? parsed + 1 : 1;
+  }
+
+  return generateNomorSurat(nomorUrut, tanggal);
+}
+
 function isAttachmentFile(pathValue: string): boolean {
   return pathValue.includes('/uploads/');
 }
@@ -352,6 +388,117 @@ function renderAttachmentsPage(attachmentPaths: string[]): string {
   </div>
 </body>
 </html>`;
+}
+
+function renderInlineAttachmentsSection(attachmentPaths: string[]): string {
+  if (!attachmentPaths.length) return '';
+
+  const rows = attachmentPaths
+    .map((pathValue, index) => {
+      const fileName = pathValue.split('/').pop() || `Lampiran ${index + 1}`;
+      return `
+        <tr>
+          <td>Lampiran ${index + 1}</td>
+          <td>${escapeHtml(fileName)}</td>
+          <td><a href="${escapeHtml(pathValue)}" target="_blank" rel="noreferrer">Buka</a></td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+  <section class="inline-attachments">
+    <h2>Lampiran Permohonan</h2>
+    <p>Dokumen pendukung yang diunggah pemohon.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Dokumen</th>
+          <th>Nama File</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </section>`;
+}
+
+function appendInlineAttachmentsSection(html: string, attachmentPaths: string[]): string {
+  if (!attachmentPaths.length) return html;
+
+  const styleBlock = `
+  <style>
+    .inline-attachments {
+      margin-top: 22px;
+      border-top: 1px dashed #94a3b8;
+      padding-top: 12px;
+      font-family: Arial, sans-serif;
+    }
+
+    .inline-attachments h2 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    .inline-attachments p {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .inline-attachments table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+    }
+
+    .inline-attachments th,
+    .inline-attachments td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .inline-attachments th {
+      background: #f8fafc;
+      font-weight: 600;
+    }
+
+    .inline-attachments a {
+      color: #1d4ed8;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .inline-attachments a:hover {
+      text-decoration: underline;
+    }
+
+    @media print {
+      .inline-attachments {
+        page-break-inside: avoid;
+      }
+    }
+  </style>`;
+
+  const sectionHtml = renderInlineAttachmentsSection(attachmentPaths);
+
+  let nextHtml = html;
+  if (nextHtml.includes('</head>')) {
+    nextHtml = nextHtml.replace('</head>', `${styleBlock}\n</head>`);
+  }
+
+  if (nextHtml.includes('</body>')) {
+    return nextHtml.replace('</body>', `${sectionHtml}\n</body>`);
+  }
+
+  return `${nextHtml}\n${sectionHtml}`;
 }
 
 function normalizeGender(value: unknown): 'Laki-laki' | 'Perempuan' | undefined {
@@ -464,14 +611,13 @@ function buildDynamicTemplateValues(
   tanggalSurat: Date
 ): Record<string, string> {
   const values: Record<string, string> = {
-    nomor_surat: nomorSurat,
     nama: String(permohonan.nama_pemohon || '').trim(),
     nik: String(permohonan.nik || '').trim(),
     alamat: String(permohonan.alamat || '').trim(),
     keperluan: String(permohonan.keperluan || '-').trim() || '-',
     jenis_surat: String(permohonan.jenis_surat || '').trim(),
-    tanggal_surat: formatDateIndonesian(tanggalSurat),
     tanggal_permohonan: formatDateIndonesian(new Date(permohonan.created_at || tanggalSurat)),
+    ...buildOfficialDynamicSystemValues(formatDateIndonesian(tanggalSurat), nomorSurat),
   };
 
   for (const [key, rawValue] of Object.entries(detailData)) {
@@ -496,7 +642,90 @@ function buildDynamicTemplateValues(
   return values;
 }
 
-function renderDynamicTemplatePage(template: DynamicTemplatePreview, renderedHtml: string): string {
+function renderDynamicTemplatePage(
+  template: DynamicTemplatePreview,
+  renderedHtml: string,
+  options?: { adminMode?: boolean; printFlag?: boolean }
+): string {
+  const adminMode = Boolean(options?.adminMode);
+
+  const toolbarHtml = adminMode
+    ? `
+    <div class="editor-toolbar no-print">
+      <div class="toolbar-title">Mode Edit Admin</div>
+      <div class="toolbar-actions">
+        <button type="button" onclick="downloadAsWord()">Simpan Word (.doc)</button>
+        <button type="button" onclick="saveAsHtml()">Simpan HTML</button>
+        <button type="button" onclick="saveAsPdf()">Simpan PDF / Print</button>
+      </div>
+    </div>`
+    : '';
+
+  const scriptHtml = adminMode
+    ? `
+  <script>
+    function buildExportHtml() {
+      const suratContent = document.getElementById('suratContent');
+      const page = suratContent ? suratContent.outerHTML : '';
+      const styles = Array.from(document.querySelectorAll('style'))
+        .map((styleEl) => styleEl.innerHTML)
+        .join('\\n');
+
+      return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(template.jenisSurat)}</title><style>' + styles + '</style></head><body>' + page + '</body></html>';
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function getBaseFilename() {
+      const today = new Date().toISOString().slice(0, 10);
+      return 'surat-dinamis-' + today;
+    }
+
+    function downloadAsWord() {
+      const html = buildExportHtml();
+      const blob = new Blob(['\\ufeff', html], { type: 'application/msword' });
+      downloadBlob(blob, getBaseFilename() + '.doc');
+    }
+
+    function saveAsHtml() {
+      const html = buildExportHtml();
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      downloadBlob(blob, getBaseFilename() + '.html');
+    }
+
+    function saveAsPdf() {
+      window.print();
+    }
+  </script>`
+    : '';
+
+  const printScriptHtml = `
+  <script>
+    (function () {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('print') === '1') {
+          window.addEventListener('load', function () {
+            setTimeout(function () {
+              window.print();
+            }, 180);
+          });
+        }
+      } catch {
+        // ignore query parsing errors
+      }
+    })();
+  </script>`;
+
   return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -504,24 +733,219 @@ function renderDynamicTemplatePage(template: DynamicTemplatePreview, renderedHtm
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Preview ${escapeHtml(template.jenisSurat)}</title>
   <style>
-    body { margin: 0; background: #e5e7eb; font-family: Arial, sans-serif; }
-    .page-wrap { max-width: 900px; margin: 24px auto; padding: 0 12px; }
-    .paper { background: #fff; min-height: 1122px; padding: 56px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12); }
-    .paper-content { font-family: 'Times New Roman', serif; color: #111827; line-height: 1.65; font-size: 18px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Bookman Old Style', 'Book Antiqua', serif;
+      font-size: 12pt;
+      line-height: 1.5;
+      color: #000;
+      background-color: #efefef;
+      padding: 16px;
+    }
+
+    .editor-toolbar {
+      width: 21cm;
+      margin: 0 auto 10px auto;
+      background: #1f2937;
+      border-radius: 8px;
+      color: #fff;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-family: Arial, sans-serif;
+    }
+
+    .toolbar-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-actions button {
+      border: none;
+      background: #f59e0b;
+      color: #111827;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .toolbar-actions button:hover {
+      background: #fbbf24;
+    }
+
+    .page {
+      width: 21cm;
+      min-height: 29.7cm;
+      height: auto;
+      margin: 0 auto;
+      padding: 1.2cm 1.3cm 1.2cm 1.3cm;
+      font-size: 12pt;
+      line-height: 1.5;
+      background: white;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .kop-surat {
+      margin-bottom: 0.7cm;
+      position: relative;
+      padding-bottom: 0.15cm;
+    }
+
+    .kop-row {
+      display: grid;
+      grid-template-columns: 98px 1fr;
+      column-gap: 10px;
+      align-items: center;
+    }
+
+    .logo-wrap {
+      width: 98px;
+      height: 98px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-wrap img {
+      width: 88px;
+      height: 88px;
+      object-fit: contain;
+    }
+
+    .kop-text {
+      text-align: center;
+      padding-right: 98px;
+      font-family: 'Times New Roman', serif;
+    }
+
+    .kop-text .kabupaten {
+      font-size: 14pt;
+      font-weight: bold;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .kop-text .kecamatan {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .kop-text .desa {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 1px;
+    }
+
+    .kop-text .alamat {
+      font-size: 9pt;
+      border: 1px solid #111;
+      padding: 2px 6px;
+      display: inline-block;
+      min-width: 86%;
+      white-space: nowrap;
+    }
+
+    .kop-divider {
+      margin-top: 4px;
+      border-top: 1px solid #000;
+      border-bottom: 2px solid #000;
+      height: 3px;
+    }
+
+    .surat-body {
+      font-size: 12pt;
+    }
+
+    .surat-body p {
+      margin-bottom: 0.35cm;
+      line-height: 1.5;
+    }
+
+    .surat-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.15cm 0 0.35cm 0;
+      font-size: 12pt;
+    }
+
+    .surat-body td {
+      padding: 0.03cm 0;
+      border: none;
+      vertical-align: top;
+    }
+
+    .no-print { display: block; }
+
+    @page {
+      size: A4;
+      margin: 0.9cm;
+    }
 
     @media print {
-      body { background: #fff; }
-      .page-wrap { max-width: none; margin: 0; padding: 0; }
-      .paper { box-shadow: none; min-height: auto; }
+      body {
+        background: #fff;
+        padding: 0;
+        margin: 0;
+      }
+
+      .page {
+        width: 100%;
+        min-height: auto;
+        height: auto;
+        box-shadow: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 900px) {
+      body { padding: 8px; }
+      .editor-toolbar, .page { width: 100%; }
+      .kop-row { grid-template-columns: 72px 1fr; }
+      .kop-text { padding-right: 0; }
     }
   </style>
 </head>
 <body>
-  <div class="page-wrap">
-    <article class="paper">
-      <div class="paper-content">${renderedHtml}</div>
-    </article>
+  ${toolbarHtml}
+  <div class="page" id="suratContent" ${adminMode ? 'contenteditable="true"' : ''}>
+    <div class="kop-surat">
+      <div class="kop-row">
+        <div class="logo-wrap">
+          <img src="/images/logo-loteng.png" alt="Logo Lombok Tengah" />
+        </div>
+        <div class="kop-text">
+          <div class="kabupaten">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
+          <div class="kecamatan">KECAMATAN PRAYA</div>
+          <div class="desa">DESA AIKMUAL</div>
+          <div class="alamat">Alamat : Jln raya Praya – Mantang KM 07 Aikmual Praya Phone 08175726709 / 08175790747 Kode Post 83500</div>
+        </div>
+      </div>
+      <div class="kop-divider"></div>
+    </div>
+
+    <div class="surat-body">${renderedHtml}</div>
   </div>
+  ${scriptHtml}
+  ${printScriptHtml}
 </body>
 </html>`;
 }
@@ -575,6 +999,7 @@ export async function GET(
     const mode = String(requestUrl.searchParams.get('mode') || '').toLowerCase();
     const download = String(requestUrl.searchParams.get('download') || '').toLowerCase();
     const wantsAttachments = requestUrl.searchParams.get('attachments') === '1';
+    const withAttachments = requestUrl.searchParams.get('with_attachments') === '1';
     const wantsDoc = download === 'doc';
     const printFlag = requestUrl.searchParams.get('print') === '1';
 
@@ -632,15 +1057,29 @@ export async function GET(
 
       const previewNomorSurat = permohonan.nomor_surat
         ? String(permohonan.nomor_surat)
-        : `DRAFT/${String(permohonan.id).padStart(3, '0')}`;
+        : await getNextNomorSuratForDynamicPreview(tanggalSurat, permohonan.jenis_surat, Number(permohonan.id));
       const renderValues = buildDynamicTemplateValues(permohonan, detailData, previewNomorSurat, tanggalSurat);
-      const htmlBody = renderTemplateWithValues(dynamicTemplate.htmlTemplate, renderValues);
+      const htmlBody = renderTemplateWithValues(
+        normalizeCustomTemplateHtml(dynamicTemplate.htmlTemplate),
+        renderValues
+      );
 
-      return new NextResponse(renderDynamicTemplatePage(dynamicTemplate, htmlBody), {
+      const dynamicHtml = renderDynamicTemplatePage(dynamicTemplate, htmlBody, {
+        adminMode: mode === 'admin',
+        printFlag,
+      });
+      const responseHtml = withAttachments
+        ? appendInlineAttachmentsSection(dynamicHtml, attachmentPaths)
+        : dynamicHtml;
+
+      return new NextResponse(
+        responseHtml,
+        {
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
         },
-      });
+        }
+      );
     }
     const tempatLahir = getTextWithDetail(permohonan.tempat_lahir, detailData, [
       'tempat_lahir',
@@ -1145,9 +1584,13 @@ export async function GET(
         : undefined
     );
 
+    const responseHtml = withAttachments
+      ? appendInlineAttachmentsSection(html, attachmentPaths)
+      : html;
+
     if (wantsDoc) {
       const fileBaseName = (permohonan.nomor_surat || `surat-${params.id}`).replace(/[^a-zA-Z0-9.-]+/g, '-');
-      return new NextResponse(`\ufeff${html}`, {
+      return new NextResponse(`\ufeff${responseHtml}`, {
         headers: {
           'Content-Type': 'application/msword; charset=utf-8',
           'Content-Disposition': `attachment; filename="${fileBaseName}.doc"`,
@@ -1155,7 +1598,7 @@ export async function GET(
       });
     }
 
-    return new NextResponse(html, {
+    return new NextResponse(responseHtml, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
       },

@@ -245,3 +245,66 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
+
+export async function PUT(request: Request) {
+  try {
+    const auth = await ensureAdminAuth();
+    if (!auth.ok) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    }
+
+    const body = await request.json();
+    const templateId = String(body?.id || "").trim();
+    const nama = String(body?.nama || "").trim();
+    const jenisSurat = String(body?.jenisSurat || "").trim();
+    const deskripsi = String(body?.deskripsi || "").trim();
+    const htmlTemplate = String(body?.htmlTemplate || "").trim();
+
+    if (!templateId || !nama || !jenisSurat || !deskripsi || !htmlTemplate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "ID template, nama, jenis surat, deskripsi, dan isi template wajib diisi.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const fields = parseTemplateFields(body?.fields);
+    await ensureDynamicTemplateTable();
+
+    // UPSERT: handles both default static templates (never in DB) and custom ones
+    await db.execute(
+      `
+        INSERT INTO dynamic_template_surat
+          (id, nama, jenis_surat, deskripsi, html_template, fields_json, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          nama = VALUES(nama),
+          jenis_surat = VALUES(jenis_surat),
+          deskripsi = VALUES(deskripsi),
+          html_template = VALUES(html_template),
+          fields_json = VALUES(fields_json),
+          updated_at = NOW()
+      `,
+      [templateId, nama, jenisSurat, deskripsi, htmlTemplate, JSON.stringify(fields), auth.userId]
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: "Template dinamis berhasil diperbarui.",
+      template: {
+        id: templateId,
+        nama,
+        jenisSurat,
+        deskripsi,
+        htmlTemplate,
+        fields,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Gagal memperbarui template dinamis";
+    console.error("Dynamic templates PUT error:", error);
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
+  }
+}

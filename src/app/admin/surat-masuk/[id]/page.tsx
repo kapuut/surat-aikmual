@@ -11,9 +11,17 @@ interface SuratMasukDetail {
   tanggal_surat: string;
   tanggal_terima: string;
   asal_surat: string;
+  urgensi?: "rendah" | "sedang" | "tinggi" | string;
   perihal: string;
   file_path?: string | null;
   created_by_name?: string | null;
+}
+
+function formatUrgensi(rawValue: unknown): string {
+  const value = String(rawValue || "").trim().toLowerCase();
+  if (value === "tinggi") return "Tinggi";
+  if (value === "rendah") return "Rendah";
+  return "Sedang";
 }
 
 function formatDate(value: string | null | undefined) {
@@ -131,6 +139,7 @@ export default function DetailSuratMasukPage() {
               <DetailRow label="Asal Surat" value={detail.asal_surat} />
               <DetailRow label="Tanggal Surat" value={formatDate(detail.tanggal_surat)} />
               <DetailRow label="Tanggal Diterima" value={formatDate(detail.tanggal_terima)} />
+              <DetailRow label="Urgensi" value={formatUrgensi(detail.urgensi)} />
               <DetailRow label="Dibuat Oleh" value={detail.created_by_name || "-"} />
               <DetailRow label="Perihal" value={detail.perihal} />
             </div>
@@ -140,7 +149,7 @@ export default function DetailSuratMasukPage() {
             <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Dokumen</h3>
             {detail.file_path ? (
               <a
-                href={detail.file_path}
+                href={`/admin/surat-masuk/${detail.id}/preview`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline"

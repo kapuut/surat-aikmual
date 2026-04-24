@@ -51,23 +51,23 @@ type ConfirmDialogState =
 
 type ArchiveCategory =
   | "Semua"
-  | "Surat Menunggu"
-  | "Surat Selesai"
   | "Surat Baru"
+  | "Surat Menunggu TTD"
+  | "Surat Selesai"
   | "Ditolak";
 
 function statusLabel(status: WorkflowStatus): string {
   switch (status) {
     case "pending":
-      return "Menunggu Verifikasi";
+      return "Baru";
     case "diproses":
-      return "Diproses Admin";
+      return "Proses";
     case "dikirim_ke_kepala_desa":
-      return "Menunggu Konfirmasi Kepala Desa";
+      return "Menunggu TTD";
     case "perlu_revisi":
-      return "Perlu Revisi";
+      return "Revisi";
     case "ditandatangani":
-      return "Ditandatangani";
+      return "TTD";
     case "selesai":
       return "Selesai";
     case "ditolak":
@@ -91,12 +91,12 @@ function isPermohonanSelesaiStatus(status: WorkflowStatus): boolean {
 
 function matchesArchiveCategory(status: WorkflowStatus, archiveCategory: ArchiveCategory): boolean {
   switch (archiveCategory) {
-    case "Surat Menunggu":
+    case "Surat Baru":
+      return isPermohonanBaruStatus(status);
+    case "Surat Menunggu TTD":
       return isMenungguTtdStatus(status);
     case "Surat Selesai":
       return isPermohonanSelesaiStatus(status);
-    case "Surat Baru":
-      return isPermohonanBaruStatus(status);
     case "Ditolak":
       return status === "ditolak";
     case "Semua":
@@ -108,15 +108,15 @@ function matchesArchiveCategory(status: WorkflowStatus, archiveCategory: Archive
 function statusBadgeLabel(status: WorkflowStatus): string {
   switch (status) {
     case "pending":
-      return "Menunggu";
+      return "Baru";
     case "diproses":
-      return "Diproses";
+      return "Proses";
     case "dikirim_ke_kepala_desa":
-      return "Menunggu Konfirmasi";
+      return "Menunggu TTD";
     case "perlu_revisi":
-      return "Perlu Revisi";
+      return "Revisi";
     case "ditandatangani":
-      return "Ditandatangani";
+      return "TTD";
     case "selesai":
       return "Selesai";
     case "ditolak":
@@ -129,20 +129,20 @@ function statusBadgeLabel(status: WorkflowStatus): string {
 function statusClass(status: WorkflowStatus): string {
   switch (status) {
     case "dikirim_ke_kepala_desa":
-      return "bg-indigo-100 text-indigo-800";
+      return "status-chip-primary";
     case "ditandatangani":
     case "selesai":
-      return "bg-green-100 text-green-800";
+      return "status-chip-success";
     case "ditolak":
-      return "bg-red-100 text-red-800";
+      return "status-chip-danger";
     case "perlu_revisi":
-      return "bg-orange-100 text-orange-800";
+      return "status-chip-warning";
     case "pending":
-      return "bg-yellow-100 text-yellow-800";
+      return "status-chip-info";
     case "diproses":
-      return "bg-blue-100 text-blue-800";
+      return "status-chip-primary";
     default:
-      return "bg-gray-100 text-gray-800";
+      return "status-chip-neutral";
   }
 }
 
@@ -486,14 +486,14 @@ export default function PermohonanAdminPage() {
     const baseSections = [
       {
         key: "baru",
-        title: "Permohonan Baru",
-        subtitle: "Permohonan yang masih dalam verifikasi admin.",
+        title: "Surat Baru",
+        subtitle: "Belum dikirim ke Kepala Desa.",
         items: groupedPermohonan.baru,
       },
       {
         key: "menunggu-ttd",
-        title: "Menunggu TTD",
-        subtitle: "Permohonan yang sudah dikirim dan menunggu tanda tangan Kepala Desa.",
+        title: "Surat Menunggu TTD",
+        subtitle: "Sudah dikirim, menunggu TTD Kepala Desa.",
         items: groupedPermohonan.menungguTtd,
       },
       {
@@ -517,7 +517,7 @@ export default function PermohonanAdminPage() {
   }, [groupedPermohonan, archiveCategory]);
 
   const stats = {
-    menungguVerifikasi: permohonan.filter((p) => p.status === "pending" || p.status === "diproses").length,
+    menungguVerifikasi: permohonan.filter((p) => p.status === "pending" || p.status === "diproses" || p.status === "perlu_revisi").length,
     dikirimKeKepala: permohonan.filter((p) => p.status === "dikirim_ke_kepala_desa").length,
     selesai: permohonan.filter((p) => p.status === "ditandatangani" || p.status === "selesai").length,
     ditolak: permohonan.filter((p) => p.status === "ditolak").length,
@@ -540,27 +540,27 @@ export default function PermohonanAdminPage() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Menunggu Verifikasi</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.menungguVerifikasi}</p>
+              <p className="text-sm font-medium text-gray-500">Surat Baru</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.menungguVerifikasi}</p>
             </div>
-            <div className="w-3 h-3 rounded-full bg-yellow-300" />
+            <div className="w-3 h-3 rounded-full bg-blue-300" />
           </div>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Menunggu Konfirmasi Kepala Desa</p>
-              <p className="text-2xl font-bold text-indigo-600">{stats.dikirimKeKepala}</p>
+              <p className="text-sm font-medium text-gray-500">Surat Menunggu TTD</p>
+              <p className="text-2xl font-bold text-blue-700">{stats.dikirimKeKepala}</p>
             </div>
-            <div className="w-3 h-3 rounded-full bg-indigo-300" />
+            <div className="w-3 h-3 rounded-full bg-blue-400" />
           </div>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Selesai / Ditandatangani</p>
+              <p className="text-sm font-medium text-gray-500">Selesai / TTD</p>
               <p className="text-2xl font-bold text-green-600">{stats.selesai}</p>
             </div>
             <div className="w-3 h-3 rounded-full bg-green-300" />
@@ -648,9 +648,9 @@ export default function PermohonanAdminPage() {
             className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="Semua">Semua</option>
-            <option value="Surat Menunggu">Surat Menunggu</option>
-            <option value="Surat Selesai">Surat Selesai</option>
             <option value="Surat Baru">Surat Baru</option>
+            <option value="Surat Menunggu TTD">Surat Menunggu TTD</option>
+            <option value="Surat Selesai">Surat Selesai</option>
             <option value="Ditolak">Ditolak</option>
           </select>
         </div>
@@ -684,9 +684,9 @@ export default function PermohonanAdminPage() {
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Nama Pemohon</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Pemohon</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">NIK</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Jenis Surat</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Jenis</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Keperluan</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">File</th>
@@ -695,20 +695,13 @@ export default function PermohonanAdminPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {section.items.map((p, i) => {
-                      const attachmentLinks = resolveAttachmentPaths(p);
                       const noteText = processNote(p.status, p.catatan);
                       const canToggleRejectReason =
                         p.status === "ditolak" && noteText.startsWith("Alasan penolakan:");
                       const showRejectReason =
                         canToggleRejectReason && expandedRejectReasonIds.includes(p.id);
-                      const shouldOpenFinalFile =
-                        (p.status === "ditandatangani" || p.status === "selesai") && isGeneratedSuratFile(p.file_path);
                       const isFinalizedStatus = p.status === "ditandatangani" || p.status === "selesai";
-                      const suratPreviewUrl = shouldOpenFinalFile
-                        ? (p.file_path as string)
-                        : isFinalizedStatus
-                          ? `/api/admin/permohonan/${p.id}/preview`
-                          : `/api/admin/permohonan/${p.id}/preview?mode=admin`;
+                      const suratPreviewUrl = `/admin/permohonan/${p.id}/preview`;
                       const suratPreviewLabel = isFinalizedStatus ? "Lihat Surat Final" : "Lihat Draft Surat";
 
                       return (
@@ -721,18 +714,18 @@ export default function PermohonanAdminPage() {
                           <td className="px-4 py-3">{p.jenis_surat}</td>
                           <td className="px-4 py-3">{p.keperluan}</td>
                           <td className="px-4 py-3">
-                            <div className="flex max-w-[220px] flex-col gap-1">
+                            <div className="flex max-w-[200px] flex-col gap-1">
                               {canToggleRejectReason ? (
                                 <button
                                   type="button"
                                   onClick={() => toggleRejectReason(p.id)}
-                                  className={`inline-flex w-fit px-2 py-1 rounded-full text-xs font-medium ${statusClass(p.status)} hover:opacity-85`}
+                                  className={`status-chip ${statusClass(p.status)} hover:opacity-85`}
                                   title="Klik untuk lihat/sembunyikan alasan"
                                 >
                                   {statusBadgeLabel(p.status)}
                                 </button>
                               ) : (
-                                <span className={`inline-flex w-fit px-2 py-1 rounded-full text-xs font-medium ${statusClass(p.status)}`}>
+                                <span className={`status-chip ${statusClass(p.status)}`}>
                                   {statusBadgeLabel(p.status)}
                                 </span>
                               )}
@@ -748,27 +741,14 @@ export default function PermohonanAdminPage() {
                             <div className="flex flex-col gap-1">
                               <a
                                 href={suratPreviewUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-600 hover:underline"
+                                className={`aksi-btn ${isFinalizedStatus ? "aksi-btn-success" : "aksi-btn-view"}`}
                               >
-                                {suratPreviewLabel}
+                                {isFinalizedStatus ? "Final" : "Draft"}
                               </a>
-
-                              {attachmentLinks.length > 0 && (
-                                <a
-                                  href={`/api/admin/permohonan/${p.id}/preview?mode=admin&attachments=1`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-amber-700 hover:underline"
-                                >
-                                  Lihat Lampiran
-                                </a>
-                              )}
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex gap-1 justify-center flex-wrap">
+                            <div className="flex flex-wrap gap-1.5 items-center justify-center">
                               {(p.status === "pending" || p.status === "diproses" || p.status === "perlu_revisi") && (
                                 <>
                                   <button
@@ -782,14 +762,14 @@ export default function PermohonanAdminPage() {
                                       )
                                     }
                                     disabled={actionId === p.id}
-                                    className="bg-green-500 text-white px-2 py-1 text-xs rounded hover:bg-green-600 disabled:opacity-50"
+                                    className="aksi-btn aksi-btn-primary"
                                   >
-                                    Kirim ke Kepala Desa
+                                    Kirim ke Kades
                                   </button>
                                   <button
                                     onClick={() => openRejectDialog(p.id)}
                                     disabled={actionId === p.id}
-                                    className="bg-red-500 text-white px-2 py-1 text-xs rounded hover:bg-red-600 disabled:opacity-50"
+                                    className="aksi-btn aksi-btn-delete"
                                   >
                                     Tolak
                                   </button>
@@ -797,24 +777,19 @@ export default function PermohonanAdminPage() {
                               )}
 
                               {p.status === "dikirim_ke_kepala_desa" && (
-                                <span className="text-xs text-indigo-600 px-2 py-1">Menunggu Tanda Tangan Kepala Desa</span>
+                                <span className="status-chip status-chip-primary">
+                                  Menunggu TTD
+                                </span>
                               )}
 
                               {(p.status === "ditandatangani" || p.status === "selesai") && (
                                 <>
-                                  <span className="text-xs text-green-600 px-2 py-1">Final</span>
-                                  <button
-                                    onClick={() => (window.location.href = "/admin/surat-keluar")}
-                                    className="bg-emerald-600 text-white px-2 py-1 text-xs rounded hover:bg-emerald-700"
-                                  >
-                                    Ke Surat Keluar
-                                  </button>
                                   <button
                                     onClick={() => handleDelete(p.id)}
                                     disabled={deleteId === p.id}
-                                    className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                                    className="aksi-btn aksi-btn-delete"
                                   >
-                                    <FiTrash2 className="w-3.5 h-3.5" />
+                                    <FiTrash2 className="w-3 h-3" />
                                     {deleteId === p.id ? "Menghapus..." : "Hapus"}
                                   </button>
                                 </>
@@ -824,9 +799,9 @@ export default function PermohonanAdminPage() {
                                 <button
                                   onClick={() => handleDelete(p.id)}
                                   disabled={deleteId === p.id}
-                                  className="inline-flex items-center gap-1 bg-rose-600 text-white px-2 py-1 text-xs rounded hover:bg-rose-700 disabled:opacity-50"
+                                  className="aksi-btn aksi-btn-delete"
                                 >
-                                  <FiTrash2 className="w-3.5 h-3.5" />
+                                  <FiTrash2 className="w-3 h-3" />
                                   {deleteId === p.id ? "Menghapus..." : "Hapus"}
                                 </button>
                               )}

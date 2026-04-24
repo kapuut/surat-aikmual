@@ -41,6 +41,11 @@ function formatDate(value: string | null | undefined) {
   });
 }
 
+function getFileNameFromPath(filePath: string): string {
+  const segments = filePath.split("/").filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : filePath;
+}
+
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
@@ -135,7 +140,6 @@ export default function KepalaDesaSuratMasukDetailPage() {
               <DetailRow label="Asal Surat" value={detail.asal_surat || "-"} />
               <DetailRow label="Tanggal Surat" value={formatDate(detail.tanggal_surat)} />
               <DetailRow label="Tanggal Diterima" value={formatDate(detail.tanggal_terima)} />
-              <DetailRow label="Petugas Input" value={detail.created_by_name || "-"} />
               <DetailRow label="Perihal" value={detail.perihal || "-"} />
             </div>
           </div>
@@ -169,14 +173,18 @@ export default function KepalaDesaSuratMasukDetailPage() {
           <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Dokumen Surat</h3>
             {detail.file_path ? (
-              <a
-                href={detail.file_path}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline"
-              >
-                <FiExternalLink className="h-4 w-4" /> Lihat file surat
-              </a>
+              <div className="mt-3 space-y-1.5 text-sm">
+                <a
+                  href={detail.file_path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 font-medium text-blue-600 hover:underline"
+                >
+                  <FiExternalLink className="h-4 w-4" /> Lihat file surat
+                </a>
+                <p className="text-gray-500">Nama file: {getFileNameFromPath(detail.file_path)}</p>
+                <p className="break-all text-xs text-gray-400">Path: {detail.file_path}</p>
+              </div>
             ) : (
               <p className="mt-2 inline-flex items-center gap-2 text-sm text-gray-500">
                 <FiFileText className="h-4 w-4" /> Dokumen surat belum tersedia.

@@ -1,40 +1,104 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { FiHome, FiFileText } from "react-icons/fi";
+import { FiMenu, FiX } from "react-icons/fi";
+
+const NAV_ITEMS = [
+  { label: "Beranda", href: "/#beranda" },
+  { label: "Permohonan Surat", href: "/#layanan" },
+  { label: "Alur Pengajuan", href: "/#alur-pengajuan" },
+  { label: "Lacak Surat", href: "/tracking" },
+  { label: "Kontak", href: "/#kontak" },
+] as const;
 
 export default function Header() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const handleCloseMenu = () => {
+    setIsMenuOpen(false);
+  };
+
   return (
-    <header className="bg-white shadow-md fixed top-0 left-0 right-0 z-50 w-full">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo & Title */}
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="flex-shrink-0">
-              <Image 
-                src="/images/logo-desa.png" 
-                alt="Logo Desa Aikmual" 
-                width={40} 
+        <div className="flex h-20 items-center justify-between gap-4">
+          <Link href="/" onClick={handleCloseMenu} className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-85">
+            <div className="flex-shrink-0 rounded-2xl bg-slate-50 p-1.5 ring-1 ring-slate-200">
+              <Image
+                src="/images/logo-desa.png"
+                alt="Logo Desa Aikmual"
+                width={46}
                 height={40}
                 className="object-contain"
               />
             </div>
-            <div className="flex flex-col justify-center">
-              <h1 className="text-lg font-bold text-gray-900 leading-tight">Sistem Pelayanan Surat</h1>
-              <p className="text-xs text-gray-600 leading-tight">Desa Aikmual</p>
+            <div className="flex min-w-0 flex-col -space-y-1.5">
+              <h1 className="truncate text-xl font-extrabold leading-none text-slate-900 md:text-2xl">
+                Sistem Pelayanan Surat
+              </h1>
+              <p className="text-sm font-medium leading-none text-slate-600 md:text-base">Desa Aikmual</p>
             </div>
           </Link>
 
-          {/* Navigation */}
-          <nav className="flex items-center gap-4">
+          <div className="flex items-center gap-3 xl:gap-5">
+            <nav className="hidden items-center gap-1 xl:flex xl:gap-2">
+              {NAV_ITEMS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-full px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-sky-50 hover:text-sky-700 xl:px-4 xl:text-base"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
             <Link
-              href="/"
-              className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
+              href="/login"
+              onClick={handleCloseMenu}
+              className="hidden items-center rounded-full bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 sm:inline-flex md:px-5 md:text-base"
             >
-              <FiHome className="w-4 h-4" />
-              <span className="text-sm font-medium">Beranda</span>
+              <span>Masuk / Daftar</span>
             </Link>
-          </nav>
+
+            <button
+              type="button"
+              aria-label={isMenuOpen ? "Tutup menu" : "Buka menu"}
+              aria-expanded={isMenuOpen}
+              onClick={() => setIsMenuOpen((previous) => !previous)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-50 xl:hidden"
+            >
+              {isMenuOpen ? <FiX className="h-5 w-5" /> : <FiMenu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
+
+        {isMenuOpen && (
+          <div className="border-t border-slate-200 py-4 xl:hidden">
+            <nav className="flex flex-col gap-1">
+              {NAV_ITEMS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={handleCloseMenu}
+                  className="rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-sky-50 hover:text-sky-700"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            <Link
+              href="/login"
+              onClick={handleCloseMenu}
+              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700 sm:hidden"
+            >
+              <span>Masuk / Daftar</span>
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   );

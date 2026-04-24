@@ -73,9 +73,7 @@ export default function LaporanGrafikPage() {
                 <p className="text-3xl font-bold text-blue-600">{totalSuratMasuk}</p>
                 <p className="text-xs text-gray-400 mt-1">Tahun {selectedYear}</p>
               </div>
-              <div className="bg-blue-100 p-3 rounded-full w-16 h-16 flex items-center justify-center">
-                <span className="text-xs font-bold text-blue-700">IN</span>
-              </div>
+
             </div>
           </div>
 
@@ -86,9 +84,7 @@ export default function LaporanGrafikPage() {
                 <p className="text-3xl font-bold text-red-600">{totalSuratKeluar}</p>
                 <p className="text-xs text-gray-400 mt-1">Tahun {selectedYear}</p>
               </div>
-              <div className="bg-red-100 p-3 rounded-full w-16 h-16 flex items-center justify-center">
-                <span className="text-xs font-bold text-red-700">OUT</span>
-              </div>
+
             </div>
           </div>
 
@@ -99,9 +95,7 @@ export default function LaporanGrafikPage() {
                 <p className="text-3xl font-bold text-green-600">{avgSuratMasuk}</p>
                 <p className="text-xs text-gray-400 mt-1">per bulan</p>
               </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <span className="inline-block w-12 h-12 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-xs font-bold">CHT</span>
-              </div>
+
             </div>
           </div>
 
@@ -196,7 +190,7 @@ export default function LaporanGrafikPage() {
                     - {Math.max(...currentData.suratMasuk)} surat
                   </p>
                 </div>
-                <span className="inline-block w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold\">IN</span>
+
               </div>
               
               <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
@@ -207,7 +201,7 @@ export default function LaporanGrafikPage() {
                     - {Math.max(...currentData.suratKeluar)} surat
                   </p>
                 </div>
-                <span className="inline-block w-10 h-10 bg-red-100 text-red-700 rounded-full flex items-center justify-center text-xs font-bold\">OUT</span>
+
               </div>
             </div>
           </div>
