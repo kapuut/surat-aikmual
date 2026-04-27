@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiPenTool, FiTrash2 } from "react-icons/fi";
+import { FiTrash2 } from "react-icons/fi";
 
 type WorkflowStatus =
   | "pending"
@@ -87,18 +87,33 @@ function processNote(status: WorkflowStatus): string {
   return "";
 }
 
-type ArchiveCategory = "Semua" | "Surat Menunggu" | "Surat Selesai" | "Ditolak";
+type ArchiveCategory = "Menunggu TTD" | "Perlu Revisi" | "Surat Selesai" | "Ditolak" | "Semua";
 
-function isPermohonanBaruStatus(status: WorkflowStatus): boolean {
-  return status === "pending" || status === "diproses" || status === "perlu_revisi";
-}
+type ConfirmDialogState =
+  | {
+      kind: "update";
+      title: string;
+      message: string;
+      confirmText: string;
+      payload: {
+        id: number;
+        status: "ditandatangani" | "selesai";
+        catatan: string;
+        successMessage: string;
+      };
+    }
+  | {
+      kind: "delete";
+      title: string;
+      message: string;
+      confirmText: string;
+      payload: {
+        id: number;
+      };
+    };
 
 function isMenungguTtdStatus(status: WorkflowStatus): boolean {
   return status === "dikirim_ke_kepala_desa";
-}
-
-function isSuratMenungguStatus(status: WorkflowStatus): boolean {
-  return isPermohonanBaruStatus(status) || isMenungguTtdStatus(status);
 }
 
 function isPermohonanSelesaiStatus(status: WorkflowStatus): boolean {
@@ -107,8 +122,10 @@ function isPermohonanSelesaiStatus(status: WorkflowStatus): boolean {
 
 function matchesArchiveCategory(status: WorkflowStatus, archiveCategory: ArchiveCategory): boolean {
   switch (archiveCategory) {
-    case "Surat Menunggu":
-      return isSuratMenungguStatus(status);
+    case "Menunggu TTD":
+      return isMenungguTtdStatus(status);
+    case "Perlu Revisi":
+      return status === "perlu_revisi";
     case "Surat Selesai":
       return isPermohonanSelesaiStatus(status);
     case "Ditolak":
@@ -129,7 +146,8 @@ export default function KepalaDesaWorkflowClient() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [archiveCategory, setArchiveCategory] = useState<ArchiveCategory>("Semua");
+  const [archiveCategory, setArchiveCategory] = useState<ArchiveCategory>("Menunggu TTD");
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedDayFrom, setSelectedDayFrom] = useState("");
@@ -157,7 +175,7 @@ export default function KepalaDesaWorkflowClient() {
             file_path: normalizeFilePath(item.file_path),
           }))
           .filter((item) =>
-          ["dikirim_ke_kepala_desa", "ditandatangani", "selesai", "perlu_revisi"].includes(item.status)
+          ["dikirim_ke_kepala_desa", "ditandatangani", "selesai", "perlu_revisi", "ditolak"].includes(item.status)
         )
       );
     } catch (err) {
@@ -171,12 +189,8 @@ export default function KepalaDesaWorkflowClient() {
     fetchPermohonan();
   }, []);
 
-  const handleDelete = async (id: number) => {
+  const performDelete = async (id: number) => {
     try {
-      if (!window.confirm("Hapus permohonan ini dari daftar? Data permohonan akan dihapus dari menu ini.")) {
-        return;
-      }
-
       setDeleteId(id);
       setError(null);
       setNotice(null);
@@ -200,18 +214,23 @@ export default function KepalaDesaWorkflowClient() {
     }
   };
 
-  const handleUpdate = async (
+  const handleDelete = (id: number) => {
+    setConfirmDialog({
+      kind: "delete",
+      title: "Hapus Permohonan",
+      message: "Hapus permohonan ini dari daftar? Data permohonan akan dihapus dari menu ini.",
+      confirmText: "Ya, Hapus",
+      payload: { id },
+    });
+  };
+
+  const performUpdate = async (
     id: number,
     status: "ditandatangani" | "selesai",
     catatan: string,
-    successMessage: string,
-    confirmMessage?: string
+    successMessage: string
   ): Promise<boolean> => {
     try {
-      if (confirmMessage && !window.confirm(confirmMessage)) {
-        return false;
-      }
-
       setActionId(id);
       setError(null);
       setNotice(null);
@@ -237,6 +256,51 @@ export default function KepalaDesaWorkflowClient() {
     } finally {
       setActionId(null);
     }
+  };
+
+  const handleUpdate = async (
+    id: number,
+    status: "ditandatangani" | "selesai",
+    catatan: string,
+    successMessage: string,
+    confirmMessage?: string
+  ): Promise<boolean> => {
+    if (confirmMessage) {
+      setConfirmDialog({
+        kind: "update",
+        title: "Konfirmasi Tanda Tangan",
+        message: confirmMessage,
+        confirmText: "Ya, Lanjutkan",
+        payload: { id, status, catatan, successMessage },
+      });
+      return false;
+    }
+
+    return performUpdate(id, status, catatan, successMessage);
+  };
+
+  const closeConfirmDialog = () => {
+    const busyForUpdate =
+      confirmDialog?.kind === "update" && actionId === confirmDialog.payload.id;
+    const busyForDelete =
+      confirmDialog?.kind === "delete" && deleteId === confirmDialog.payload.id;
+
+    if (busyForUpdate || busyForDelete) return;
+    setConfirmDialog(null);
+  };
+
+  const submitConfirmDialog = async () => {
+    if (!confirmDialog) return;
+
+    if (confirmDialog.kind === "update") {
+      const { id, status, catatan, successMessage } = confirmDialog.payload;
+      await performUpdate(id, status, catatan, successMessage);
+      setConfirmDialog(null);
+      return;
+    }
+
+    await performDelete(confirmDialog.payload.id);
+    setConfirmDialog(null);
   };
 
 
@@ -283,7 +347,7 @@ export default function KepalaDesaWorkflowClient() {
   }, [availableDays, selectedDayFrom, selectedDayTo]);
 
   const filteredPermohonan = useMemo(() => {
-    return data.filter((item) => {
+    const filtered = data.filter((item) => {
       const matchStatus = matchesArchiveCategory(item.status, archiveCategory);
       const matchSearch =
         item.nama_pemohon.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -304,11 +368,27 @@ export default function KepalaDesaWorkflowClient() {
 
       return matchStatus && matchSearch && matchDayFrom && matchDayTo && matchMonth && matchYear;
     });
+
+    const statusPriority: Record<WorkflowStatus, number> = {
+      dikirim_ke_kepala_desa: 0,
+      perlu_revisi: 1,
+      pending: 2,
+      diproses: 3,
+      ditandatangani: 4,
+      selesai: 5,
+      ditolak: 6,
+    };
+
+    return [...filtered].sort((a, b) => {
+      const priorityDiff = statusPriority[a.status] - statusPriority[b.status];
+      if (priorityDiff !== 0) return priorityDiff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
   }, [data, archiveCategory, searchTerm, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear]);
 
   const stats = {
-    menungguVerifikasi: data.filter((p) => p.status === "pending" || p.status === "diproses").length,
-    dikirimKeKepala: data.filter((p) => p.status === "dikirim_ke_kepala_desa").length,
+    menungguTtd: data.filter((p) => p.status === "dikirim_ke_kepala_desa").length,
+    perluRevisi: data.filter((p) => p.status === "perlu_revisi").length,
     selesai: data.filter((p) => p.status === "ditandatangani" || p.status === "selesai").length,
     ditolak: data.filter((p) => p.status === "ditolak").length,
   };
@@ -331,20 +411,20 @@ export default function KepalaDesaWorkflowClient() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Menunggu Verifikasi</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.menungguVerifikasi}</p>
+              <p className="text-sm font-medium text-gray-500">Menunggu TTD</p>
+              <p className="text-2xl font-bold text-indigo-600">{stats.menungguTtd}</p>
             </div>
-            <div className="w-3 h-3 rounded-full bg-yellow-300" />
+            <div className="w-3 h-3 rounded-full bg-indigo-300" />
           </div>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Menunggu Konfirmasi Kepala Desa</p>
-              <p className="text-2xl font-bold text-indigo-600">{stats.dikirimKeKepala}</p>
+              <p className="text-sm font-medium text-gray-500">Perlu Revisi</p>
+              <p className="text-2xl font-bold text-amber-600">{stats.perluRevisi}</p>
             </div>
-            <div className="w-3 h-3 rounded-full bg-indigo-300" />
+            <div className="w-3 h-3 rounded-full bg-amber-300" />
           </div>
         </div>
 
@@ -439,9 +519,10 @@ export default function KepalaDesaWorkflowClient() {
             onChange={(e) => setArchiveCategory(e.target.value as ArchiveCategory)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="Semua">Semua</option>
-            <option value="Surat Menunggu">Surat Menunggu</option>
+            <option value="Menunggu TTD">Menunggu TTD</option>
+            <option value="Perlu Revisi">Perlu Revisi</option>
             <option value="Surat Selesai">Surat Selesai</option>
+            <option value="Semua">Semua</option>
             <option value="Ditolak">Ditolak</option>
           </select>
         </div>
@@ -580,6 +661,60 @@ export default function KepalaDesaWorkflowClient() {
           </tbody>
         </table>
       </div>
+
+      {confirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Tutup dialog"
+            onClick={closeConfirmDialog}
+            className="absolute inset-0 bg-slate-950/30 backdrop-blur-[2px]"
+          />
+
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="bg-gradient-to-r from-slate-50 via-white to-slate-50 px-5 py-4 border-b border-slate-200">
+              <h3 className="text-base font-semibold text-slate-900">{confirmDialog.title}</h3>
+            </div>
+
+            <div className="px-5 py-4">
+              <p className="text-sm leading-6 text-slate-700">{confirmDialog.message}</p>
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeConfirmDialog}
+                disabled={
+                  (confirmDialog.kind === "update" && actionId === confirmDialog.payload.id) ||
+                  (confirmDialog.kind === "delete" && deleteId === confirmDialog.payload.id)
+                }
+                className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={submitConfirmDialog}
+                disabled={
+                  (confirmDialog.kind === "update" && actionId === confirmDialog.payload.id) ||
+                  (confirmDialog.kind === "delete" && deleteId === confirmDialog.payload.id)
+                }
+                className={`px-4 py-2 text-sm rounded-lg text-white disabled:opacity-50 ${
+                  confirmDialog.kind === "delete"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+              >
+                {confirmDialog.kind === "update" && actionId === confirmDialog.payload.id
+                  ? "Memproses..."
+                  : confirmDialog.kind === "delete" && deleteId === confirmDialog.payload.id
+                    ? "Menghapus..."
+                    : confirmDialog.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
     </section>

@@ -72,6 +72,10 @@ export default function InternalLoginPage({ variant = "shared" }: InternalLoginP
 
   const config = useMemo(() => VARIANT_CONFIG[variant] ?? VARIANT_CONFIG.shared, [variant]);
   const IconComponent = config.icon;
+  const expectedRole =
+    variant === "admin" || variant === "sekretaris" || variant === "kepala_desa"
+      ? variant
+      : undefined;
 
   const toFriendlyLoginError = (status: number) => {
     if (status === 404) {
@@ -96,6 +100,7 @@ export default function InternalLoginPage({ variant = "shared" }: InternalLoginP
         body: JSON.stringify({
           ...credentials,
           loginType: "internal",
+          expectedRole,
         }),
       });
 

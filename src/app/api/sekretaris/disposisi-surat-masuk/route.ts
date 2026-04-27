@@ -7,6 +7,8 @@ import { ResultSetHeader, RowDataPacket } from "mysql2";
 export const runtime = "nodejs";
 
 type AuthUser = {
+  id: string;
+  nama: string;
   role: string;
 };
 
@@ -24,6 +26,8 @@ async function getAuthenticatedUser(): Promise<AuthUser | null> {
   );
 
   return {
+    id: String(verified.payload.userId || ""),
+    nama: String(verified.payload.nama || ""),
     role: String(verified.payload.role || ""),
   };
 }
@@ -36,6 +40,7 @@ async function ensureDisposisiTable() {
       tujuan_role VARCHAR(50) NOT NULL,
       tujuan_label VARCHAR(120) NULL,
       status VARCHAR(50) NOT NULL DEFAULT 'didisposisikan',
+      urgensi VARCHAR(20) NOT NULL DEFAULT 'sedang',
       catatan TEXT NULL,
       disposed_by_id VARCHAR(64) NULL,
       disposed_by_name VARCHAR(191) NULL,
@@ -54,6 +59,36 @@ async function ensureDisposisiTable() {
     const message = String((error as { message?: string })?.message || "").toLowerCase();
     if (!message.includes("duplicate column") && !message.includes("already exists")) {
       throw error;
+    }
+  }
+
+  try {
+    await db.query(`ALTER TABLE disposisi_surat_masuk ADD COLUMN urgensi VARCHAR(20) NOT NULL DEFAULT 'sedang' AFTER status`);
+  } catch (error) {
+    const message = String((error as { message?: string })?.message || "").toLowerCase();
+    if (!message.includes("duplicate column") && !message.includes("already exists")) {
+      throw error;
+    }
+  }
+}
+
+async function ensureSuratMasukPenangananColumns() {
+  const alterStatements = [
+    `ALTER TABLE surat_masuk ADD COLUMN status_penanganan VARCHAR(30) NOT NULL DEFAULT 'belum_ditangani' AFTER urgensi`,
+    `ALTER TABLE surat_masuk ADD COLUMN ditangani_at DATETIME NULL AFTER status_penanganan`,
+    `ALTER TABLE surat_masuk ADD COLUMN ditangani_by_id VARCHAR(64) NULL AFTER ditangani_at`,
+    `ALTER TABLE surat_masuk ADD COLUMN ditangani_by_name VARCHAR(191) NULL AFTER ditangani_by_id`,
+    `ALTER TABLE surat_masuk ADD COLUMN catatan_penanganan TEXT NULL AFTER ditangani_by_name`,
+  ];
+
+  for (const statement of alterStatements) {
+    try {
+      await db.query(statement);
+    } catch (error) {
+      const message = String((error as { message?: string })?.message || "").toLowerCase();
+      if (!message.includes("duplicate column") && !message.includes("already exists")) {
+        throw error;
+      }
     }
   }
 }
@@ -77,6 +112,7 @@ export async function GET() {
     }
 
     await ensureDisposisiTable();
+    await ensureSuratMasukPenangananColumns();
 
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT
@@ -85,6 +121,7 @@ export async function GET() {
         d.tujuan_role,
         d.tujuan_label,
         d.status,
+        d.urgensi,
         d.catatan,
         d.disposed_at,
         d.disposed_by_name,
@@ -94,7 +131,9 @@ export async function GET() {
         sm.tanggal_terima,
         sm.asal_surat,
         sm.perihal,
-        sm.file_path
+        sm.file_path,
+        sm.status_penanganan,
+        sm.catatan_penanganan
       FROM disposisi_surat_masuk d
       LEFT JOIN surat_masuk sm ON CAST(sm.id AS CHAR) = d.surat_masuk_id
       WHERE (
@@ -112,7 +151,14 @@ export async function GET() {
           ORDER BY d2.disposed_at DESC, d2.id DESC
           LIMIT 1
         )
-      ORDER BY d.disposed_at DESC, d.id DESC`
+      ORDER BY
+        CASE LOWER(TRIM(COALESCE(d.urgensi, 'sedang')))
+          WHEN 'tinggi' THEN 1
+          WHEN 'sedang' THEN 2
+          ELSE 3
+        END ASC,
+        d.disposed_at DESC,
+        d.id DESC`
     );
 
     return NextResponse.json({
@@ -191,6 +237,124 @@ export async function DELETE(request: Request) {
     console.error("Error deleting disposisi surat masuk:", error);
     return NextResponse.json(
       { success: false, error: "Gagal menghapus disposisi surat masuk" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const user = await getAuthenticatedUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (!["sekretaris", "admin"].includes(user.role)) {
+      return NextResponse.json(
+        { success: false, error: "Anda tidak memiliki akses" },
+        { status: 403 }
+      );
+    }
+
+    let body: { id?: number | string; status?: string; catatan?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "Payload tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    const disposisiId = Number(body?.id);
+    const nextStatus = String(body?.status || "").trim().toLowerCase();
+    const catatan = typeof body?.catatan === "string" ? body.catatan.trim().slice(0, 1000) : "";
+
+    if (!Number.isFinite(disposisiId) || disposisiId <= 0) {
+      return NextResponse.json(
+        { success: false, error: "ID disposisi tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    if (!["didisposisikan", "diproses", "selesai"].includes(nextStatus)) {
+      return NextResponse.json(
+        { success: false, error: "Status disposisi tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    await ensureDisposisiTable();
+    await ensureSuratMasukPenangananColumns();
+
+    const [targetRows] = await db.query<RowDataPacket[]>(
+      `SELECT id, surat_masuk_id
+       FROM disposisi_surat_masuk
+       WHERE id = ?
+         AND (
+           LOWER(TRIM(COALESCE(tujuan_role, ''))) LIKE '%sekretaris%'
+           OR LOWER(TRIM(COALESCE(tujuan_label, ''))) LIKE '%sekretaris%'
+         )
+       LIMIT 1`,
+      [disposisiId]
+    );
+
+    if (!Array.isArray(targetRows) || targetRows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Data disposisi tidak ditemukan" },
+        { status: 404 }
+      );
+    }
+
+    const target = targetRows[0];
+
+    await db.query(
+      `UPDATE disposisi_surat_masuk
+       SET status = ?,
+           catatan = CASE
+             WHEN ? = '' THEN catatan
+             ELSE ?
+           END
+       WHERE id = ?`,
+      [nextStatus, catatan, catatan, disposisiId]
+    );
+
+    const statusPenanganan = nextStatus === "selesai" ? "selesai" : nextStatus === "diproses" ? "diproses" : "belum_ditangani";
+    const catatanPenanganan =
+      catatan ||
+      (nextStatus === "selesai"
+        ? "Surat telah selesai ditindaklanjuti oleh Sekretaris."
+        : nextStatus === "diproses"
+          ? "Surat sedang ditindaklanjuti oleh Sekretaris."
+          : "Belum ada tindak lanjut dari Sekretaris.");
+
+    await db.query(
+      `UPDATE surat_masuk
+       SET status_penanganan = ?,
+           ditangani_at = NOW(),
+           ditangani_by_id = ?,
+           ditangani_by_name = ?,
+           catatan_penanganan = ?
+       WHERE CAST(id AS CHAR) = ?`,
+      [statusPenanganan, user.id || null, user.nama || "Sekretaris", catatanPenanganan, String(target.surat_masuk_id)]
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: nextStatus === "selesai"
+        ? "Disposisi berhasil ditandai selesai."
+        : nextStatus === "diproses"
+          ? "Disposisi berhasil dipindahkan ke status diproses."
+          : "Status disposisi berhasil diperbarui.",
+    });
+  } catch (error) {
+    console.error("Error updating disposisi surat masuk:", error);
+    return NextResponse.json(
+      { success: false, error: "Gagal memperbarui status disposisi surat masuk" },
       { status: 500 }
     );
   }

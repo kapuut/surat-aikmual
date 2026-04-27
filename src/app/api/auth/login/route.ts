@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
-    const { username, nik, password, loginType } = await request.json();
+    const { username, nik, password, loginType, expectedRole } = await request.json();
     const loginIdentifier = String(nik || username || '').trim();
     const normalizedPassword = String(password || '').trim();
 
@@ -19,11 +19,24 @@ export async function POST(request: Request) {
       ? 'internal'
       : 'public';
 
+    const allowedInternalExpectedRoles = ['admin', 'sekretaris', 'kepala_desa'] as const;
+    const normalizedExpectedRole = String(expectedRole || '').trim().toLowerCase();
+    const selectedInternalRole = allowedInternalExpectedRoles.find(
+      (role) => role === normalizedExpectedRole
+    );
+
     if (!loginIdentifier || !normalizedPassword) {
       return NextResponse.json(
         normalizedLoginType === 'public'
           ? { error: 'NIK dan password wajib diisi' }
           : { error: 'Username/email dan password wajib diisi' },
+        { status: 400 }
+      );
+    }
+
+    if (normalizedLoginType === 'internal' && !selectedInternalRole) {
+      return NextResponse.json(
+        { error: 'Role login internal tidak valid. Silakan login dari halaman role yang sesuai.' },
         { status: 400 }
       );
     }
@@ -88,6 +101,21 @@ export async function POST(request: Request) {
         normalizedLoginType === 'internal'
           ? { error: 'Akun ini tidak memiliki akses ke portal internal. Gunakan portal login masyarakat.' }
           : { error: 'Akun ini tidak memiliki akses ke portal masyarakat. Silakan gunakan portal login internal.' },
+        { status: 403 }
+      );
+    }
+
+    if (normalizedLoginType === 'internal' && selectedInternalRole && user.role !== selectedInternalRole) {
+      const roleLabels: Record<string, string> = {
+        admin: 'Admin',
+        sekretaris: 'Sekretaris',
+        kepala_desa: 'Kepala Desa',
+      };
+      const expectedRoleLabel = roleLabels[selectedInternalRole] || selectedInternalRole;
+      return NextResponse.json(
+        {
+          error: `Akun ini bukan akun ${expectedRoleLabel}. Silakan login melalui halaman login role yang sesuai.`,
+        },
         { status: 403 }
       );
     }

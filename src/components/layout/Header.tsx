@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { FiMenu, FiX } from "react-icons/fi";
+import { useAuth } from "@/lib/hooks";
 
 const NAV_ITEMS = [
   { label: "Beranda", href: "/#beranda" },
@@ -13,11 +14,34 @@ const NAV_ITEMS = [
   { label: "Kontak", href: "/#kontak" },
 ] as const;
 
+function getDashboardRouteByRole(role?: string): string {
+  switch (role) {
+    case "admin":
+      return "/admin/dashboard";
+    case "sekretaris":
+      return "/sekretaris/dashboard";
+    case "kepala_desa":
+      return "/kepala-desa/dashboard";
+    case "masyarakat":
+      return "/dashboard";
+    default:
+      return "/dashboard";
+  }
+}
+
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, loading, isAuthenticated, logout } = useAuth();
+
+  const dashboardHref = getDashboardRouteByRole(user?.role);
 
   const handleCloseMenu = () => {
     setIsMenuOpen(false);
+  };
+
+  const handleLogout = async () => {
+    handleCloseMenu();
+    await logout();
   };
 
   return (
@@ -55,13 +79,34 @@ export default function Header() {
               ))}
             </nav>
 
-            <Link
-              href="/login"
-              onClick={handleCloseMenu}
-              className="hidden items-center rounded-full bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 sm:inline-flex md:px-5 md:text-base"
-            >
-              <span>Masuk / Daftar</span>
-            </Link>
+            {!loading && !isAuthenticated && (
+              <Link
+                href="/login"
+                onClick={handleCloseMenu}
+                className="hidden items-center rounded-full bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 sm:inline-flex md:px-5 md:text-base"
+              >
+                <span>Masuk / Daftar</span>
+              </Link>
+            )}
+
+            {!loading && isAuthenticated && (
+              <div className="hidden items-center gap-2 sm:flex">
+                <Link
+                  href={dashboardHref}
+                  onClick={handleCloseMenu}
+                  className="inline-flex items-center rounded-full bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700 md:px-5 md:text-base"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex items-center rounded-full border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Keluar
+                </button>
+              </div>
+            )}
 
             <button
               type="button"
@@ -90,13 +135,34 @@ export default function Header() {
               ))}
             </nav>
 
-            <Link
-              href="/login"
-              onClick={handleCloseMenu}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700 sm:hidden"
-            >
-              <span>Masuk / Daftar</span>
-            </Link>
+            {!loading && !isAuthenticated && (
+              <Link
+                href="/login"
+                onClick={handleCloseMenu}
+                className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700 sm:hidden"
+              >
+                <span>Masuk / Daftar</span>
+              </Link>
+            )}
+
+            {!loading && isAuthenticated && (
+              <div className="mt-4 space-y-2 sm:hidden">
+                <Link
+                  href={dashboardHref}
+                  onClick={handleCloseMenu}
+                  className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-700"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Keluar
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
