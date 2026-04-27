@@ -403,6 +403,21 @@ function toJenisSurat(value: string): JenisSurat | null {
   return slug ? (slug as JenisSurat) : null;
 }
 
+function toNomorSuratScope(value: string | null | undefined): string {
+  const knownSlug = normalizeSuratSlug(value);
+  if (knownSlug) return knownSlug;
+
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, '-')
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  return normalized || 'global';
+}
+
 function asText(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const cleaned = value.trim();
@@ -764,14 +779,13 @@ async function createPermohonanQrCode(params: {
 async function getNextNomorSuratWithLock(
   connection: any,
   tanggal: Date,
-  jenisSurat?: JenisSurat
+  scopeKey: string
 ): Promise<string> {
   const bulan = String(tanggal.getMonth() + 1).padStart(2, '0');
   const tahun = String(tanggal.getFullYear());
   const suffix = `/${bulan}.${tahun}`;
-  const nomorScope = jenisSurat
-    ? jenisSurat.replace(/[^a-z0-9]+/gi, '_').toLowerCase()
-    : 'global';
+  const normalizedScope = (scopeKey || 'global').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+  const nomorScope = normalizedScope || 'global';
   const lockName = `permohonan_surat_nomor_${nomorScope}_${bulan}_${tahun}`;
 
   await connection.execute('SELECT GET_LOCK(?, 10)', [lockName]);
@@ -789,8 +803,8 @@ async function getNextNomorSuratWithLock(
       ? rows.filter((row: any) => {
           const rowStatus = normalizeCurrentStatus(row?.status, row?.nomor_surat, row?.catatan);
           if (rowStatus === 'ditolak') return false;
-          if (!jenisSurat) return true;
-          return normalizeSuratSlug(String(row?.jenis_surat || '')) === jenisSurat;
+          const rowScope = toNomorSuratScope(String(row?.jenis_surat || ''));
+          return rowScope === scopeKey;
         })
       : [];
 
@@ -923,15 +937,16 @@ export async function PUT(
       const detailData = parseDetailData(permohonan.data_detail);
       const jenisSurat = toJenisSurat(permohonan.jenis_surat);
       const dynamicTemplateId = asText(detailData.dynamic_template_id);
-      const dynamicTemplate = !jenisSurat
-        ? await findDynamicTemplateForGeneration(permohonan.jenis_surat, dynamicTemplateId)
-        : null;
+      const dynamicTemplate = jenisSurat
+        ? null
+        : await findDynamicTemplateForGeneration(permohonan.jenis_surat, dynamicTemplateId);
 
       const tanggalSurat = new Date();
       const generatedJenisSuratKey = jenisSurat || dynamicTemplate?.id || permohonan.jenis_surat;
+      const nomorSuratScope = toNomorSuratScope(permohonan.jenis_surat);
 
       if (!nomorSurat) {
-        nomorSurat = await getNextNomorSuratWithLock(connection, tanggalSurat, jenisSurat || undefined);
+        nomorSurat = await getNextNomorSuratWithLock(connection, tanggalSurat, nomorSuratScope);
       }
 
       const shouldEmbedSignature = ['ditandatangani', 'selesai'].includes(normalizedStatus);
@@ -1347,9 +1362,10 @@ export async function PUT(
       const masaBerlakuSampai =
         getDateWithDetail(permohonan.masa_berlaku_sampai, detailData, ['masa_berlaku_sampai', 'masaBerlakuSampai']) ||
         new Date(masaBerlakuDari.getFullYear(), masaBerlakuDari.getMonth() + 6, masaBerlakuDari.getDate());
+      const nomorSuratScope = toNomorSuratScope(permohonan.jenis_surat);
 
       if (!nomorSurat) {
-        nomorSurat = await getNextNomorSuratWithLock(connection, tanggalSurat, jenisSurat);
+        nomorSurat = await getNextNomorSuratWithLock(connection, tanggalSurat, nomorSuratScope);
       }
 
       const shouldEmbedSignature = ['ditandatangani', 'selesai'].includes(normalizedStatus);

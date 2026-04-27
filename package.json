@@ -16,6 +16,8 @@
     "@hookform/resolvers": "^3.9.0",
     "@next/font": "^14.2.15",
     "@prisma/client": "^5.18.0",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.104.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
