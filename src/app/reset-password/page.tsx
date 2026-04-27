@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { FiLock, FiEye, FiEyeOff, FiAlertCircle, FiCheck, FiLoader } from "react-icons/fi";
 
 type AlertType = 'success' | 'error' | 'info' | null;
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [token, setToken] = useState("");
@@ -348,5 +348,24 @@ export default function ResetPasswordPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+function ResetPasswordFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white">
+      <div className="text-center">
+        <FiLoader className="text-4xl text-blue-600 mb-4 animate-spin" />
+        <p className="text-gray-600">Memuat halaman reset password...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<ResetPasswordFallback />}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

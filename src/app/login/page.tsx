@@ -1,14 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { FiUser, FiLock, FiLogIn, FiEye, FiEyeOff } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
-export default function PublicLoginPage() {
+function PublicLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -214,5 +214,21 @@ export default function PublicLoginPage() {
     </div>
     <Footer />
   </>
+  );
+}
+
+function PublicLoginFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4 pt-24 pb-8">
+      <div className="text-center text-gray-600">Memuat halaman login...</div>
+    </div>
+  );
+}
+
+export default function PublicLoginPage() {
+  return (
+    <Suspense fallback={<PublicLoginFallback />}>
+      <PublicLoginContent />
+    </Suspense>
   );
 }
