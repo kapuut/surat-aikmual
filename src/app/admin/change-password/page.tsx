@@ -66,8 +66,12 @@ export default function ChangePasswordPage() {
         throw new Error(data.error || 'Gagal mengubah password');
       }
 
-      setMessage('Password berhasil diubah!');
+      setMessage(data.message || 'Password berhasil diubah! Silakan login kembali.');
       setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+
+      setTimeout(() => {
+        window.location.href = data.redirectUrl || '/admin/login';
+      }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal mengubah password');
     } finally {

@@ -167,8 +167,12 @@ export default function KepalaDesaProfilePage() {
         throw new Error(data?.error || "Gagal mengubah password");
       }
 
-      setPasswordMessage("Password berhasil diubah.");
+      setPasswordMessage(data?.message || "Password berhasil diubah. Silakan login kembali.");
       setPasswordForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
+
+      setTimeout(() => {
+        window.location.href = data?.redirectUrl || "/kepala-desa/login";
+      }, 1200);
     } catch (err) {
       setPasswordError(err instanceof Error ? err.message : "Gagal mengubah password");
     } finally {

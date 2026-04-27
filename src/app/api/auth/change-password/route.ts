@@ -17,14 +17,21 @@ async function getIdField() {
 
 export async function POST(request: Request) {
   try {
-    const { oldPassword, currentPassword, newPassword: pwd } = await request.json();
-    const newPassword = pwd || currentPassword;
+    const body = await request.json();
+    const oldPassword = String(body?.oldPassword ?? body?.currentPassword ?? '').trim();
+    const newPassword = String(body?.newPassword ?? '').trim();
     
     // Validasi input - accept both oldPassword and currentPassword
-    const oldPass = oldPassword || currentPassword;
-    if (!oldPass || !newPassword) {
+    if (!oldPassword || !newPassword) {
       return NextResponse.json(
         { error: 'Password lama dan password baru harus diisi' },
+        { status: 400 }
+      );
+    }
+
+    if (oldPassword === newPassword) {
+      return NextResponse.json(
+        { error: 'Password baru harus berbeda dari password lama' },
         { status: 400 }
       );
     }
@@ -63,7 +70,7 @@ export async function POST(request: Request) {
     }
 
     const user = rows[0];
-    const isCurrentPasswordValid = await bcrypt.compare(oldPass, user.password);
+    const isCurrentPasswordValid = await bcrypt.compare(oldPassword, user.password);
 
     if (!isCurrentPasswordValid) {
       return NextResponse.json(
@@ -73,14 +80,49 @@ export async function POST(request: Request) {
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    await db.execute(
+    const [updateResult]: any = await db.execute(
       `UPDATE users SET password = ?, updated_at = NOW() WHERE ${idField} = ?`,
       [hashedNewPassword, decoded.userId]
     );
 
-    return NextResponse.json({
-      message: 'Password berhasil diubah'
+    if (!updateResult || updateResult.affectedRows === 0) {
+      return NextResponse.json(
+        { error: 'Gagal memperbarui password. Silakan coba lagi.' },
+        { status: 500 }
+      );
+    }
+
+    const role = String(decoded?.role || '').toLowerCase();
+    const loginRedirectByRole: Record<string, string> = {
+      admin: '/admin/login',
+      sekretaris: '/sekretaris/login',
+      kepala_desa: '/kepala-desa/login',
+      masyarakat: '/login',
+    };
+    const redirectUrl = loginRedirectByRole[role] || '/login';
+
+    const response = NextResponse.json({
+      message: 'Password berhasil diubah. Silakan login kembali dengan password baru.',
+      redirectUrl,
     });
+
+    response.cookies.set('auth-token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 0,
+      path: '/',
+    });
+
+    response.cookies.set('user-session', '', {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 0,
+      path: '/',
+    });
+
+    return response;
 
   } catch (error) {
     console.error('Change password error:', error);

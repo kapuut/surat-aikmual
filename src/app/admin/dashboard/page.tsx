@@ -29,7 +29,7 @@ export default function AdminDashboardPage() {
   const now = useMemo(() => new Date(), []);
   const [chartYear, setChartYear] = useState<string>(String(now.getFullYear()));
   const [chartMonth, setChartMonth] = useState<string>("");
-  const [chartSort, setChartSort] = useState<"asc" | "desc">("desc");
+  const [chartSort, setChartSort] = useState<"asc" | "desc" | "date_desc" | "date_asc">("desc");
   const [chartData, setChartData] = useState<Array<{ jenis_surat: string; jumlah: number }>>([]);
   const [chartYears, setChartYears] = useState<number[]>([now.getFullYear()]);
   const [chartTotalSurat, setChartTotalSurat] = useState<number>(0);
@@ -188,11 +188,13 @@ export default function AdminDashboardPage() {
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Urutan</label>
                 <select
                   value={chartSort}
-                  onChange={(e) => setChartSort(e.target.value === "asc" ? "asc" : "desc")}
+                  onChange={(e) => setChartSort(e.target.value as "asc" | "desc" | "date_desc" | "date_asc")}
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="desc">Jumlah Terbanyak</option>
                   <option value="asc">Jumlah Tersedikit</option>
+                  <option value="date_desc">Tanggal Terbaru</option>
+                  <option value="date_asc">Tanggal Terlama</option>
                 </select>
               </div>
             </div>

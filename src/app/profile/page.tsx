@@ -183,7 +183,7 @@ export default function ProfilePage() {
     setPasswordAlert(null);
 
     try {
-      const response = await fetch('/api/profile/change-password', {
+      const response = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -200,16 +200,15 @@ export default function ProfilePage() {
       if (response.ok) {
         setPasswordAlert({
           type: 'success',
-          message: 'Password berhasil diubah! Silakan login kembali dengan password baru.',
+          message: data.message || 'Password berhasil diubah! Silakan login kembali dengan password baru.',
         });
         setPasswordForm({
           oldPassword: '',
           newPassword: '',
           confirmPassword: '',
         });
-        // Optional: redirect to login after success
         setTimeout(() => {
-          window.location.href = '/login';
+          window.location.href = data.redirectUrl || '/login';
         }, 2000);
       } else {
         setPasswordAlert({

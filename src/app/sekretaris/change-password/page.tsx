@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 
 export default function SekretarisChangePasswordPage() {
+  const router = useRouter();
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -20,8 +22,14 @@ export default function SekretarisChangePasswordPage() {
     confirmPassword: ""
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [apiError, setApiError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage("");
+    setApiError("");
     
     // Reset errors
     setErrors({ oldPassword: "", newPassword: "", confirmPassword: "" });
@@ -55,10 +63,38 @@ export default function SekretarisChangePasswordPage() {
       setErrors(newErrors);
       return;
     }
-    
-    // TODO: Call API to change password
-    alert("Password berhasil diubah!");
-    setFormData({ oldPassword: "", newPassword: "", confirmPassword: "" });
+
+    try {
+      setLoading(true);
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          oldPassword: formData.oldPassword,
+          newPassword: formData.newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Gagal mengubah password");
+      }
+
+      setMessage(data?.message || "Password berhasil diubah. Silakan login kembali.");
+      setFormData({ oldPassword: "", newPassword: "", confirmPassword: "" });
+
+      setTimeout(() => {
+        router.replace(data?.redirectUrl || "/sekretaris/login");
+      }, 1200);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : "Gagal mengubah password");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -75,6 +111,18 @@ export default function SekretarisChangePasswordPage() {
 
       <div className="max-w-4xl">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          {message && (
+            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              {message}
+            </div>
+          )}
+
+          {apiError && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {apiError}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit}>
               {/* Password Lama */}
               <div className="mb-6">
@@ -164,9 +212,10 @@ export default function SekretarisChangePasswordPage() {
               <div className="flex gap-3">
                 <button
                   type="submit"
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={loading}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Ubah Password
+                  {loading ? "Memproses..." : "Ubah Password"}
                 </button>
                 <button
                   type="button"
