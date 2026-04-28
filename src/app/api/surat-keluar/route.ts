@@ -142,6 +142,19 @@ function normalizeSyncSegment(value: unknown): string {
   return String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function normalizePerihalDetail(value: unknown): string {
+  const normalized = normalizeSyncSegment(value)
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\s*-\s*/g, "-")
+    .trim();
+
+  if (!normalized) return "";
+  if (/^-+$/.test(normalized)) return "";
+  if (["-", "--", "null", "undefined", "n/a", "na"].includes(normalized)) return "";
+
+  return normalized;
+}
+
 function getDetailKeyFromPerihal(value: unknown): string {
   const text = String(value ?? "").trim();
   if (!text) return "";
@@ -149,14 +162,20 @@ function getDetailKeyFromPerihal(value: unknown): string {
   const parts = text.split(/\s*-\s*/).map((part) => part.trim()).filter(Boolean);
   if (parts.length <= 1) return "";
 
-  return normalizeSyncSegment(parts.slice(1).join(" - "));
+  return normalizePerihalDetail(parts.slice(1).join(" - "));
 }
 
 function createSyncKey(nomorSurat: unknown, jenisValue: unknown, detailValue: unknown = ""): string {
   const nomor = normalizeSyncSegment(nomorSurat);
   const jenis = normalizeSyncSegment(jenisValue);
-  const detail = normalizeSyncSegment(detailValue);
+  const detail = normalizePerihalDetail(detailValue);
   return `${nomor}||${jenis}||${detail}`;
+}
+
+function createSyncKeyPrefix(nomorSurat: unknown, jenisValue: unknown): string {
+  const nomor = normalizeSyncSegment(nomorSurat);
+  const jenis = normalizeSyncSegment(jenisValue);
+  return `${nomor}||${jenis}||`;
 }
 
 export async function GET(request: NextRequest) {
@@ -339,14 +358,16 @@ export async function GET(request: NextRequest) {
 
       const jenisSurat = String((row as any).jenis_surat || "").trim();
       const keperluan = String((row as any).keperluan || "").trim();
-      const perihal = `${jenisSurat || "surat"}${keperluan ? ` - ${keperluan}` : ""}`;
+      const normalizedKeperluan = normalizePerihalDetail(keperluan);
+      const displayKeperluan = normalizedKeperluan || "";
+      const perihal = `${jenisSurat || "surat"}${displayKeperluan ? ` - ${displayKeperluan}` : ""}`;
       const filePath = normalizeFilePath((row as any).file_path);
       const tujuan = String((row as any).nama_pemohon || "Pemohon").trim() || "Pemohon";
       const tanggal = (row as any).updated_at ?? (row as any).created_at ?? null;
       const key = createSyncKey(
         nomorSurat,
         normalizeSuratSlug(jenisSurat) || jenisSurat.toLowerCase(),
-        keperluan
+        normalizedKeperluan
       );
 
       const fallbackItem = {
@@ -362,8 +383,18 @@ export async function GET(request: NextRequest) {
         source_permohonan_id: Number((row as any).id) || null,
       };
 
-      const existingByExactKey = merged.get(key);
-      const existing = existingByExactKey;
+      let existing = merged.get(key);
+      if (!existing) {
+        const fallbackPrefix = createSyncKeyPrefix(
+          nomorSurat,
+          normalizeSuratSlug(jenisSurat) || jenisSurat.toLowerCase()
+        );
+        const matchedKey = Array.from(merged.keys()).find((existingKey) => existingKey.startsWith(fallbackPrefix));
+        if (matchedKey) {
+          existing = merged.get(matchedKey);
+        }
+      }
+
       if (!existing) {
         merged.set(key, fallbackItem);
         return;

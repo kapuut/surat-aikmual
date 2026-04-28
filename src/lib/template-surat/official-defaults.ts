@@ -1,4 +1,4 @@
-export const OFFICIAL_DYNAMIC_SURAT_CONTEXT = {
+﻿export const OFFICIAL_DYNAMIC_SURAT_CONTEXT = {
   kota: 'Aikmual',
   namaDesa: 'Aikmual',
   kecamatan: 'Praya',
@@ -13,33 +13,40 @@ export const OFFICIAL_DYNAMIC_OPENING_PARAGRAPH =
 export const OFFICIAL_DYNAMIC_CLOSING_PARAGRAPH =
   'Demikian surat keterangan ini kami buat dengan sebenarnya agar dapat dipergunakan sebagaimana mestinya.';
 
-export const OFFICIAL_DYNAMIC_PROCEDURE = [
+export const OFFICIAL_STANDARD_PROCEDURE = [
   {
     step: 1,
     title: 'Persiapan Dokumen',
-    desc: 'Siapkan data identitas dan dokumen pendukung yang mungkin diperlukan.',
+    desc: 'Pastikan NIK akun sudah tervalidasi dan siapkan bukti pendukung domisili sesuai kebutuhan',
   },
   {
     step: 2,
     title: 'Isi Form Permohonan',
-    desc: 'Lengkapi formulir sesuai field yang sudah diatur admin.',
+    desc: 'Lengkapi formulir permohonan dengan data yang benar',
   },
   {
     step: 3,
-    title: 'Verifikasi Data',
-    desc: 'Petugas akan memeriksa kelengkapan dan kesesuaian data permohonan.',
+    title: 'Upload Dokumen',
+    desc: 'Unggah dokumen pendukung sesuai jenis permohonan',
   },
   {
     step: 4,
-    title: 'Proses Persetujuan',
-    desc: 'Permohonan diproses hingga siap ditandatangani sesuai alur surat desa.',
+    title: 'Verifikasi Data',
+    desc: 'Petugas akan memverifikasi kelengkapan dan kebenaran data',
   },
   {
     step: 5,
-    title: 'Pengambilan Surat',
-    desc: 'Status surat dapat dipantau dari halaman tracking setelah permohonan dikirim.',
+    title: 'Proses Persetujuan',
+    desc: 'Menunggu persetujuan dari Kepala Desa',
+  },
+  {
+    step: 6,
+    title: 'Akses Surat',
+    desc: 'Surat dapat diunduh setelah mendapat persetujuan.',
   },
 ] as const;
+
+export const OFFICIAL_DYNAMIC_PROCEDURE = OFFICIAL_STANDARD_PROCEDURE;
 
 export function buildOfficialDynamicRequirements(requiredFields: string[]): string[] {
   return [

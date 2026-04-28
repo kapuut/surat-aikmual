@@ -205,12 +205,12 @@ export default function KepalaDesaLaporanSuratMasukPage() {
   const [confirmTarget, setConfirmTarget] = useState<SuratMasukItem | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterFromDate, setFilterFromDate] = useState("");
-  const [filterToDate, setFilterToDate] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedDayFrom, setSelectedDayFrom] = useState("");
+  const [selectedDayTo, setSelectedDayTo] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("semua");
-  const [sortBy, setSortBy] = useState<
-    "prioritas-tindak-lanjut" | "urgensi-desc" | "urgensi-asc" | "tanggal-desc" | "tanggal-asc"
-  >("prioritas-tindak-lanjut");
+  const [sortBy, setSortBy] = useState<"urgensi-tinggi" | "urgensi-sedang" | "urgensi-rendah">("urgensi-tinggi");
 
   const fetchData = async () => {
     try {
@@ -235,6 +235,48 @@ export default function KepalaDesaLaporanSuratMasukPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const availableYears = useMemo(() => {
+    const years = data
+      .map((item) => parseDate(item.tanggal_terima || item.tanggal_surat)?.getFullYear() ?? null)
+      .filter((year): year is number => year !== null)
+      .filter((year) => Number.isFinite(year));
+
+    return Array.from(new Set(years)).sort((a, b) => b - a);
+  }, [data]);
+
+  const availableDays = useMemo(() => {
+    if (selectedMonth === "") {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const month = Number(selectedMonth);
+    const fallbackYear = new Date().getFullYear();
+    const year = selectedYear === "" ? fallbackYear : Number(selectedYear);
+
+    if (!Number.isFinite(month) || month < 1 || month > 12) {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  }, [selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    if (selectedDayFrom !== "") {
+      const selectedDayFromNumber = Number(selectedDayFrom);
+      if (!availableDays.includes(selectedDayFromNumber)) {
+        setSelectedDayFrom("");
+      }
+    }
+
+    if (selectedDayTo !== "") {
+      const selectedDayToNumber = Number(selectedDayTo);
+      if (!availableDays.includes(selectedDayToNumber)) {
+        setSelectedDayTo("");
+      }
+    }
+  }, [availableDays, selectedDayFrom, selectedDayTo]);
 
   const openDisposisiDialog = (item: SuratMasukItem) => {
     setDisposisiTarget(item);
@@ -380,11 +422,17 @@ export default function KepalaDesaLaporanSuratMasukPage() {
       const matchesSearch = !searchTerm.trim() || searchPool.includes(searchTerm.trim().toLowerCase());
 
       const dateSource = parseDate(item.tanggal_terima || item.tanggal_surat);
-      const fromDate = filterFromDate ? new Date(`${filterFromDate}T00:00:00`) : null;
-      const toDate = filterToDate ? new Date(`${filterToDate}T23:59:59`) : null;
-
-      const matchesFromDate = !fromDate || (dateSource ? dateSource.getTime() >= fromDate.getTime() : false);
-      const matchesToDate = !toDate || (dateSource ? dateSource.getTime() <= toDate.getTime() : false);
+      const day = dateSource ? dateSource.getDate() : null;
+      const month = dateSource ? dateSource.getMonth() + 1 : null;
+      const year = dateSource ? dateSource.getFullYear() : null;
+      const parsedDayFrom = selectedDayFrom === "" ? null : Number(selectedDayFrom);
+      const parsedDayTo = selectedDayTo === "" ? null : Number(selectedDayTo);
+      const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
+      const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
+      const matchesDayFrom = dayMin === null || (day !== null && day >= dayMin);
+      const matchesDayTo = dayMax === null || (day !== null && day <= dayMax);
+      const matchesMonth = selectedMonth === "" || month === Number(selectedMonth);
+      const matchesYear = selectedYear === "" || year === Number(selectedYear);
 
       const penanganan = getPenangananStatus(item);
       const matchesStatus =
@@ -394,12 +442,30 @@ export default function KepalaDesaLaporanSuratMasukPage() {
             ? penanganan === "baru"
             : penanganan === "diproses" || penanganan === "selesai";
 
-      return matchesSearch && matchesFromDate && matchesToDate && matchesStatus;
+      return matchesSearch && matchesDayFrom && matchesDayTo && matchesMonth && matchesYear && matchesStatus;
     });
-  }, [data, searchTerm, filterFromDate, filterToDate, statusFilter]);
+  }, [data, searchTerm, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear, statusFilter]);
 
   const sortedData = useMemo(() => {
     const rows = [...filteredData];
+
+    const getUrgensiWeight = (rank: number): number => {
+      if (sortBy === "urgensi-tinggi") {
+        if (rank === 3) return 0;
+        if (rank === 2) return 1;
+        return 2;
+      }
+
+      if (sortBy === "urgensi-sedang") {
+        if (rank === 2) return 0;
+        if (rank === 3) return 1;
+        return 2;
+      }
+
+      if (rank === 1) return 0;
+      if (rank === 2) return 1;
+      return 2;
+    };
 
     rows.sort((a, b) => {
       const dateA = parseDate(a.tanggal_terima || a.tanggal_surat);
@@ -410,23 +476,9 @@ export default function KepalaDesaLaporanSuratMasukPage() {
       const urgensiA = getUrgensiRank(a.urgensi);
       const urgensiB = getUrgensiRank(b.urgensi);
 
-      const needsFollowUpA = getPenangananStatus(a) !== "selesai" ? 1 : 0;
-      const needsFollowUpB = getPenangananStatus(b) !== "selesai" ? 1 : 0;
-
-      switch (sortBy) {
-        case "tanggal-asc":
-          return timeA - timeB;
-        case "tanggal-desc":
-          return timeB - timeA;
-        case "urgensi-desc":
-          return urgensiB - urgensiA || timeB - timeA;
-        case "urgensi-asc":
-          return urgensiA - urgensiB || timeB - timeA;
-        case "prioritas-tindak-lanjut":
-          return needsFollowUpB - needsFollowUpA || urgensiB - urgensiA || timeB - timeA;
-        default:
-          return timeB - timeA;
-      }
+      const weightA = getUrgensiWeight(urgensiA);
+      const weightB = getUrgensiWeight(urgensiB);
+      return weightA - weightB || timeB - timeA;
     });
 
     return rows;
@@ -509,11 +561,11 @@ export default function KepalaDesaLaporanSuratMasukPage() {
   return (
     <section>
       <p className="mb-3 text-sm text-gray-600">
-        Ringkasan surat masuk berdasarkan filter periode, pencarian, sorting, dan rentang tanggal.
+        Ringkasan surat masuk berdasarkan filter periode, pencarian, sorting, dan rentang tanggal dari-sampai.
       </p>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
           <div className="md:col-span-2">
             <label className="mb-1.5 block text-xs font-medium text-gray-700">Pencarian</label>
             <input
@@ -527,22 +579,73 @@ export default function KepalaDesaLaporanSuratMasukPage() {
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-700">Tanggal Dari</label>
-            <input
-              type="date"
-              value={filterFromDate}
-              onChange={(e) => setFilterFromDate(e.target.value)}
+            <select
+              value={selectedDayFrom}
+              onChange={(e) => setSelectedDayFrom(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="">Tanggal Dari</option>
+              {availableDays.map((day) => (
+                <option key={day} value={String(day)}>
+                  {day}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-700">Tanggal Sampai</label>
-            <input
-              type="date"
-              value={filterToDate}
-              onChange={(e) => setFilterToDate(e.target.value)}
+            <select
+              value={selectedDayTo}
+              onChange={(e) => setSelectedDayTo(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="">Tanggal Sampai</option>
+              {availableDays.map((day) => (
+                <option key={day} value={String(day)}>
+                  {day}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-700">Bulan</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Semua Bulan</option>
+              <option value="1">Januari</option>
+              <option value="2">Februari</option>
+              <option value="3">Maret</option>
+              <option value="4">April</option>
+              <option value="5">Mei</option>
+              <option value="6">Juni</option>
+              <option value="7">Juli</option>
+              <option value="8">Agustus</option>
+              <option value="9">September</option>
+              <option value="10">Oktober</option>
+              <option value="11">November</option>
+              <option value="12">Desember</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-gray-700">Tahun</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Semua Tahun</option>
+              {availableYears.map((year) => (
+                <option key={year} value={String(year)}>
+                  {year}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -552,11 +655,9 @@ export default function KepalaDesaLaporanSuratMasukPage() {
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="prioritas-tindak-lanjut">Prioritas tindak lanjut dulu</option>
-              <option value="urgensi-desc">Urgensi tertinggi dulu</option>
-              <option value="urgensi-asc">Urgensi terendah dulu</option>
-              <option value="tanggal-desc">Tanggal Terbaru</option>
-              <option value="tanggal-asc">Tanggal Terlama</option>
+              <option value="urgensi-tinggi">Urgensi Tinggi</option>
+              <option value="urgensi-sedang">Urgensi Sedang</option>
+              <option value="urgensi-rendah">Urgensi Rendah</option>
             </select>
           </div>
 

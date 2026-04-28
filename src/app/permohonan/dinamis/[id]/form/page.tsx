@@ -177,6 +177,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
   const [baseData, setBaseData] = useState({
     nama: "",
     noTelp: "",
+    keperluan: "",
   });
   const [addressData, setAddressData] = useState({
     dusun: "",
@@ -206,7 +207,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
         const data = await response.json();
 
         if (!response.ok || !data?.success || !Array.isArray(data?.templates)) {
-          throw new Error(data?.error || "Gagal mengambil template dinamis");
+          throw new Error(data?.error || "Gagal mengambil template surat");
         }
 
         const templateId = decodeURIComponent(params.id || "").trim();
@@ -218,7 +219,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Gagal mengambil template dinamis");
+          setError(err instanceof Error ? err.message : "Gagal mengambil template surat");
         }
       } finally {
         if (!cancelled) {
@@ -307,7 +308,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
       payload.set("provinsi", normalizeAreaValue(addressData.provinsi, "provinsi"));
       payload.set("alamat", composedAddress);
       payload.set("noTelp", normalizeSpacing(baseData.noTelp));
-      payload.set("keperluan", "-");
+      payload.set("keperluan", normalizeSpacing(baseData.keperluan));
 
       Object.entries(dynamicValues).forEach(([key, value]) => {
         const normalizedKey = normalizeFieldKey(key);
@@ -332,7 +333,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error || "Gagal mengajukan permohonan surat dinamis");
+        throw new Error(data?.error || "Gagal mengajukan permohonan surat");
       }
 
       setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
@@ -353,7 +354,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
       <>
         <Header />
         <div className="min-h-screen bg-gray-50 py-8 pt-20">
-          <div className="mx-auto max-w-4xl px-4 text-center text-gray-600">Memuat formulir surat dinamis...</div>
+          <div className="mx-auto max-w-4xl px-4" />
         </div>
         <Footer />
       </>
@@ -366,7 +367,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
         <Header />
         <div className="min-h-screen bg-gray-50 py-8 pt-20">
           <div className="mx-auto max-w-4xl px-4 text-center">
-            <h1 className="text-2xl font-bold text-gray-900">Template surat dinamis tidak ditemukan</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Template surat tidak ditemukan</h1>
             <p className="mt-2 text-gray-600">Template mungkin sudah dinonaktifkan oleh admin.</p>
             <Link href="/permohonan" className="mt-5 inline-block rounded-lg bg-green-500 px-4 py-2 text-white hover:bg-green-600">
               Kembali ke daftar permohonan
@@ -549,6 +550,19 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
                     placeholder="Contoh: 081234567890"
                   />
                   <p className="mt-1 text-xs text-gray-500">Nomor ini digunakan untuk notifikasi proses surat.</p>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Tujuan / Keperluan Surat <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={baseData.keperluan}
+                    onChange={(event) => setBaseData((prev) => ({ ...prev, keperluan: event.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Contoh: Persyaratan administrasi beasiswa"
+                  />
                 </div>
               </div>
             </section>

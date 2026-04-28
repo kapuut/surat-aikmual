@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { FiArrowLeft, FiHeart, FiCheckCircle, FiClock, FiFileText } from "react-icons/fi";
+import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
 const persyaratan = [
 	"Fotokopi Kartu Keluarga (KK)",
@@ -13,38 +14,11 @@ const persyaratan = [
 	"Formulir permohonan yang telah diisi"
 ];
 
-const prosedur = [
-	{
-		step: 1,
-		title: "Siapkan Persyaratan",
-		description: "Kumpulkan semua dokumen yang diperlukan sesuai daftar persyaratan"
-	},
-	{
-		step: 2,
-		title: "Isi Formulir",
-		description: "Klik tombol 'Ajukan Permohonan' dan isi formulir dengan lengkap"
-	},
-	{
-		step: 3,
-		title: "Upload Dokumen",
-		description: "Upload semua dokumen persyaratan dalam format PDF atau JPG"
-	},
-	{
-		step: 4,
-		title: "Verifikasi Lapangan",
-		description: "Tim akan melakukan verifikasi kondisi ekonomi keluarga"
-	},
-	{
-		step: 5,
-		title: "Tunggu Persetujuan",
-		description: "Proses verifikasi membutuhkan waktu 2-3 hari kerja"
-	},
-	{
-		step: 6,
-		title: "Ambil Surat",
-		description: "Surat dapat diambil di kantor desa atau dikirim via email"
-	}
-];
+const prosedur = OFFICIAL_STANDARD_PROCEDURE.map((item) => ({
+step: item.step,
+title: item.title,
+description: item.desc,
+}));
 
 export default function SuratTidakMampuPage() {
 	return (
@@ -79,7 +53,7 @@ export default function SuratTidakMampuPage() {
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
 						<div className="flex items-center gap-2">
 							<FiClock className="w-4 h-4" />
-							<span className="text-sm">Estimasi: 2-3 hari kerja</span>
+							<span className="text-sm">Status: Ikuti pembaruan di menu tracking</span>
 						</div>
 						<div className="flex items-center gap-2">
 							<FiFileText className="w-4 h-4" />
@@ -179,3 +153,4 @@ export default function SuratTidakMampuPage() {
 		</div>
 	);
 }
+

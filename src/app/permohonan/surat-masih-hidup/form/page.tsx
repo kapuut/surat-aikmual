@@ -118,7 +118,7 @@ export default function SuratMasihHidupFormPage() {
     submitData.set("provinsi", provinsi);
     submitData.set("alamat", alamatTerakhir);
     submitData.set("alamatTerakhir", alamatTerakhir);
-    submitData.set("keperluan", "-");
+    submitData.set("keperluan", normalizeSpacing(String(formData.get("keperluan") || "")));
 
     try {
       const response = await fetch("/api/permohonan/submit", {
@@ -379,7 +379,19 @@ export default function SuratMasihHidupFormPage() {
               </div>
             </div>
 
-            <input type="hidden" name="keperluan" value="-" />
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">Tujuan dan Keperluan Surat</h2>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tujuan / Keperluan Surat <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                name="keperluan"
+                required
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="Contoh: Persyaratan administrasi pensiun"
+              />
+            </div>
 
             {/* Buttons */}
             <div className="flex gap-4">

@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { FiHome, FiFileText, FiCheckCircle } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
 export default function SuratTidakPunyaRumahInfoPage() {
   const router = useRouter();
@@ -14,33 +15,7 @@ export default function SuratTidakPunyaRumahInfoPage() {
     "Dokumen pendukung tambahan (opsional): bukti kontrak/sewa, atau surat keterangan menumpang",
   ];
 
-  const prosedur = [
-    {
-      step: 1,
-      title: "Persiapan Dokumen",
-      desc: "Pastikan NIK akun sudah tervalidasi, lalu siapkan dokumen pendukung tambahan bila ada",
-    },
-    {
-      step: 2,
-      title: "Isi Form Permohonan",
-      desc: "Lengkapi data diri dan status tempat tinggal",
-    },
-    {
-      step: 3,
-      title: "Verifikasi Data",
-      desc: "Petugas akan memverifikasi status kepemilikan rumah",
-    },
-    {
-      step: 4,
-      title: "Proses Persetujuan",
-      desc: "Menunggu persetujuan dari Kepala Desa",
-    },
-    {
-      step: 5,
-      title: "Pengambilan Surat",
-      desc: "Surat dapat diunduh setelah status selesai/ditandatangani",
-    },
-  ];
+  const prosedur = OFFICIAL_STANDARD_PROCEDURE;
 
   return (
     <>
@@ -119,3 +94,5 @@ export default function SuratTidakPunyaRumahInfoPage() {
     </>
   );
 }
+
+

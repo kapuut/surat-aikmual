@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { FiArrowLeft, FiFileText, FiCheckCircle, FiClock } from "react-icons/fi";
+import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
 const persyaratan = [
 	"Fotokopi Kartu Keluarga (KK)",
@@ -12,33 +13,11 @@ const persyaratan = [
 	"Formulir permohonan yang telah diisi"
 ];
 
-const prosedur = [
-	{
-		step: 1,
-		title: "Siapkan Persyaratan",
-		description: "Kumpulkan semua dokumen yang diperlukan sesuai daftar persyaratan"
-	},
-	{
-		step: 2,
-		title: "Isi Formulir",
-		description: "Klik tombol 'Ajukan Permohonan' dan isi formulir dengan lengkap"
-	},
-	{
-		step: 3,
-		title: "Upload Dokumen",
-		description: "Upload semua dokumen persyaratan dalam format PDF atau JPG"
-	},
-	{
-		step: 4,
-		title: "Tunggu Verifikasi",
-		description: "Tim admin akan memverifikasi dokumen dalam 1x24 jam"
-	},
-	{
-		step: 5,
-		title: "Ambil Surat",
-		description: "Surat dapat diambil di kantor desa atau dikirim via email"
-	}
-];
+const prosedur = OFFICIAL_STANDARD_PROCEDURE.map((item) => ({
+step: item.step,
+title: item.title,
+description: item.desc,
+}));
 
 const jenisSurat = [
 	"Surat Keterangan Berkelakuan Baik",
@@ -82,7 +61,7 @@ export default function SuratKeteranganPage() {
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
 						<div className="flex items-center gap-2">
 							<FiClock className="w-4 h-4" />
-							<span className="text-sm">Estimasi: 1-2 hari kerja</span>
+							<span className="text-sm">Status: Ikuti pembaruan di menu tracking</span>
 						</div>
 						<div className="flex items-center gap-2">
 							<FiFileText className="w-4 h-4" />
@@ -158,10 +137,10 @@ export default function SuratKeteranganPage() {
 						<div>
 							<h3 className="font-semibold text-blue-800 mb-2">Informasi Penting</h3>
 							<ul className="text-sm text-blue-700 space-y-1">
-								<li>• Isi tujuan permohonan secara jelas pada formulir</li>
-								<li>• Persyaratan tambahan mungkin diperlukan sesuai jenis surat</li>
-								<li>• Untuk surat tertentu, mungkin diperlukan saksi atau konfirmasi tambahan</li>
-								<li>• Hubungi petugas desa jika membutuhkan bantuan pengisian formulir</li>
+								<li>â€¢ Isi tujuan permohonan secara jelas pada formulir</li>
+								<li>â€¢ Persyaratan tambahan mungkin diperlukan sesuai jenis surat</li>
+								<li>â€¢ Untuk surat tertentu, mungkin diperlukan saksi atau konfirmasi tambahan</li>
+								<li>â€¢ Hubungi petugas desa jika membutuhkan bantuan pengisian formulir</li>
 							</ul>
 						</div>
 					</div>
@@ -196,3 +175,5 @@ export default function SuratKeteranganPage() {
 		</div>
 	);
 }
+
+

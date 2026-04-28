@@ -131,7 +131,7 @@ export default function SuratKematianFormPage() {
     formData.set('kabupatenAlmarhum', kabupatenAlmarhum);
     formData.set('provinsiAlmarhum', provinsiAlmarhum);
     formData.set('alamatTerakhir', alamatAlmarhum);
-    formData.set('keperluan', '-');
+    formData.set('keperluan', normalizeSpacing(String(formData.get('keperluan') || '')));
 
     const nikPemohonRaw = String(formData.get('nik') || '');
     const nikAlmarhumRaw = String(formData.get('nikAlmarhum') || '');
@@ -542,7 +542,19 @@ export default function SuratKematianFormPage() {
             </div>
           </div>
 
-          <input type="hidden" name="keperluan" value="-" />
+          <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">Tujuan dan Keperluan Surat</h2>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tujuan / Keperluan Surat <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              name="keperluan"
+              required
+              rows={3}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+              placeholder="Contoh: Persyaratan administrasi akta kematian"
+            />
+          </div>
 
           <div className="bg-white rounded-lg shadow-sm p-6 max-w-4xl mx-auto">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">

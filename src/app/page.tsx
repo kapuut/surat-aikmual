@@ -6,6 +6,7 @@ import UserNavbar from '@/components/UserNavbar';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FiFileText,
   FiClock,
@@ -130,11 +131,107 @@ const FAQ_ITEMS = [
   },
 ];
 
+type DynamicTemplateSummary = {
+  id: string;
+  nama: string;
+  jenisSurat: string;
+  deskripsi: string;
+};
+
+const PRIMARY_SURAT_LIMIT = 9;
+
+function normalizeSuratName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 export default function HomePage() {
   const { user, loading, isAuthenticated } = useAuth();
+  const [dynamicTemplates, setDynamicTemplates] = useState<DynamicTemplateSummary[]>([]);
+  const [showAllSurat, setShowAllSurat] = useState(false);
   const isMasyarakat = isAuthenticated && user?.role === 'masyarakat';
   const showCitizenActions = isMasyarakat;
   const isPublicView = !isAuthenticated || !user;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDynamicTemplates = async () => {
+      try {
+        const response = await fetch('/api/dynamic-templates');
+        const data = await response.json();
+
+        if (!response.ok || !data?.success || !Array.isArray(data?.templates)) {
+          return;
+        }
+
+        if (!cancelled) {
+          setDynamicTemplates(data.templates as DynamicTemplateSummary[]);
+        }
+      } catch {
+        // Keep the landing page stable even if dynamic templates fail to load.
+      }
+    };
+
+    loadDynamicTemplates();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const suratCards = useMemo(() => {
+    const staticCards = ALLOWED_SURAT_TYPES.map((item) => ({
+      key: `static-${item.slug}`,
+      title: item.title,
+      description: item.description,
+      href: item.href,
+    }));
+
+    const mergedCards = [...staticCards];
+    const cardIndexByName = new Map<string, number>();
+    const seenDynamicNames = new Set<string>();
+
+    mergedCards.forEach((card, index) => {
+      cardIndexByName.set(normalizeSuratName(card.title), index);
+    });
+
+    for (const template of dynamicTemplates) {
+      const dynamicTitle = (template.jenisSurat || template.nama || '').trim();
+      if (!dynamicTitle) continue;
+
+      const dynamicNameKey = normalizeSuratName(dynamicTitle);
+      if (!dynamicNameKey || seenDynamicNames.has(dynamicNameKey)) {
+        continue;
+      }
+      seenDynamicNames.add(dynamicNameKey);
+
+      const dynamicCard = {
+        key: `dynamic-${template.id}`,
+        title: dynamicTitle,
+        description: template.deskripsi || 'Jenis surat tambahan yang dikonfigurasi admin.',
+        href: `/permohonan/dinamis/${encodeURIComponent(template.id)}`,
+      };
+
+      const existingIndex = cardIndexByName.get(dynamicNameKey);
+      if (existingIndex !== undefined) {
+        mergedCards[existingIndex] = {
+          ...mergedCards[existingIndex],
+          description: dynamicCard.description,
+          href: dynamicCard.href,
+        };
+        continue;
+      }
+
+      cardIndexByName.set(dynamicNameKey, mergedCards.length);
+      mergedCards.push(dynamicCard);
+    }
+
+    return mergedCards;
+  }, [dynamicTemplates]);
+
+  const displayedSuratCards = showAllSurat ? suratCards : suratCards.slice(0, PRIMARY_SURAT_LIMIT);
+  const hasMoreSuratCards = suratCards.length > PRIMARY_SURAT_LIMIT;
+  const hiddenSuratCount = Math.max(suratCards.length - PRIMARY_SURAT_LIMIT, 0);
 
   if (loading) {
     return (
@@ -266,9 +363,9 @@ export default function HomePage() {
 
         {/* Service Cards */}
         <div className="max-w-7xl mx-auto grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {ALLOWED_SURAT_TYPES.map((item) => (
+          {displayedSuratCards.map((item) => (
             <Link
-              key={item.slug}
+              key={item.key}
               href={item.href}
               className="group relative block overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-blue-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
@@ -278,7 +375,7 @@ export default function HomePage() {
                   <FiFileText className="w-6 h-6" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold mb-2 text-gray-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="mb-2 text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
                     {item.title}
                   </h3>
                   <p className="text-sm text-gray-600 leading-relaxed mb-4 min-h-[44px]">{item.description}</p>
@@ -292,6 +389,20 @@ export default function HomePage() {
             </Link>
           ))}
         </div>
+
+        {hasMoreSuratCards && (
+          <div className="mx-auto mt-8 flex max-w-7xl justify-center">
+            <button
+              type="button"
+              onClick={() => setShowAllSurat((current) => !current)}
+              className="rounded-full border border-blue-200 bg-blue-50 px-6 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+            >
+              {showAllSurat
+                ? 'Tutup jenis permohonan lainnya'
+                : `Lihat jenis permohonan lainnya (${hiddenSuratCount})`}
+            </button>
+          </div>
+        )}
 
         <div id="persyaratan" className="mt-16 scroll-mt-28">
           <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Persyaratan Surat Populer</h3>

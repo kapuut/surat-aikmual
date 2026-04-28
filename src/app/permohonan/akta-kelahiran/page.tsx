@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { FiArrowLeft, FiUser, FiCheckCircle, FiClock, FiFileText } from "react-icons/fi";
+import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
 const persyaratan = [
 	"Fotokopi Kartu Keluarga (KK)",
@@ -14,43 +15,11 @@ const persyaratan = [
 	"Formulir permohonan yang telah diisi"
 ];
 
-const prosedur = [
-	{
-		step: 1,
-		title: "Siapkan Persyaratan",
-		description: "Kumpulkan semua dokumen yang diperlukan dari rumah sakit dan keluarga"
-	},
-	{
-		step: 2,
-		title: "Isi Formulir",
-		description: "Klik tombol 'Ajukan Permohonan' dan isi formulir dengan lengkap"
-	},
-	{
-		step: 3,
-		title: "Upload Dokumen",
-		description: "Upload semua dokumen persyaratan dalam format PDF atau JPG"
-	},
-	{
-		step: 4,
-		title: "Verifikasi Data",
-		description: "Tim akan memverifikasi kelengkapan dan keabsahan dokumen"
-	},
-	{
-		step: 5,
-		title: "Konfirmasi Kehadiran",
-		description: "Orang tua diminta hadir untuk konfirmasi data jika diperlukan"
-	},
-	{
-		step: 6,
-		title: "Tunggu Persetujuan",
-		description: "Proses verifikasi membutuhkan waktu 3-5 hari kerja"
-	},
-	{
-		step: 7,
-		title: "Ambil Surat",
-		description: "Surat dapat diambil di kantor desa atau dikirim via email"
-	}
-];
+const prosedur = OFFICIAL_STANDARD_PROCEDURE.map((item) => ({
+step: item.step,
+title: item.title,
+description: item.desc,
+}));
 
 export default function AktaKelahiranPage() {
 	return (
@@ -85,7 +54,7 @@ export default function AktaKelahiranPage() {
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
 						<div className="flex items-center gap-2">
 							<FiClock className="w-4 h-4" />
-							<span className="text-sm">Estimasi: 3-5 hari kerja</span>
+							<span className="text-sm">Status: Ikuti pembaruan di menu tracking</span>
 						</div>
 						<div className="flex items-center gap-2">
 							<FiFileText className="w-4 h-4" />
@@ -148,10 +117,10 @@ export default function AktaKelahiranPage() {
 						<div>
 							<h3 className="font-semibold text-yellow-800 mb-2">Catatan Penting</h3>
 							<ul className="text-sm text-yellow-700 space-y-1">
-								<li>• Surat keterangan kelahiran harus diurus maksimal 60 hari setelah kelahiran</li>
-								<li>• Jika lebih dari 60 hari, diperlukan surat pernyataan terlambat lapor</li>
-								<li>• Pastikan nama anak sudah final karena sulit diubah setelah akta jadi</li>
-								<li>• Bawa dokumen asli saat pengambilan untuk verifikasi</li>
+								<li>â€¢ Surat keterangan kelahiran harus diurus maksimal 60 hari setelah kelahiran</li>
+								<li>â€¢ Jika lebih dari 60 hari, diperlukan surat pernyataan terlambat lapor</li>
+								<li>â€¢ Pastikan nama anak sudah final karena sulit diubah setelah akta jadi</li>
+								<li>â€¢ Bawa dokumen asli saat pengambilan untuk verifikasi</li>
 							</ul>
 						</div>
 					</div>
@@ -186,3 +155,4 @@ export default function AktaKelahiranPage() {
 		</div>
 	);
 }
+

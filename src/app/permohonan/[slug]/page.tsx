@@ -24,11 +24,12 @@ const suratData: Record<string, {
       "KTP dan KK cukup diunggah sekali saat registrasi akun"
     ],
     procedures: [
-      "Login menggunakan NIK dan password",
-      "Isi formulir sesuai data yang benar",
-      "Unggah dokumen pendukung sesuai kebutuhan surat",
-      "Kirim permohonan dan tunggu verifikasi",
-      "Pantau status pada halaman riwayat"
+      "Persiapan Dokumen - Pastikan NIK akun sudah tervalidasi dan siapkan bukti pendukung domisili sesuai kebutuhan",
+      "Isi Form Permohonan - Lengkapi formulir permohonan dengan data yang benar",
+      "Upload Dokumen - Unggah dokumen pendukung sesuai jenis permohonan",
+      "Verifikasi Data - Petugas akan memverifikasi kelengkapan dan kebenaran data",
+      "Proses Persetujuan - Menunggu persetujuan dari Kepala Desa",
+      "Akses Surat - Surat dapat diunduh setelah mendapat persetujuan."
     ]
   };
   return acc;

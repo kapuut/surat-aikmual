@@ -90,9 +90,7 @@ export default function DynamicSuratDetailPage({ params }: DynamicSuratDetailPag
       <>
         <Header />
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-white pt-20">
-          <div className="mx-auto max-w-4xl px-4 py-20 text-center text-gray-600">
-            Memuat informasi surat dinamis...
-          </div>
+          <div className="mx-auto max-w-4xl px-4 py-20" />
         </div>
         <Footer />
       </>
@@ -105,8 +103,8 @@ export default function DynamicSuratDetailPage({ params }: DynamicSuratDetailPag
         <Header />
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-white pt-20">
           <div className="mx-auto max-w-4xl px-4 py-20 text-center">
-            <h1 className="text-3xl font-bold text-gray-800">Jenis surat dinamis tidak ditemukan</h1>
-            <p className="mt-4 text-gray-600">Template mungkin belum aktif atau sudah dihapus oleh admin.</p>
+            <h1 className="text-3xl font-bold text-gray-800">Jenis surat tidak ditemukan</h1>
+            <p className="mt-4 text-gray-600">Template surat mungkin belum aktif atau sudah dihapus oleh admin.</p>
             <Link
               href="/permohonan"
               className="mt-6 inline-block rounded-lg bg-green-500 px-5 py-3 font-semibold text-white hover:bg-green-600"
@@ -138,7 +136,7 @@ export default function DynamicSuratDetailPage({ params }: DynamicSuratDetailPag
             </div>
             <h1 className="mb-4 text-4xl font-bold text-gray-800">{template.jenisSurat}</h1>
             <p className="mx-auto max-w-2xl text-lg text-gray-600">
-              {template.deskripsi || "Surat dinamis yang dibuat admin dengan field dan isi sesuai kebutuhan layanan."}
+              {template.deskripsi || "Surat yang dibuat admin dengan field dan isi sesuai kebutuhan layanan."}
             </p>
           </div>
 

@@ -87,7 +87,7 @@ export default function FormSuratKeterangan() {
         submitData.append(key, formData[key as keyof FormData]);
       });
       submitData.set('alamat', alamatGabungan);
-      submitData.set('keperluan', '-');
+      submitData.set('keperluan', formData.keperluan.replace(/\s+/g, ' ').trim());
 
       // Add files
       if (files) {
@@ -246,6 +246,22 @@ export default function FormSuratKeterangan() {
                 </div>
               </div>
 
+              <div className="mt-4">
+                <label htmlFor="keperluan" className="block text-sm font-medium text-gray-700 mb-1">
+                  Tujuan / Keperluan Surat *
+                </label>
+                <textarea
+                  id="keperluan"
+                  name="keperluan"
+                  value={formData.keperluan}
+                  onChange={handleInputChange}
+                  required
+                  rows={3}
+                  placeholder="Contoh: Persyaratan administrasi pendaftaran kerja"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="dusun" className="block text-sm font-medium text-gray-700 mb-1">
@@ -354,8 +370,6 @@ export default function FormSuratKeterangan() {
                 </div>
               </div>
             </div>
-
-            <input type="hidden" name="keperluan" value="-" />
 
             {/* Upload Dokumen */}
             <div>

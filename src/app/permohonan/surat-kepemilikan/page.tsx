@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { FiShield, FiFileText, FiCheckCircle } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
 export default function SuratKepemilikanInfoPage() {
   const router = useRouter();
@@ -18,33 +19,7 @@ export default function SuratKepemilikanInfoPage() {
     "Scan/foto surat kuasa bermaterai (jika diwakilkan)",
   ];
 
-  const prosedur = [
-    {
-      step: 1,
-      title: "Persiapan Dokumen",
-      desc: "Siapkan semua persyaratan dokumen yang diperlukan",
-    },
-    {
-      step: 2,
-      title: "Isi Form Permohonan",
-      desc: "Lengkapi data pemohon dan detail kepemilikan",
-    },
-    {
-      step: 3,
-      title: "Verifikasi Lapangan",
-      desc: "Petugas akan melakukan pengecekan lokasi kepemilikan",
-    },
-    {
-      step: 4,
-      title: "Proses Persetujuan",
-      desc: "Menunggu persetujuan dari Kepala Desa",
-    },
-    {
-      step: 5,
-      title: "Pengambilan Surat",
-      desc: "Surat dapat diambil setelah mendapat persetujuan (5-7 hari kerja)",
-    },
-  ];
+  const prosedur = OFFICIAL_STANDARD_PROCEDURE;
 
   return (
     <>
@@ -123,3 +98,5 @@ export default function SuratKepemilikanInfoPage() {
     </>
   );
 }
+
+

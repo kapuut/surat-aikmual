@@ -462,6 +462,17 @@ export default function KepalaDesaWorkflowClient() {
           />
 
           <select
+            value={selectedDayFrom}
+            onChange={(e) => setSelectedDayFrom(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Tanggal Dari</option>
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>{day}</option>
+            ))}
+          </select>
+
+          <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -479,17 +490,6 @@ export default function KepalaDesaWorkflowClient() {
             <option value="10">Oktober</option>
             <option value="11">November</option>
             <option value="12">Desember</option>
-          </select>
-
-          <select
-            value={selectedDayFrom}
-            onChange={(e) => setSelectedDayFrom(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Tanggal Dari</option>
-            {availableDays.map((day) => (
-              <option key={day} value={String(day)}>{day}</option>
-            ))}
           </select>
 
           <select

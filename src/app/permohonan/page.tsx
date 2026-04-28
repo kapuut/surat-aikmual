@@ -62,6 +62,10 @@ type DynamicTemplateSummary = {
   deskripsi: string;
 };
 
+function normalizeSuratName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 export default function PermohonanPage() {
   useRequireAuth();
 
@@ -100,18 +104,48 @@ export default function PermohonanPage() {
       title: surat.title,
       description: surat.description,
       href: `/permohonan/${surat.slug}`,
-      isDynamic: false,
     }));
 
-    const dynamicCards = dynamicTemplates.map((template) => ({
-      key: `dynamic-${template.id}`,
-      title: template.jenisSurat || template.nama,
-      description: template.deskripsi || 'Jenis surat tambahan yang dikonfigurasi admin.',
-      href: `/permohonan/dinamis/${encodeURIComponent(template.id)}`,
-      isDynamic: true,
-    }));
+    const mergedCards = [...staticCards];
+    const cardIndexByName = new Map<string, number>();
+    const seenDynamicNames = new Set<string>();
 
-    return [...staticCards, ...dynamicCards];
+    mergedCards.forEach((card, index) => {
+      cardIndexByName.set(normalizeSuratName(card.title), index);
+    });
+
+    for (const template of dynamicTemplates) {
+      const dynamicTitle = (template.jenisSurat || template.nama || '').trim();
+      if (!dynamicTitle) continue;
+
+      const dynamicNameKey = normalizeSuratName(dynamicTitle);
+      if (!dynamicNameKey || seenDynamicNames.has(dynamicNameKey)) {
+        continue;
+      }
+      seenDynamicNames.add(dynamicNameKey);
+
+      const dynamicCard = {
+        key: `dynamic-${template.id}`,
+        title: dynamicTitle,
+        description: template.deskripsi || 'Jenis surat tambahan yang dikonfigurasi admin.',
+        href: `/permohonan/dinamis/${encodeURIComponent(template.id)}`,
+      };
+
+      const existingIndex = cardIndexByName.get(dynamicNameKey);
+      if (existingIndex !== undefined) {
+        mergedCards[existingIndex] = {
+          ...mergedCards[existingIndex],
+          description: dynamicCard.description,
+          href: dynamicCard.href,
+        };
+        continue;
+      }
+
+      cardIndexByName.set(dynamicNameKey, mergedCards.length);
+      mergedCards.push(dynamicCard);
+    }
+
+    return mergedCards;
   }, [dynamicTemplates]);
 
   return (
@@ -137,7 +171,7 @@ export default function PermohonanPage() {
                 </h3>
                 <p className="text-gray-600 text-sm mb-4 flex-1">{surat.description}</p>
                 <div className="flex items-center gap-2 text-blue-900 font-medium group-hover:gap-3 transition">
-                  <span>{surat.isDynamic ? 'Ajukan Dinamis' : 'Ajukan'}</span>
+                  <span>Ajukan</span>
                   <FiArrowRight className="w-4 h-4" />
                 </div>
               </CardBody>

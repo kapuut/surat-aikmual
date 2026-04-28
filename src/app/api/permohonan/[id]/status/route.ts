@@ -112,6 +112,22 @@ function inferStatusFromNote(note: unknown): NormalizedStatus | null {
   return null;
 }
 
+function normalizePerihalArchiveDetail(value: unknown): string {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!normalized) return '';
+  if (/^-+$/.test(normalized)) return '';
+  if (['-', '--', 'null', 'undefined', 'n/a', 'na'].includes(normalized)) return '';
+
+  return String(value ?? '').trim();
+}
+
 function normalizeCurrentStatus(rawStatus: unknown, nomorSurat: unknown, note?: unknown): NormalizedStatus {
   const normalized = normalizeStatus(rawStatus);
   if (normalized) return normalized;
@@ -1543,7 +1559,8 @@ export async function PUT(
     if (shouldSyncSuratKeluar && nomorSurat) {
       const tanggalArsip = new Date().toISOString().split('T')[0];
       const tujuan = permohonan.nama_pemohon || 'Pemohon';
-      const perihal = permohonan.jenis_surat;
+      const cleanKeperluan = normalizePerihalArchiveDetail(permohonan.keperluan);
+      const perihal = `${permohonan.jenis_surat}${cleanKeperluan ? ` - ${cleanKeperluan}` : ''}`;
 
       await upsertSuratKeluarArchive(connection, {
         nomorSurat,

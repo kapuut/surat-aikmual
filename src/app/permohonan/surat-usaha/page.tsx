@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { FiBriefcase, FiFileText, FiCheckCircle } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
 export default function SuratUsahaInfoPage() {
   const router = useRouter();
@@ -15,33 +16,7 @@ export default function SuratUsahaInfoPage() {
     "Scan/foto surat keterangan sewa/kontrak tempat usaha (jika menyewa)",
   ];
 
-  const prosedur = [
-    {
-      step: 1,
-      title: "Persiapan Dokumen",
-      desc: "Siapkan semua persyaratan dokumen yang diperlukan",
-    },
-    {
-      step: 2,
-      title: "Isi Form Permohonan",
-      desc: "Lengkapi data diri dan informasi usaha",
-    },
-    {
-      step: 3,
-      title: "Verifikasi Lapangan",
-      desc: "Petugas akan melakukan pengecekan lokasi usaha",
-    },
-    {
-      step: 4,
-      title: "Proses Persetujuan",
-      desc: "Menunggu persetujuan dari Kepala Desa",
-    },
-    {
-      step: 5,
-      title: "Pengambilan Surat",
-      desc: "Surat dapat diambil setelah mendapat persetujuan (5-7 hari kerja)",
-    },
-  ];
+  const prosedur = OFFICIAL_STANDARD_PROCEDURE;
 
   return (
     <>
@@ -120,3 +95,5 @@ export default function SuratUsahaInfoPage() {
     </>
   );
 }
+
+

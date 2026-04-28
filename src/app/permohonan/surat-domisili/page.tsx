@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { FiHome, FiFileText, FiCheckCircle } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
 export default function SuratDomisiliInfoPage() {
   const router = useRouter();
@@ -15,38 +16,7 @@ export default function SuratDomisiliInfoPage() {
     "Dokumen tambahan bukan surat yang diajukan, melainkan bukti pendukung",
   ];
 
-  const prosedur = [
-    {
-      step: 1,
-      title: "Persiapan Dokumen",
-      desc: "Pastikan NIK akun sudah tervalidasi dan siapkan bukti pendukung domisili sesuai kebutuhan",
-    },
-    {
-      step: 2,
-      title: "Isi Form Permohonan",
-      desc: "Lengkapi formulir permohonan dengan data yang benar",
-    },
-    {
-      step: 3,
-      title: "Upload Dokumen",
-      desc: "Unggah dokumen pendukung sesuai jenis permohonan",
-    },
-    {
-      step: 4,
-      title: "Verifikasi Data",
-      desc: "Petugas akan memverifikasi kelengkapan dan kebenaran data",
-    },
-    {
-      step: 5,
-      title: "Proses Persetujuan",
-      desc: "Menunggu persetujuan dari Kepala Desa",
-    },
-    {
-      step: 6,
-      title: "Pengambilan Surat",
-      desc: "Surat dapat diambil setelah mendapat persetujuan (3-5 hari kerja)",
-    },
-  ];
+  const prosedur = OFFICIAL_STANDARD_PROCEDURE;
 
   return (
     <>
@@ -125,3 +95,5 @@ export default function SuratDomisiliInfoPage() {
     </>
   );
 }
+
+

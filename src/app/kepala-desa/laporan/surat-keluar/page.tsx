@@ -64,6 +64,8 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
   const [filterYear, setFilterYear] = useState("");
+  const [filterDayFrom, setFilterDayFrom] = useState("");
+  const [filterDayTo, setFilterDayTo] = useState("");
   const [sortBy, setSortBy] = useState<
     "tanggal-desc" | "tanggal-asc" | "bulan-desc" | "bulan-asc" | "tahun-desc" | "tahun-asc"
   >("tanggal-desc");
@@ -104,6 +106,39 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
     return Array.from(values).sort((a, b) => b - a);
   }, [data]);
 
+  const availableDays = useMemo(() => {
+    if (filterMonth === "") {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const month = Number(filterMonth);
+    const fallbackYear = new Date().getFullYear();
+    const year = filterYear === "" ? fallbackYear : Number(filterYear);
+
+    if (!Number.isFinite(month) || month < 1 || month > 12) {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  }, [filterMonth, filterYear]);
+
+  useEffect(() => {
+    if (filterDayFrom !== "") {
+      const selectedDayFromNumber = Number(filterDayFrom);
+      if (!availableDays.includes(selectedDayFromNumber)) {
+        setFilterDayFrom("");
+      }
+    }
+
+    if (filterDayTo !== "") {
+      const selectedDayToNumber = Number(filterDayTo);
+      if (!availableDays.includes(selectedDayToNumber)) {
+        setFilterDayTo("");
+      }
+    }
+  }, [availableDays, filterDayFrom, filterDayTo]);
+
   const filteredData = useMemo(() => {
     return data.filter((item) => {
       const searchPool = [
@@ -117,12 +152,19 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
       const matchesSearch = !searchTerm.trim() || searchPool.includes(searchTerm.trim().toLowerCase());
 
       const dateSource = parseDate(item.tanggal_surat);
+      const day = dateSource ? dateSource.getDate() : null;
       const matchesMonth = !filterMonth || (dateSource ? dateSource.getMonth() + 1 === Number(filterMonth) : false);
       const matchesYear = !filterYear || (dateSource ? dateSource.getFullYear() === Number(filterYear) : false);
+      const parsedDayFrom = filterDayFrom === "" ? null : Number(filterDayFrom);
+      const parsedDayTo = filterDayTo === "" ? null : Number(filterDayTo);
+      const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
+      const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
+      const matchesDayFrom = dayMin === null || (day !== null && day >= dayMin);
+      const matchesDayTo = dayMax === null || (day !== null && day <= dayMax);
 
-      return matchesSearch && matchesMonth && matchesYear;
+      return matchesSearch && matchesDayFrom && matchesDayTo && matchesMonth && matchesYear;
     });
-  }, [data, searchTerm, filterMonth, filterYear]);
+  }, [data, searchTerm, filterMonth, filterYear, filterDayFrom, filterDayTo]);
 
   const sortedData = useMemo(() => {
     const rows = [...filteredData];
@@ -235,7 +277,7 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
       <p className="mb-3 text-sm text-gray-600">Ringkasan surat keluar berdasarkan filter periode dan pencarian.</p>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">Pencarian</label>
             <input
@@ -245,6 +287,38 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
               placeholder="Cari nomor surat, tujuan, atau perihal..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Dari</label>
+            <select
+              value={filterDayFrom}
+              onChange={(e) => setFilterDayFrom(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">Tanggal Dari</option>
+              {availableDays.map((day) => (
+                <option key={day} value={String(day)}>
+                  {day}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Sampai</label>
+            <select
+              value={filterDayTo}
+              onChange={(e) => setFilterDayTo(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">Tanggal Sampai</option>
+              {availableDays.map((day) => (
+                <option key={day} value={String(day)}>
+                  {day}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

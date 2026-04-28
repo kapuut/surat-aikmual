@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { FiArrowLeft, FiUsers, FiCheckCircle, FiClock, FiFileText } from "react-icons/fi";
+import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
 const persyaratan = [
 	"Fotokopi Kartu Keluarga (KK) Calon Suami",
@@ -16,43 +17,11 @@ const persyaratan = [
 	"Formulir permohonan yang telah diisi"
 ];
 
-const prosedur = [
-	{
-		step: 1,
-		title: "Siapkan Persyaratan",
-		description: "Kumpulkan semua dokumen yang diperlukan dari kedua calon mempelai"
-	},
-	{
-		step: 2,
-		title: "Isi Formulir",
-		description: "Klik tombol 'Ajukan Permohonan' dan isi formulir dengan lengkap"
-	},
-	{
-		step: 3,
-		title: "Upload Dokumen",
-		description: "Upload semua dokumen persyaratan dalam format PDF atau JPG"
-	},
-	{
-		step: 4,
-		title: "Verifikasi Data",
-		description: "Tim akan memverifikasi kelengkapan dan keabsahan dokumen"
-	},
-	{
-		step: 5,
-		title: "Konfirmasi Kehadiran",
-		description: "Kedua calon mempelai diminta hadir untuk konfirmasi"
-	},
-	{
-		step: 6,
-		title: "Tunggu Persetujuan",
-		description: "Proses verifikasi membutuhkan waktu 3-7 hari kerja"
-	},
-	{
-		step: 7,
-		title: "Ambil Surat",
-		description: "Surat dapat diambil di kantor desa"
-	}
-];
+const prosedur = OFFICIAL_STANDARD_PROCEDURE.map((item) => ({
+step: item.step,
+title: item.title,
+description: item.desc,
+}));
 
 export default function SuratNikahPage() {
 	return (
@@ -87,7 +56,7 @@ export default function SuratNikahPage() {
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
 						<div className="flex items-center gap-2">
 							<FiClock className="w-4 h-4" />
-							<span className="text-sm">Estimasi: 3-7 hari kerja</span>
+							<span className="text-sm">Status: Ikuti pembaruan di menu tracking</span>
 						</div>
 						<div className="flex items-center gap-2">
 							<FiFileText className="w-4 h-4" />
@@ -150,10 +119,10 @@ export default function SuratNikahPage() {
 						<div>
 							<h3 className="font-semibold text-blue-800 mb-2">Informasi Penting</h3>
 							<ul className="text-sm text-blue-700 space-y-1">
-								<li>• Kedua calon mempelai harus hadir saat pengambilan surat</li>
-								<li>• Surat ini berlaku untuk pendaftaran nikah di KUA</li>
-								<li>• Pastikan semua data yang diisikan sudah benar dan sesuai KTP</li>
-								<li>• Jika ada perubahan data, segera hubungi petugas desa</li>
+								<li>â€¢ Kedua calon mempelai harus hadir saat verifikasi akhir dokumen</li>
+								<li>â€¢ Surat ini berlaku untuk pendaftaran nikah di KUA</li>
+								<li>â€¢ Pastikan semua data yang diisikan sudah benar dan sesuai KTP</li>
+								<li>â€¢ Jika ada perubahan data, segera hubungi petugas desa</li>
 							</ul>
 						</div>
 					</div>
@@ -188,3 +157,4 @@ export default function SuratNikahPage() {
 		</div>
 	);
 }
+
