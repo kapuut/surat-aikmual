@@ -7,6 +7,45 @@ import { getDashboardRoute } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
+function mapLoginRuntimeError(error: unknown): { status: number; message: string } {
+  const err = error as { code?: string; errno?: number; message?: string };
+  const code = String(err?.code || '');
+  const message = String(err?.message || '').toLowerCase();
+
+  if (["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "PROTOCOL_CONNECTION_LOST"].includes(code)) {
+    return {
+      status: 503,
+      message: 'Koneksi database bermasalah. Periksa konfigurasi host, port, dan jaringan.',
+    };
+  }
+
+  if (code === 'ER_ACCESS_DENIED_ERROR') {
+    return {
+      status: 503,
+      message: 'Akses database ditolak. Periksa username dan password database.',
+    };
+  }
+
+  if (code === 'ER_BAD_DB_ERROR') {
+    return {
+      status: 503,
+      message: 'Database tidak ditemukan. Periksa nama database pada environment.',
+    };
+  }
+
+  if (message.includes('illegal arguments') || message.includes('invalid salt')) {
+    return {
+      status: 500,
+      message: 'Data password akun tidak valid. Hubungi admin untuk reset password akun internal.',
+    };
+  }
+
+  return {
+    status: 500,
+    message: 'Internal server error',
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const { username, nik, password, loginType, expectedRole } = await request.json();
@@ -120,6 +159,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!process.env.JWT_SECRET) {
+      return NextResponse.json(
+        { error: 'Konfigurasi JWT_SECRET belum diatur di environment.' },
+        { status: 500 }
+      );
+    }
+
     const token = jwt.sign(
       {
         userId,
@@ -131,7 +177,7 @@ export async function POST(request: Request) {
         alamat: user.alamat,
         telepon: user.telepon,
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -169,9 +215,10 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Login error:', error);
+    const mappedError = mapLoginRuntimeError(error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: mappedError.message },
+      { status: mappedError.status }
     );
   }
 }
