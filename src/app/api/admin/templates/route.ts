@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verify } from 'jsonwebtoken';
-import { mkdir, writeFile } from 'fs/promises';
-import path from 'path';
+import { uploadFile, uniqueStoragePath } from '@/lib/storage';
 import { db } from '@/lib/db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -111,14 +110,9 @@ export async function POST(request: Request) {
     await ensureTemplateTable();
 
     const fileName = sanitizeFileName(file.name);
-    const uploadDir = path.join(process.cwd(), 'public', 'templates');
-    await mkdir(uploadDir, { recursive: true });
-
-    const filePath = path.join(uploadDir, fileName);
+    const storagePath = `templates/${fileName}`;
     const bytes = await file.arrayBuffer();
-    await writeFile(filePath, Buffer.from(bytes));
-
-    const relativePath = `/templates/${fileName}`;
+    const relativePath = await uploadFile(storagePath, Buffer.from(bytes), file.type || undefined);
 
     await db.execute(
       `

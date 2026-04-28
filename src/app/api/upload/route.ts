@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { uploadFile, uniqueStoragePath } from '@/lib/storage';
 
 // Konfigurasi upload
-const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads', 'surat');
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -45,27 +42,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Pastikan direktori upload ada
-    if (!existsSync(UPLOAD_DIR)) {
-      await mkdir(UPLOAD_DIR, { recursive: true });
-    }
-
-    // Generate nama file unik
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2);
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `${timestamp}_${randomString}.${fileExtension}`;
-
-    // Konversi file ke buffer
+    // Generate nama file unik dan simpan ke storage
+    const storagePath = uniqueStoragePath('uploads/surat', file.name || 'upload');
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-
-    // Simpan file
-    const filePath = join(UPLOAD_DIR, fileName);
-    await writeFile(filePath, buffer);
+    const fileUrl = await uploadFile(storagePath, buffer, file.type || undefined);
+    const fileName = storagePath.split('/').pop() || storagePath;
 
     // Return URL file yang dapat diakses
-    const fileUrl = `/uploads/surat/${fileName}`;
 
     return NextResponse.json({
       success: true,
@@ -100,13 +84,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const filePath = join(UPLOAD_DIR, fileName);
-
-    // Hapus file jika ada
-    if (existsSync(filePath)) {
-      const fs = require('fs').promises;
-      await fs.unlink(filePath);
-    }
+    const filePath = fileName; // kept for reference only — deletion not supported on Vercel Blob here
 
     return NextResponse.json({
       success: true,

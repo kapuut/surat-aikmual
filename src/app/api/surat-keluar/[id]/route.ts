@@ -4,8 +4,7 @@ import { db } from "@/lib/db";
 import { getUser } from "@/lib/auth";
 import { ResultSetHeader, RowDataPacket } from "mysql2";
 import { normalizeSuratSlug } from "@/lib/surat-data";
-import { access, mkdir, writeFile } from "fs/promises";
-import path from "path";
+import { uploadFile, uniqueStoragePath } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -20,7 +19,6 @@ const ALLOWED_FILE_TYPES = [
   "image/gif",
 ] as const;
 const ALLOWED_FILE_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp", "gif"] as const;
-const SURAT_KELUAR_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "surat-keluar");
 
 type RouteContext = {
   params: {
@@ -131,14 +129,6 @@ function isEligiblePermohonanForSuratKeluar(status: unknown): boolean {
   return !excludedStatuses.has(normalizedStatus);
 }
 
-function sanitizeFileName(originalName: string): string {
-  const normalized = path.basename(originalName || "surat-keluar")
-    .replace(/[^a-zA-Z0-9_.()\-\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return normalized || "surat-keluar";
-}
 
 function isAllowedUploadFile(file: File): boolean {
   const extension = file.name.split(".").pop()?.toLowerCase() || "";
@@ -150,24 +140,6 @@ function isUploadValidationError(message: string): boolean {
   return message.includes("Ukuran file") || message.includes("Format file") || message.includes("wajib diupload");
 }
 
-async function getAvailableFileName(fileName: string): Promise<string> {
-  const extension = path.extname(fileName);
-  const baseName = path.basename(fileName, extension);
-
-  let candidate = fileName;
-  let index = 1;
-
-  while (true) {
-    try {
-      await access(path.join(SURAT_KELUAR_UPLOAD_DIR, candidate));
-      candidate = `${baseName} (${index})${extension}`;
-      index += 1;
-    } catch {
-      return candidate;
-    }
-  }
-}
-
 async function saveUploadedSuratKeluar(file: File): Promise<string> {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error("Ukuran file terlalu besar. Maksimal 5MB.");
@@ -177,16 +149,9 @@ async function saveUploadedSuratKeluar(file: File): Promise<string> {
     throw new Error("Format file tidak valid. Gunakan file gambar, PDF, atau Word.");
   }
 
-  await mkdir(SURAT_KELUAR_UPLOAD_DIR, { recursive: true });
-
-  const safeFileName = sanitizeFileName(file.name || "surat-keluar.pdf");
-  const storedFileName = await getAvailableFileName(safeFileName);
-  const absolutePath = path.join(SURAT_KELUAR_UPLOAD_DIR, storedFileName);
-
+  const storagePath = uniqueStoragePath("uploads/surat-keluar", file.name || "surat-keluar.pdf");
   const bytes = await file.arrayBuffer();
-  await writeFile(absolutePath, Buffer.from(bytes));
-
-  return `/uploads/surat-keluar/${storedFileName}`;
+  return uploadFile(storagePath, Buffer.from(bytes), file.type || undefined);
 }
 
 async function authenticateRequest() {

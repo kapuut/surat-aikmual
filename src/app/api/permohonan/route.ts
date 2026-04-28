@@ -1,8 +1,7 @@
 import { db } from '@/lib/db';
 import { NextResponse, NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
-import { mkdir, writeFile } from 'fs/promises';
-import path from 'path';
+import { uploadFile, uniqueStoragePath } from '@/lib/storage';
 import { getSuratBySlug, normalizeSuratSlug } from '@/lib/surat-data';
 import { getUser } from '@/lib/auth';
 import { checkBusinessHoursWita } from '@/lib/business-hours';
@@ -33,17 +32,11 @@ type DynamicTemplateLookupRow = {
 async function saveUploadedFiles(files: File[]): Promise<string[]> {
   if (files.length === 0) return [];
 
-  const uploadDir = path.join(process.cwd(), 'public/uploads');
-  await mkdir(uploadDir, { recursive: true });
-
   return Promise.all(
     files.map(async (file) => {
       const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const filename = `${Date.now()}-${file.name}`;
-      const filepath = path.join(uploadDir, filename);
-      await writeFile(filepath, buffer);
-      return `/uploads/${filename}`;
+      const storagePath = uniqueStoragePath('uploads', file.name);
+      return uploadFile(storagePath, Buffer.from(bytes), file.type || undefined);
     })
   );
 }

@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { db } from '@/lib/db';
-import { mkdir, writeFile } from 'fs/promises';
-import path from 'path';
+import { uploadFile, uniqueStoragePath } from '@/lib/storage';
 
 export const runtime = 'nodejs';
 
@@ -31,17 +30,12 @@ function isValidPhone(phone: string): boolean {
 }
 
 async function saveIdentityFile(file: File, nik: string, label: 'ktp' | 'kk'): Promise<string> {
-  const uploadDir = path.join(process.cwd(), 'public/uploads/registrasi-identitas');
-  await mkdir(uploadDir, { recursive: true });
-
   const originalName = file.name || `${label}.pdf`;
   const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
   const filename = `${Date.now()}-${nik}-${label}-${safeName}`;
-  const filePath = path.join(uploadDir, filename);
+  const storagePath = `uploads/registrasi-identitas/${filename}`;
   const bytes = await file.arrayBuffer();
-  await writeFile(filePath, Buffer.from(bytes));
-
-  return `/uploads/registrasi-identitas/${filename}`;
+  return uploadFile(storagePath, Buffer.from(bytes), file.type || undefined);
 }
 
 async function ensureIdentityDocumentsTable() {

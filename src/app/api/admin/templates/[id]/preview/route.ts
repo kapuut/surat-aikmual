@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
 import mammoth from 'mammoth';
 import path from 'path';
-import { access, readdir } from 'fs/promises';
+import { access } from 'fs/promises';
 import { DYNAMIC_SURAT_TEMPLATES } from '@/lib/template-surat/templates';
 import { renderTemplateWithValues } from '@/lib/template-surat/render-template';
 import type { TemplateField } from '@/lib/template-surat/types';
@@ -160,40 +160,13 @@ function scoreFileByKeywords(fileName: string, keywords: string[]): number {
 }
 
 async function findClosestTemplateFile(
-  templatesDir: string,
-  jenisSurat: string,
-  templateName: string,
-  fileName: string
+  _templatesDir: string,
+  _jenisSurat: string,
+  _templateName: string,
+  _fileName: string
 ): Promise<string | null> {
-  try {
-    const entries = await readdir(templatesDir, { withFileTypes: true });
-    const files = entries
-      .filter((entry) => entry.isFile())
-      .map((entry) => entry.name)
-      .filter((name) => /\.(docx|pdf)$/i.test(name));
-
-    if (files.length === 0) return null;
-
-    const keywords = Array.from(
-      new Set([
-        ...tokenizeCandidateText(jenisSurat),
-        ...tokenizeCandidateText(templateName),
-        ...tokenizeCandidateText(fileName),
-      ])
-    );
-
-    if (keywords.length === 0) return null;
-
-    const scored = files
-      .map((name) => ({ name, score: scoreFileByKeywords(name, keywords) }))
-      .filter((item) => item.score > 0)
-      .sort((a, b) => b.score - a.score);
-
-    if (scored.length === 0) return null;
-    return scored[0].name;
-  } catch {
-    return null;
-  }
+  // On Vercel, local filesystem scanning is not available — fallback handled via DB file_path
+  return null;
 }
 
 function renderFinalStylePreview(jenisSuratRaw: string): string | null {
@@ -266,43 +239,43 @@ export async function GET(
       return NextResponse.redirect(redirectUrl);
     }
 
-    const normalizedRelativePath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
-    const templatesDir = path.join(process.cwd(), 'public', 'templates');
-    let absolutePath = path.join(process.cwd(), 'public', normalizedRelativePath);
-    const publicRoot = path.join(process.cwd(), 'public');
+    // Try to get file: if filePath is a blob URL (https://...) fetch it, else use local fs
+    let fileBuffer: Buffer | null = null;
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      try {
+        const res = await fetch(filePath);
+        if (res.ok) fileBuffer = Buffer.from(await res.arrayBuffer());
+      } catch { /* fall through to fallback */ }
+    } else {
+      const normalizedRelativePath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+      const templatesDir = path.join(process.cwd(), 'public', 'templates');
+      const absolutePath = path.join(process.cwd(), 'public', normalizedRelativePath);
+      const publicRoot = path.join(process.cwd(), 'public');
 
-    if (!absolutePath.startsWith(publicRoot)) {
-      return NextResponse.json({ error: 'Path file tidak diizinkan' }, { status: 400 });
-    }
+      if (!absolutePath.startsWith(publicRoot)) {
+        return NextResponse.json({ error: 'Path file tidak diizinkan' }, { status: 400 });
+      }
 
-    let fileExists = true;
-    try {
-      await access(absolutePath);
-    } catch {
-      fileExists = false;
-    }
+      try {
+        await access(absolutePath);
+        const fs = await import('fs/promises');
+        fileBuffer = Buffer.from(await fs.readFile(absolutePath));
+      } catch { /* file not found */ }
 
-    if (!fileExists) {
-      const closestFileName = await findClosestTemplateFile(
-        templatesDir,
-        template.jenis_surat,
-        template.nama,
-        template.file_name
-      );
-
-      if (closestFileName) {
-        const recoveredPath = path.join(templatesDir, closestFileName);
-        try {
-          await access(recoveredPath);
-          absolutePath = recoveredPath;
-          fileExists = true;
-        } catch {
-          fileExists = false;
+      if (!fileBuffer) {
+        const closestFileName = await findClosestTemplateFile(templatesDir, template.jenis_surat, template.nama, template.file_name);
+        if (closestFileName) {
+          const recoveredPath = path.join(templatesDir, closestFileName);
+          try {
+            await access(recoveredPath);
+            const fs = await import('fs/promises');
+            fileBuffer = Buffer.from(await fs.readFile(recoveredPath));
+          } catch { /* fall through */ }
         }
       }
     }
 
-    if (!fileExists) {
+    if (!fileBuffer) {
       const jenisKey = normalizeJenisValue(template.jenis_surat);
       const fallbackTemplate = DYNAMIC_SURAT_TEMPLATES.find(
         (item) => normalizeJenisValue(item.id) === jenisKey || normalizeJenisValue(item.jenisSurat) === jenisKey
@@ -330,7 +303,7 @@ export async function GET(
       );
     }
 
-    const result = await mammoth.convertToHtml({ path: absolutePath });
+    const result = await mammoth.convertToHtml({ buffer: fileBuffer });
     const notes = result.messages.map((message) => String(message.message || message.type || 'Informasi konversi'));
 
     return new NextResponse(renderDocxPreviewPage(template.nama, result.value, notes), {

@@ -396,7 +396,7 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
             className="inline-flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700"
           >
             <FiDownload className="w-4 h-4" />
-            Export Excel
+            Export
           </button>
         </div>
       </div>

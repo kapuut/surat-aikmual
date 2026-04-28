@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verify } from 'jsonwebtoken';
-import { mkdir, readdir, unlink, writeFile } from 'fs/promises';
-import path from 'path';
+import { uploadFile } from '@/lib/storage';
+import { db } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
@@ -80,28 +80,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ID tidak valid' }, { status: 400 });
     }
 
-    const signaturesDir = path.join(process.cwd(), 'public', 'uploads', 'signatures');
-    await mkdir(signaturesDir, { recursive: true });
-
-    const existingFiles = await readdir(signaturesDir);
-    const prefix = `kepala-desa-${safeUserId}.`;
-
-    for (const fileName of existingFiles) {
-      if (fileName.startsWith(prefix)) {
-        await unlink(path.join(signaturesDir, fileName));
-      }
-    }
-
-    const storedFileName = `${prefix}${fileExt}`;
+    // Use a stable path so uploading a new signature overwrites the old one (addRandomSuffix: false in storage.ts)
+    const storedFileName = `kepala-desa-${safeUserId}.${fileExt}`;
+    const storagePath = `uploads/signatures/${storedFileName}`;
     const bytes = await rawFile.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const signatureUrl = await uploadFile(storagePath, Buffer.from(bytes), fileType);
 
-    await writeFile(path.join(signaturesDir, storedFileName), buffer);
+    // Persist URL to DB so profile lookup doesn't need readdir
+    try {
+      await db.execute(
+        'ALTER TABLE users ADD COLUMN IF NOT EXISTS signature_url VARCHAR(500) NULL'
+      );
+    } catch { /* column may already exist */ }
+    await db.execute('UPDATE users SET signature_url = ? WHERE id = ?', [signatureUrl, auth.userId]);
 
     return NextResponse.json({
       success: true,
       message: 'File tanda tangan berhasil diunggah',
-      signature_url: `/uploads/signatures/${storedFileName}?t=${Date.now()}`,
+      signature_url: `${signatureUrl}?t=${Date.now()}`,
     });
   } catch (error) {
     console.error('Kepala Desa signature upload error:', error);

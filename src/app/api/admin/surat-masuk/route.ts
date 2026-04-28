@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { RowDataPacket } from "mysql2";
-import { access, mkdir, writeFile } from "fs/promises";
-import path from "path";
+import { uploadFile, uniqueStoragePath } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -16,10 +15,7 @@ const ALLOWED_FILE_TYPES = [
   "image/webp",
   "image/gif",
 ] as const;
-const ALLOWED_FILE_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp", "gif"] as const;
-const SURAT_MASUK_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "surat-masuk");
-
-type UrgensiLevel = "rendah" | "sedang" | "tinggi";
+const ALLOWED_FILE_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp", "gif"] as const
 
 function isTableMissingError(error: unknown): boolean {
   const message = String((error as { message?: string })?.message || "").toLowerCase();
@@ -45,33 +41,6 @@ function normalizeUrgensi(rawValue: unknown): UrgensiLevel {
   return "sedang";
 }
 
-function sanitizeFileName(originalName: string): string {
-  const normalized = path.basename(originalName || "surat-masuk")
-    .replace(/[^a-zA-Z0-9_.()\-\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return normalized || "surat-masuk";
-}
-
-async function getAvailableFileName(fileName: string): Promise<string> {
-  const extension = path.extname(fileName);
-  const baseName = path.basename(fileName, extension);
-
-  let candidate = fileName;
-  let index = 1;
-
-  while (true) {
-    try {
-      await access(path.join(SURAT_MASUK_UPLOAD_DIR, candidate));
-      candidate = `${baseName} (${index})${extension}`;
-      index += 1;
-    } catch {
-      return candidate;
-    }
-  }
-}
-
 function isAllowedUploadFile(file: File): boolean {
   const extension = file.name.split(".").pop()?.toLowerCase() || "";
   return ALLOWED_FILE_TYPES.includes(file.type as (typeof ALLOWED_FILE_TYPES)[number])
@@ -91,16 +60,9 @@ async function saveUploadedSuratMasuk(file: File): Promise<string> {
     throw new Error("Format file tidak valid. Gunakan file gambar, PDF, atau Word.");
   }
 
-  await mkdir(SURAT_MASUK_UPLOAD_DIR, { recursive: true });
-
-  const safeFileName = sanitizeFileName(file.name || "surat-masuk.pdf");
-  const storedFileName = await getAvailableFileName(safeFileName);
-  const absolutePath = path.join(SURAT_MASUK_UPLOAD_DIR, storedFileName);
-
+  const storagePath = uniqueStoragePath("uploads/surat-masuk", file.name || "surat-masuk.pdf");
   const bytes = await file.arrayBuffer();
-  await writeFile(absolutePath, Buffer.from(bytes));
-
-  return `/uploads/surat-masuk/${storedFileName}`;
+  return uploadFile(storagePath, Buffer.from(bytes), file.type || undefined);
 }
 
 async function ensureSuratMasukFilePathColumn() {

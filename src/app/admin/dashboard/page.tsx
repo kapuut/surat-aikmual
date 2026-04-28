@@ -29,6 +29,8 @@ export default function AdminDashboardPage() {
   const now = useMemo(() => new Date(), []);
   const [chartYear, setChartYear] = useState<string>(String(now.getFullYear()));
   const [chartMonth, setChartMonth] = useState<string>("");
+  const [chartDateFrom, setChartDateFrom] = useState<string>("");
+  const [chartDateTo, setChartDateTo] = useState<string>("");
   const [chartSort, setChartSort] = useState<"asc" | "desc" | "date_desc" | "date_asc">("desc");
   const [chartData, setChartData] = useState<Array<{ jenis_surat: string; jumlah: number }>>([]);
   const [chartYears, setChartYears] = useState<number[]>([now.getFullYear()]);
@@ -37,38 +39,70 @@ export default function AdminDashboardPage() {
   const [chartError, setChartError] = useState<string | null>(null);
 
   const pendingCount = stats?.permohonan.pending ?? 0;
-  const approvedCount = stats?.permohonan.disetujui ?? 0;
-  const draftSuratKeluar = stats?.suratKeluar.draft ?? 0;
-  const unreadSuratMasuk = stats?.suratMasuk.belumDibaca ?? 0;
+  const menungguTandaTanganCount = stats?.permohonan.menunggu_tanda_tangan ?? 0;
+  const selesaiDitandatanganiCount = stats?.permohonan.selesai_ditandatangani ?? 0;
 
   const oversightAlerts = useMemo(
     () => [
       {
-        label: "Surat masuk belum dibaca",
-        value: unreadSuratMasuk,
-        description: "Segera distribusikan ke sekretaris untuk ditindaklanjuti.",
+        label: "Permohonan baru menunggu verifikasi",
+        value: pendingCount,
+        description: "Prioritaskan validasi berkas agar antrean layanan tidak menumpuk.",
         tone: "info" as const,
       },
       {
-        label: "Permohonan menunggu verifikasi",
-        value: pendingCount,
-        description: "Pastikan sekretaris telah melengkapi berkas sebelum dikirim ke kepala desa.",
+        label: "Permohonan menunggu tanda tangan",
+        value: menungguTandaTanganCount,
+        description: "Koordinasikan dengan kepala desa agar proses legalisasi tidak tertunda.",
         tone: "warning" as const,
       },
       {
-        label: "Surat keluar masih draft",
-        value: draftSuratKeluar,
-        description: "Koordinasikan finalisasi sebelum surat disebarkan.",
+        label: "Permohonan selesai ditandatangani",
+        value: selesaiDitandatanganiCount,
+        description: "Data ini menunjukkan output layanan yang siap diarsipkan atau diserahkan.",
         tone: "neutral" as const,
       },
     ],
-    [draftSuratKeluar, pendingCount, unreadSuratMasuk]
+    [pendingCount, menungguTandaTanganCount, selesaiDitandatanganiCount]
   );
 
   const chartAxisMax = useMemo(() => {
     if (chartData.length === 0) return 0;
     return Math.max(...chartData.map((item) => item.jumlah), 0);
   }, [chartData]);
+
+  const availableChartDays = useMemo(() => {
+    if (chartMonth === "") {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const month = Number(chartMonth);
+    const fallbackYear = now.getFullYear();
+    const year = chartYear === "" ? fallbackYear : Number(chartYear);
+
+    if (!Number.isFinite(month) || month < 1 || month > 12) {
+      return Array.from({ length: 31 }, (_, index) => index + 1);
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  }, [chartMonth, chartYear, now]);
+
+  useEffect(() => {
+    if (chartDateFrom !== "") {
+      const dayFrom = Number(chartDateFrom);
+      if (!availableChartDays.includes(dayFrom)) {
+        setChartDateFrom("");
+      }
+    }
+
+    if (chartDateTo !== "") {
+      const dayTo = Number(chartDateTo);
+      if (!availableChartDays.includes(dayTo)) {
+        setChartDateTo("");
+      }
+    }
+  }, [availableChartDays, chartDateFrom, chartDateTo]);
 
   const fetchJenisSuratChart = async () => {
     try {
@@ -78,6 +112,8 @@ export default function AdminDashboardPage() {
       const params = new URLSearchParams();
       params.set("year", chartYear);
       if (chartMonth) params.set("month", chartMonth);
+      if (chartDateFrom) params.set("date_from", chartDateFrom);
+      if (chartDateTo) params.set("date_to", chartDateTo);
       params.set("sort", chartSort);
 
       const response = await fetch(`/api/stats/surat-jenis?${params.toString()}`, {
@@ -104,7 +140,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (!authorizedUser) return;
     fetchJenisSuratChart();
-  }, [authorizedUser, chartYear, chartMonth, chartSort]);
+  }, [authorizedUser, chartYear, chartMonth, chartDateFrom, chartDateTo, chartSort]);
 
   if (loading || !isAuthenticated || !authorizedUser) {
     return (
@@ -147,7 +183,37 @@ export default function AdminDashboardPage() {
               </button>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Dari</label>
+                <select
+                  value={chartDateFrom}
+                  onChange={(e) => setChartDateFrom(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Tanggal Dari</option>
+                  {availableChartDays.map((day) => (
+                    <option key={day} value={String(day)}>
+                      {day}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Sampai</label>
+                <select
+                  value={chartDateTo}
+                  onChange={(e) => setChartDateTo(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Tanggal Sampai</option>
+                  {availableChartDays.map((day) => (
+                    <option key={day} value={String(day)}>
+                      {day}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tahun</label>
                 <select

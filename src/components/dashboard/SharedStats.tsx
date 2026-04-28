@@ -22,7 +22,6 @@ export const AdminStats = memo(function AdminStats({ stats }: { stats: Dashboard
       <StatsCard
         title="Surat Masuk"
         value={stats.suratMasuk.total}
-        subtitle={`${stats.suratMasuk.belumDibaca} belum dibaca`}
         icon={<FiInbox className="w-6 h-6" />}
         color="blue"
         trend={{ value: 12, isPositive: true }}
@@ -30,7 +29,6 @@ export const AdminStats = memo(function AdminStats({ stats }: { stats: Dashboard
       <StatsCard
         title="Surat Keluar"
         value={stats.suratKeluar.total}
-        subtitle={`${stats.suratKeluar.draft} draft`}
         icon={<FiSend className="w-6 h-6" />}
         color="green"
         trend={{ value: 8, isPositive: true }}
@@ -38,7 +36,6 @@ export const AdminStats = memo(function AdminStats({ stats }: { stats: Dashboard
       <StatsCard
         title="Permohonan"
         value={stats.permohonan.total}
-        subtitle={`${stats.permohonan.pending} menunggu`}
         icon={<FiFileText className="w-6 h-6" />}
         color="yellow"
         trend={{ value: 15, isPositive: true }}
@@ -46,7 +43,6 @@ export const AdminStats = memo(function AdminStats({ stats }: { stats: Dashboard
       <StatsCard
         title="Total Users"
         value={stats.users.total}
-        subtitle={`${stats.users.aktif} aktif`}
         icon={<FiUsers className="w-6 h-6" />}
         color="purple"
         trend={{ value: 5, isPositive: true }}

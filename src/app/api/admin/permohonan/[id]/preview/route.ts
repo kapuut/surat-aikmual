@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { RowDataPacket } from 'mysql2';
-import { readdir } from 'fs/promises';
-import path from 'path';
 import { generateSuratTemplate } from '@/lib/surat-generator/template';
 import { generateNomorSurat } from '@/lib/surat-generator/nomor-surat';
 import { normalizeSuratSlug } from '@/lib/surat-data';
@@ -118,14 +116,12 @@ async function resolveKepalaDesaSignatureUrl(processedBy: unknown): Promise<stri
   const userId = Number(processedBy);
   if (!Number.isFinite(userId) || userId <= 0) return fallback;
 
-  const signaturesDir = path.join(process.cwd(), 'public', 'uploads', 'signatures');
-  const prefix = `kepala-desa-${userId}.`;
-
   try {
-    const entries = await readdir(signaturesDir, { withFileTypes: true });
-    const matched = entries.find((entry) => entry.isFile() && entry.name.startsWith(prefix));
-    if (!matched) return fallback;
-    return `/uploads/signatures/${matched.name}`;
+    const [rows]: any = await db.execute(
+      'SELECT signature_url FROM users WHERE id = ? LIMIT 1',
+      [userId]
+    );
+    return (rows as any[])?.[0]?.signature_url || fallback;
   } catch {
     return fallback;
   }

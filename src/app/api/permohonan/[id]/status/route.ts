@@ -3,8 +3,7 @@ import { NextResponse } from 'next/server';
 import { sendNotificationEmail } from '@/lib/email';
 import { cookies } from 'next/headers';
 import { getUser } from '@/lib/auth';
-import { mkdir, readdir, writeFile } from 'fs/promises';
-import path from 'path';
+import { uploadText } from '@/lib/storage';
 import QRCode from 'qrcode';
 import { createHash, createHmac } from 'crypto';
 import { generateSuratTemplate } from '@/lib/surat-generator/template';
@@ -841,31 +840,23 @@ async function saveGeneratedSuratHtml(
   nomorSurat: string,
   jenisSurat: string
 ): Promise<string> {
-  const outputDir = path.join(process.cwd(), 'public', 'generated-surat');
-  await mkdir(outputDir, { recursive: true });
-
   const safeNomor = nomorSurat.replace(/[^a-zA-Z0-9.-]+/g, '-');
   const safeJenisSurat = String(jenisSurat || 'surat').replace(/[^a-zA-Z0-9.-]+/g, '-').toLowerCase();
   const fileName = `${safeNomor}-${safeJenisSurat}.html`;
-  const absolutePath = path.join(outputDir, fileName);
-
-  await writeFile(absolutePath, htmlContent, 'utf-8');
-  return `/generated-surat/${fileName}`;
+  const storagePath = `generated-surat/${fileName}`;
+  return uploadText(storagePath, htmlContent, 'text/html');
 }
 
 async function resolveKepalaDesaSignatureUrl(userId: number | null): Promise<string> {
   const fallback = '/images/sample-ttd.png';
   if (!userId) return fallback;
 
-  const signaturesDir = path.join(process.cwd(), 'public', 'uploads', 'signatures');
-  const prefix = `kepala-desa-${userId}.`;
-
   try {
-    const entries = await readdir(signaturesDir, { withFileTypes: true });
-    const matched = entries.find((entry) => entry.isFile() && entry.name.startsWith(prefix));
-
-    if (!matched) return fallback;
-    return `/uploads/signatures/${matched.name}`;
+    const [rows]: any = await db.execute(
+      'SELECT signature_url FROM users WHERE id = ? LIMIT 1',
+      [userId]
+    );
+    return (rows as any[])?.[0]?.signature_url || fallback;
   } catch {
     return fallback;
   }

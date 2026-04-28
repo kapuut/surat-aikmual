@@ -17,12 +17,27 @@ interface SuratKeluarItem {
   source_permohonan_id?: number | null;
 }
 
+function resolveSourceType(item: SuratKeluarItem): "manual" | "permohonan" {
+  if (item.source_permohonan_id && Number(item.source_permohonan_id) > 0) {
+    return "permohonan";
+  }
+
+  if (item.source_type === "permohonan") {
+    return "permohonan";
+  }
+
+  return "manual";
+}
+
+function normalizeSourceFilter(value: string): "semua" | "manual" | "permohonan" {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "manual") return "manual";
+  if (normalized === "permohonan") return "permohonan";
+  return "semua";
+}
+
 function getReferenceId(item: SuratKeluarItem): number {
-  if (
-    item.source_type === "permohonan"
-    && item.source_permohonan_id
-    && Number(item.source_permohonan_id) > 0
-  ) {
+  if (resolveSourceType(item) === "permohonan" && item.source_permohonan_id && Number(item.source_permohonan_id) > 0) {
     return -Math.abs(Number(item.source_permohonan_id));
   }
 
@@ -130,7 +145,9 @@ export default function SuratKeluarPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch("/api/surat-keluar", { credentials: "include" });
+      const params = new URLSearchParams();
+      params.set("source", normalizeSourceFilter(selectedSourceType));
+      const response = await fetch(`/api/surat-keluar?${params.toString()}`, { credentials: "include" });
       const result = await response.json();
 
       if (!response.ok || !result?.success) {
@@ -147,7 +164,7 @@ export default function SuratKeluarPage() {
 
   useEffect(() => {
     fetchSuratKeluar();
-  }, []);
+  }, [selectedSourceType]);
 
   const formatDate = (value: string) => {
     const date = new Date(value);
@@ -172,7 +189,7 @@ export default function SuratKeluarPage() {
       setDeletingId(item.id);
       const targetId = getReferenceId(item);
       const params = new URLSearchParams();
-      if (item.source_type === "permohonan") {
+      if (resolveSourceType(item) === "permohonan") {
         params.set("source", "permohonan");
         if (item.source_permohonan_id && item.source_permohonan_id > 0) {
           params.set("permohonanId", String(item.source_permohonan_id));
@@ -213,8 +230,9 @@ export default function SuratKeluarPage() {
     const dayToMatch = dayMax === null || (day !== null && day <= dayMax);
     const monthMatch = !selectedMonth || (!!tanggalSurat && String(tanggalSurat.getMonth() + 1) === selectedMonth);
     const yearMatch = !selectedYear || (!!tanggalSurat && String(tanggalSurat.getFullYear()) === selectedYear);
-    const sourceType = item.source_type || "manual";
-    const sourceMatch = selectedSourceType === "semua" || sourceType === selectedSourceType;
+    const sourceType = resolveSourceType(item);
+    const sourceFilter = normalizeSourceFilter(selectedSourceType);
+    const sourceMatch = sourceFilter === "semua" || sourceType === sourceFilter;
 
     return searchMatch && dayFromMatch && dayToMatch && monthMatch && yearMatch && sourceMatch;
   });
@@ -229,7 +247,7 @@ export default function SuratKeluarPage() {
       Tujuan: item.tujuan,
       Perihal: item.perihal,
       Status: item.status,
-      Sumber: item.source_type === "permohonan" ? "Dari Permohonan" : "Input Manual",
+      Sumber: resolveSourceType(item) === "permohonan" ? "Dari Permohonan" : "Input Manual",
       "Nama File": getStoredFileName(item.file_path),
       "Status File": item.file_path ? "Tersedia" : "Tidak ada",
     }));
@@ -287,24 +305,25 @@ export default function SuratKeluarPage() {
   return (
     <section>
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:w-80">
+        <div className="mb-6 overflow-x-auto">
+          <div className="flex min-w-[1160px] items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+            <div className="relative w-[270px]">
               <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Cari nomor surat, tujuan, atau perihal"
-                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <select
                 value={selectedDayFrom}
                 onChange={(event) => setSelectedDayFrom(event.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="h-10 w-[126px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Tanggal Dari</option>
                 {availableDays.map((day) => (
@@ -314,7 +333,7 @@ export default function SuratKeluarPage() {
               <select
                 value={selectedDayTo}
                 onChange={(event) => setSelectedDayTo(event.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="h-10 w-[126px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Tanggal Sampai</option>
                 {availableDays.map((day) => (
@@ -324,7 +343,7 @@ export default function SuratKeluarPage() {
               <select
                 value={selectedMonth}
                 onChange={(event) => setSelectedMonth(event.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="h-10 w-[116px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Pilih Bulan</option>
                 {MONTH_OPTIONS.map((month) => (
@@ -334,7 +353,7 @@ export default function SuratKeluarPage() {
               <select
                 value={selectedYear}
                 onChange={(event) => setSelectedYear(event.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="h-10 w-[104px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Pilih Tahun</option>
                 {yearOptions.map((year) => (
@@ -343,8 +362,8 @@ export default function SuratKeluarPage() {
               </select>
               <select
                 value={selectedSourceType}
-                onChange={(event) => setSelectedSourceType(event.target.value as "semua" | "manual" | "permohonan")}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(event) => setSelectedSourceType(normalizeSourceFilter(event.target.value))}
+                className="h-10 w-[148px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="semua">Semua Sumber</option>
                 <option value="manual">Input Manual</option>
@@ -353,21 +372,22 @@ export default function SuratKeluarPage() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
             <button
               type="button"
               onClick={handleExportExcel}
-              className="rounded-lg bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700"
+              className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg bg-green-600 px-3 text-sm font-semibold text-white hover:bg-green-700"
             >
-              Export Excel
+              Export
             </button>
             <Link
               href="/admin/surat-keluar/tambah"
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+              className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Data Surat Keluar
             </Link>
           </div>
+        </div>
         </div>
 
         {/* Table */}
@@ -395,7 +415,14 @@ export default function SuratKeluarPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredSuratKeluar.map((s, i) => (
+                {filteredSuratKeluar.map((s, i) => {
+                  const sourceType = resolveSourceType(s);
+                  const sourceFilter = normalizeSourceFilter(selectedSourceType);
+                  if (sourceFilter !== "semua" && sourceType !== sourceFilter) {
+                    return null;
+                  }
+
+                  return (
                   <tr key={s.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">{i + 1}</td>
                     <td className="px-4 py-3 font-medium">{s.nomor_surat}</td>
@@ -414,7 +441,7 @@ export default function SuratKeluarPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {(s.source_type || "manual") === "permohonan" ? (
+                      {resolveSourceType(s) === "permohonan" ? (
                         <span className="inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-700">
                           Dari Permohonan
                         </span>
@@ -466,7 +493,8 @@ export default function SuratKeluarPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}

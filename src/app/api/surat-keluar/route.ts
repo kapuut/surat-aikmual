@@ -4,8 +4,7 @@ import { db } from "@/lib/db";
 import { getUser } from "@/lib/auth";
 import { ResultSetHeader, RowDataPacket } from "mysql2";
 import { normalizeSuratSlug } from "@/lib/surat-data";
-import { access, mkdir, writeFile } from "fs/promises";
-import path from "path";
+import { uploadFile, uniqueStoragePath } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -20,7 +19,6 @@ const ALLOWED_FILE_TYPES = [
   "image/gif",
 ] as const;
 const ALLOWED_FILE_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp", "gif"] as const;
-const SURAT_KELUAR_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "surat-keluar");
 
 function isUnknownColumnError(error: unknown): boolean {
   return String((error as any)?.message || "").toLowerCase().includes("unknown column");
@@ -40,15 +38,6 @@ function isGeneratedSuratFile(filePath: string | null): boolean {
   return normalized.includes("/generated-surat/") || normalized.endsWith(".html") || normalized.includes(".html?");
 }
 
-function sanitizeFileName(originalName: string): string {
-  const normalized = path.basename(originalName || "surat-keluar")
-    .replace(/[^a-zA-Z0-9_.()\-\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return normalized || "surat-keluar";
-}
-
 function isAllowedUploadFile(file: File): boolean {
   const extension = file.name.split(".").pop()?.toLowerCase() || "";
   return ALLOWED_FILE_TYPES.includes(file.type as (typeof ALLOWED_FILE_TYPES)[number])
@@ -57,24 +46,6 @@ function isAllowedUploadFile(file: File): boolean {
 
 function isUploadValidationError(message: string): boolean {
   return message.includes("Ukuran file") || message.includes("Format file") || message.includes("wajib diupload");
-}
-
-async function getAvailableFileName(fileName: string): Promise<string> {
-  const extension = path.extname(fileName);
-  const baseName = path.basename(fileName, extension);
-
-  let candidate = fileName;
-  let index = 1;
-
-  while (true) {
-    try {
-      await access(path.join(SURAT_KELUAR_UPLOAD_DIR, candidate));
-      candidate = `${baseName} (${index})${extension}`;
-      index += 1;
-    } catch {
-      return candidate;
-    }
-  }
 }
 
 async function saveUploadedSuratKeluar(file: File): Promise<string> {
@@ -86,16 +57,9 @@ async function saveUploadedSuratKeluar(file: File): Promise<string> {
     throw new Error("Format file tidak valid. Gunakan file gambar, PDF, atau Word.");
   }
 
-  await mkdir(SURAT_KELUAR_UPLOAD_DIR, { recursive: true });
-
-  const safeFileName = sanitizeFileName(file.name || "surat-keluar.pdf");
-  const storedFileName = await getAvailableFileName(safeFileName);
-  const absolutePath = path.join(SURAT_KELUAR_UPLOAD_DIR, storedFileName);
-
+  const storagePath = uniqueStoragePath("uploads/surat-keluar", file.name || "surat-keluar.pdf");
   const bytes = await file.arrayBuffer();
-  await writeFile(absolutePath, Buffer.from(bytes));
-
-  return `/uploads/surat-keluar/${storedFileName}`;
+  return uploadFile(storagePath, Buffer.from(bytes), file.type || undefined);
 }
 
 function normalizeStatus(value: unknown): "Draft" | "Menunggu" | "Terkirim" {
@@ -180,6 +144,9 @@ function createSyncKeyPrefix(nomorSurat: unknown, jenisValue: unknown): string {
 
 export async function GET(request: NextRequest) {
   try {
+    const sourceFilterRaw = String(request.nextUrl.searchParams.get("source") || "semua").trim().toLowerCase();
+    const sourceFilter = sourceFilterRaw === "manual" || sourceFilterRaw === "permohonan" ? sourceFilterRaw : "semua";
+
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value;
 
@@ -424,10 +391,20 @@ export async function GET(request: NextRequest) {
       return timeB - timeA;
     });
 
+    const filteredMergedData = mergedData.filter((item) => {
+      const normalizedSource = (item.source_permohonan_id && Number(item.source_permohonan_id) > 0)
+        || item.source_type === "permohonan"
+        ? "permohonan"
+        : "manual";
+
+      if (sourceFilter === "semua") return true;
+      return normalizedSource === sourceFilter;
+    });
+
     return NextResponse.json({
       success: true,
-      data: mergedData,
-      total: mergedData.length,
+      data: filteredMergedData,
+      total: filteredMergedData.length,
     });
   } catch (error) {
     console.error("Error fetching surat keluar:", error);

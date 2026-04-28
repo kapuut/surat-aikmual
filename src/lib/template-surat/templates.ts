@@ -140,7 +140,7 @@ export const DYNAMIC_SURAT_TEMPLATES: DynamicSuratTemplate[] = ALLOWED_SURAT_TYP
     id: suratType.slug,
     nama: `Template ${suratType.title}`,
     jenisSurat: suratType.title,
-    deskripsi: `Template HTML dinamis untuk ${suratType.description.toLowerCase()}.`,
+    deskripsi: "",
     htmlTemplate: buildTemplateHtml(metadata.judul, metadataFields),
     fields: allFields,
   };

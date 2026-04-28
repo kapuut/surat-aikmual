@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verify } from 'jsonwebtoken';
-import { readdir } from 'fs/promises';
-import path from 'path';
 import { db } from '@/lib/db';
 
 export const runtime = 'nodejs';
@@ -30,19 +28,12 @@ async function getIdField(): Promise<'id' | 'id_user'> {
 }
 
 async function getSignatureUrlForUser(userId: string): Promise<string | null> {
-  const safeUserId = safeFilePart(userId);
-  if (!safeUserId) return null;
-
-  const signaturesDir = path.join(process.cwd(), 'public', 'uploads', 'signatures');
-
   try {
-    const entries = await readdir(signaturesDir, { withFileTypes: true });
-    const matched = entries.find(
-      (entry) => entry.isFile() && entry.name.startsWith(`kepala-desa-${safeUserId}.`)
+    const [rows]: any = await db.execute(
+      'SELECT signature_url FROM users WHERE id = ? LIMIT 1',
+      [userId]
     );
-
-    if (!matched) return null;
-    return `/uploads/signatures/${matched.name}`;
+    return (rows as any[])?.[0]?.signature_url || null;
   } catch {
     return null;
   }

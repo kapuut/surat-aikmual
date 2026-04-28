@@ -43,7 +43,7 @@ type EditableTemplateField = {
   includeInIdentity: boolean;
 };
 
-type TemplateFormatMode = "naratif" | "dengan_tabel";
+type TemplateFormatMode = "dengan_tabel";
 type ParagraphTarget = "opening" | "body" | "closing";
 
 type FieldPreset = {
@@ -557,7 +557,6 @@ export default function TemplateSuratPage() {
     jenisSurat: "",
     deskripsi: "",
   });
-  const [templateFormatMode, setTemplateFormatMode] = useState<TemplateFormatMode>("dengan_tabel");
   const [openingParagraph, setOpeningParagraph] = useState(DEFAULT_OPENING_PARAGRAPH);
   const [simpleTemplateText, setSimpleTemplateText] = useState("");
   const [closingParagraph, setClosingParagraph] = useState(DEFAULT_CLOSING_PARAGRAPH);
@@ -996,7 +995,7 @@ export default function TemplateSuratPage() {
 
     const htmlTemplate = buildSimpleTemplateHtml({
       jenisSurat,
-      formatMode: templateFormatMode,
+      formatMode: "dengan_tabel",
       openingParagraph,
       bodyText: simpleTemplateText.trim(),
       closingParagraph,
@@ -1036,7 +1035,6 @@ export default function TemplateSuratPage() {
 
       setDynamicMessage("Jenis surat dinamis berhasil ditambahkan.");
       setNewDynamicTemplate({ nama: "", jenisSurat: "", deskripsi: "" });
-      setTemplateFormatMode("dengan_tabel");
       setOpeningParagraph(DEFAULT_OPENING_PARAGRAPH);
       setSimpleTemplateText("");
       setClosingParagraph(DEFAULT_CLOSING_PARAGRAPH);
@@ -1525,41 +1523,6 @@ export default function TemplateSuratPage() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="mb-2 block text-sm font-medium text-gray-700">Format Isi Surat</label>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-emerald-200 bg-white p-3">
-                  <input
-                    type="radio"
-                    name="templateFormatMode"
-                    value="dengan_tabel"
-                    checked={templateFormatMode === "dengan_tabel"}
-                    onChange={() => setTemplateFormatMode("dengan_tabel")}
-                    className="mt-1"
-                  />
-                  <span>
-                    <span className="block text-sm font-medium text-gray-800">Format Data Warga + Paragraf</span>
-                    <span className="block text-xs text-gray-600">Cocok seperti surat resmi: ada blok data warga, lalu paragraf isi.</span>
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-emerald-200 bg-white p-3">
-                  <input
-                    type="radio"
-                    name="templateFormatMode"
-                    value="naratif"
-                    checked={templateFormatMode === "naratif"}
-                    onChange={() => setTemplateFormatMode("naratif")}
-                    className="mt-1"
-                  />
-                  <span>
-                    <span className="block text-sm font-medium text-gray-800">Format Naratif Penuh</span>
-                    <span className="block text-xs text-gray-600">Semua isi dalam paragraf tanpa blok tabel data warga.</span>
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
               <label className="mb-1 block text-sm font-medium text-gray-700">Paragraf Pembuka</label>
               <textarea
                 ref={openingRef}
@@ -1668,22 +1631,20 @@ export default function TemplateSuratPage() {
                 Bagian ini biasanya berisi kalimat penutup surat.
               </p>
 
-              {templateFormatMode === "dengan_tabel" && (
-                <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
-                  <p className="text-xs font-medium text-emerald-800">Field yang masuk blok data warga:</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {identityFieldTokens.length > 0 ? (
-                      identityFieldTokens.map((field) => (
-                        <span key={`identity-${field.name}`} className="rounded-md border border-emerald-200 bg-white px-2 py-1 text-xs text-emerald-700">
-                          {field.label}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-emerald-700">Belum ada field yang dipilih untuk blok data warga.</span>
-                    )}
-                  </div>
+              <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
+                <p className="text-xs font-medium text-emerald-800">Field yang masuk blok data warga:</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {identityFieldTokens.length > 0 ? (
+                    identityFieldTokens.map((field) => (
+                      <span key={`identity-${field.name}`} className="rounded-md border border-emerald-200 bg-white px-2 py-1 text-xs text-emerald-700">
+                        {field.label}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-emerald-700">Belum ada field yang dipilih untuk blok data warga.</span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
@@ -1906,10 +1867,6 @@ export default function TemplateSuratPage() {
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">
                   {template.nama}
                 </h3>
-                
-                <p className="text-sm text-gray-600 mb-3">
-                  {template.deskripsi || '-'}
-                </p>
                 
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-sm">
