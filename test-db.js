@@ -4,10 +4,11 @@
 const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
-  host: 'localhost',
+  host: 'switchback.proxy.rlwy.net',
   user: 'root',
-  password: '',
-  database: 'db_surat',
+  password: 'iJvABOutghbumwDglDLzCxatyKdjQsSE',
+  database: 'railway',
+  port: 48124,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -27,7 +28,7 @@ async function testDatabase() {
     
     // Test login query
     const [loginRows] = await connection.execute(
-      'SELECT * FROM users WHERE (username = ? OR email = ?) AND status = "active" LIMIT 1',
+      'SELECT * FROM users WHERE (username = ? OR email = ?) AND status IN ("active", "aktif") LIMIT 1',
       ['admin', 'admin']
     );
     console.log('✅ Login query result:', loginRows);
