@@ -18,10 +18,26 @@ interface SuratMasukReportItem {
   noRegistrasi: string;
   noSurat: string;
   tanggalSurat: string;
+  tanggalTerima: string;
   pengirim: string;
   perihal: string;
   penerima: string;
 }
+
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+] as const;
 
 function parseValidDate(value: string | null | undefined): Date | null {
   if (!value) return null;
@@ -89,12 +105,15 @@ export default function LaporanSuratMasukPage() {
         const rows = Array.isArray(result?.data) ? (result.data as SuratMasukApiItem[]) : [];
         const mapped = rows.map((item, index) => {
           const idValue = Number(item.id || index + 1);
-          const tanggalIso = toIsoDate(item.tanggal_surat) || toIsoDate(item.tanggal_terima);
+          const tanggalSuratIso = toIsoDate(item.tanggal_surat);
+          const tanggalTerimaIso = toIsoDate(item.tanggal_terima);
+          const registrasiDate = tanggalTerimaIso || tanggalSuratIso;
 
           return {
-            noRegistrasi: buildRegistrasiCode("REG-IN", Number.isFinite(idValue) ? idValue : index + 1, tanggalIso),
+            noRegistrasi: buildRegistrasiCode("REG-IN", Number.isFinite(idValue) ? idValue : index + 1, registrasiDate),
             noSurat: String(item.nomor_surat || "-").trim() || "-",
-            tanggalSurat: tanggalIso,
+            tanggalSurat: tanggalSuratIso,
+            tanggalTerima: tanggalTerimaIso,
             pengirim: String(item.asal_surat || "-").trim() || "-",
             perihal: String(item.perihal || "-").trim() || "-",
             penerima: normalizePenerimaLabel(item.latest_disposisi_tujuan_label || item.latest_disposisi_tujuan || "Kantor Desa Aikmual"),
@@ -162,11 +181,11 @@ export default function LaporanSuratMasukPage() {
       surat.perihal.toLowerCase().includes(searchTerm.toLowerCase()) ||
       surat.penerima.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const tanggalSurat = parseValidDate(surat.tanggalSurat);
-    const isValidDate = Boolean(tanggalSurat);
-    const month = isValidDate ? tanggalSurat.getMonth() + 1 : null;
-    const year = isValidDate ? tanggalSurat.getFullYear() : null;
-    const day = isValidDate ? tanggalSurat.getDate() : null;
+    const tanggalAcuan = parseValidDate(surat.tanggalTerima || surat.tanggalSurat);
+    const isValidDate = Boolean(tanggalAcuan);
+    const month = isValidDate ? tanggalAcuan.getMonth() + 1 : null;
+    const year = isValidDate ? tanggalAcuan.getFullYear() : null;
+    const day = isValidDate ? tanggalAcuan.getDate() : null;
     
     const matchBulan = filterBulan === "" || 
       month === Number(filterBulan);
@@ -183,6 +202,27 @@ export default function LaporanSuratMasukPage() {
 
     return matchSearch && matchDayFrom && matchDayTo && matchBulan && matchTahun;
   });
+
+  const monthlyChartData = useMemo(() => {
+    const counts = Array.from({ length: 12 }, () => 0);
+
+    for (const item of filteredData) {
+      const date = parseValidDate(item.tanggalTerima || item.tanggalSurat);
+      if (!date) continue;
+      counts[date.getMonth()] += 1;
+    }
+
+    const maxValue = Math.max(...counts, 1);
+    return MONTH_LABELS.map((label, index) => {
+      const value = counts[index];
+      const percent = value > 0 ? Math.max((value / maxValue) * 100, 8) : 0;
+      return {
+        label,
+        value,
+        width: `${percent}%`,
+      };
+    });
+  }, [filteredData]);
 
   const handleExportExcel = () => {
     const exportRows = filteredData.map((surat, index) => ({
@@ -254,12 +294,31 @@ export default function LaporanSuratMasukPage() {
               <p className="text-2xl font-bold text-purple-600">
                 {suratMasuk.filter((s) => {
                   const currentDate = new Date();
-                  const suratDate = parseValidDate(s.tanggalSurat);
+                  const suratDate = parseValidDate(s.tanggalTerima || s.tanggalSurat);
                   if (!suratDate) return false;
                   return suratDate.getMonth() === currentDate.getMonth() && suratDate.getFullYear() === currentDate.getFullYear();
                 }).length}
               </p>
             </div>
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-800">Grafik Surat Masuk per Bulan</h3>
+          <p className="mt-1 text-xs text-gray-500">Mengikuti data yang sedang difilter.</p>
+          <div className="mt-4 space-y-2">
+            {monthlyChartData.map((item) => (
+              <div key={item.label} className="grid grid-cols-[36px_1fr_28px] items-center gap-2">
+                <span className="text-xs text-gray-500">{item.label}</span>
+                <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full bg-blue-500 transition-all"
+                    style={{ width: item.width }}
+                  />
+                </div>
+                <span className="text-right text-xs font-medium text-gray-700">{item.value}</span>
+              </div>
+            ))}
           </div>
         </div>
 

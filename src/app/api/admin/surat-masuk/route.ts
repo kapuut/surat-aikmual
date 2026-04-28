@@ -102,12 +102,55 @@ async function ensureSuratMasukPenangananColumns() {
     }
   }
 
+  // Railway can already have this column as NOT NULL from older schema.
+  // Ensure it is nullable so initial insert without handling metadata still works.
+  try {
+    await db.query(`ALTER TABLE surat_masuk MODIFY COLUMN ditangani_at DATETIME NULL`);
+  } catch {
+    // Ignore: some engines may reject no-op MODIFY depending on existing definition.
+  }
+
   try {
     await db.query(`ALTER TABLE surat_masuk ADD COLUMN ditangani_by_name VARCHAR(191) NULL AFTER ditangani_at`);
   } catch (error) {
     if (!isDuplicateColumnError(error)) {
       throw error;
     }
+  }
+
+  try {
+    await db.query(`ALTER TABLE surat_masuk ADD COLUMN ditangani_by_id VARCHAR(64) NULL AFTER ditangani_at`);
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query(`ALTER TABLE surat_masuk ADD COLUMN catatan_penanganan TEXT NULL AFTER ditangani_by_name`);
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) {
+      throw error;
+    }
+  }
+
+  // Normalize legacy strict schemas so initial insert is accepted on Railway.
+  try {
+    await db.query(`ALTER TABLE surat_masuk MODIFY COLUMN ditangani_by_id VARCHAR(64) NULL`);
+  } catch {
+    // Ignore no-op / engine-specific behavior.
+  }
+
+  try {
+    await db.query(`ALTER TABLE surat_masuk MODIFY COLUMN ditangani_by_name VARCHAR(191) NULL`);
+  } catch {
+    // Ignore no-op / engine-specific behavior.
+  }
+
+  try {
+    await db.query(`ALTER TABLE surat_masuk MODIFY COLUMN catatan_penanganan TEXT NULL`);
+  } catch {
+    // Ignore no-op / engine-specific behavior.
   }
 }
 

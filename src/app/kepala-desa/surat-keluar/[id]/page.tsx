@@ -214,7 +214,10 @@ export default function DetailKepalaDesaSuratKeluarPage() {
               </div>
             ) : (
               <p className="mt-3 inline-flex items-center gap-2 text-sm text-gray-500">
-                <FiFileText className="h-4 w-4" /> Dokumen surat belum tersedia.
+                <FiFileText className="h-4 w-4" />
+                {detail.is_auto_from_permohonan
+                  ? "Dokumen belum dibuat. Permohonan ini perlu diproses ulang oleh Admin melalui halaman Permohonan Warga."
+                  : "Dokumen surat belum tersedia."}
               </p>
             )}
           </div>
@@ -272,7 +275,9 @@ export default function DetailKepalaDesaSuratKeluarPage() {
 
             {(previewKind === "unsupported" || previewKind === "missing") && (
               <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-                File belum tersedia atau jenis file ini belum didukung untuk preview langsung.
+                {previewKind === "missing" && detail.is_auto_from_permohonan
+                  ? "Surat belum dibuat. Admin perlu memproses permohonan ini (ubah status ke Selesai) agar dokumen tersedia."
+                  : "File belum tersedia atau jenis file ini belum didukung untuk preview langsung."}
               </div>
             )}
           </div>

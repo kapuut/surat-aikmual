@@ -22,6 +22,21 @@ interface SuratKeluarReportItem {
   penerima: string;
 }
 
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+] as const;
+
 function parseValidDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const parsed = new Date(value);
@@ -174,6 +189,27 @@ export default function LaporanSuratKeluarPage() {
     return matchSearch && matchDayFrom && matchDayTo && matchBulan && matchTahun;
   });
 
+  const monthlyChartData = useMemo(() => {
+    const counts = Array.from({ length: 12 }, () => 0);
+
+    for (const item of filteredData) {
+      const date = parseValidDate(item.tanggalSurat);
+      if (!date) continue;
+      counts[date.getMonth()] += 1;
+    }
+
+    const maxValue = Math.max(...counts, 1);
+    return MONTH_LABELS.map((label, index) => {
+      const value = counts[index];
+      const percent = value > 0 ? Math.max((value / maxValue) * 100, 8) : 0;
+      return {
+        label,
+        value,
+        width: `${percent}%`,
+      };
+    });
+  }, [filteredData]);
+
   const handleExportExcel = () => {
     const exportRows = filteredData.map((surat, index) => ({
       No: index + 1,
@@ -250,6 +286,25 @@ export default function LaporanSuratKeluarPage() {
                 }).length}
               </p>
             </div>
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-800">Grafik Surat Keluar per Bulan</h3>
+          <p className="mt-1 text-xs text-gray-500">Mengikuti data yang sedang difilter.</p>
+          <div className="mt-4 space-y-2">
+            {monthlyChartData.map((item) => (
+              <div key={item.label} className="grid grid-cols-[36px_1fr_28px] items-center gap-2">
+                <span className="text-xs text-gray-500">{item.label}</span>
+                <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full bg-rose-500 transition-all"
+                    style={{ width: item.width }}
+                  />
+                </div>
+                <span className="text-right text-xs font-medium text-gray-700">{item.value}</span>
+              </div>
+            ))}
           </div>
         </div>
 

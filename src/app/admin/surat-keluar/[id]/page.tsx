@@ -149,7 +149,11 @@ export default function DetailSuratKeluarPage() {
                 <FiExternalLink className="h-4 w-4" /> Lihat file surat
               </a>
             ) : (
-              <p className="mt-2 text-sm text-gray-500">Dokumen surat belum tersedia.</p>
+              <p className="mt-2 text-sm text-gray-500">
+                {detail.is_auto_from_permohonan
+                  ? "Dokumen belum dibuat. Proses permohonan ini melalui halaman Permohonan Warga dan ubah status ke Selesai."
+                  : "Dokumen surat belum tersedia."}
+              </p>
             )}
           </div>
         </div>

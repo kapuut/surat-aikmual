@@ -243,6 +243,28 @@ async function findSuratKeluarById(id: number): Promise<RowDataPacket | null> {
   return null;
 }
 
+async function findSuratKeluarFileByNomor(nomorSurat: string, jenisSuratHint: string): Promise<string | null> {
+  const slug = normalizeSuratSlug(jenisSuratHint) || jenisSuratHint.toLowerCase().replace(/\s+/g, "-");
+  try {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT file_path, perihal FROM surat_keluar
+       WHERE nomor_surat = ? AND file_path IS NOT NULL AND file_path <> '' AND file_path <> '[]'
+       ORDER BY updated_at DESC LIMIT 10`,
+      [nomorSurat]
+    );
+    if (!rows || rows.length === 0) return null;
+    // Only return a file that matches the jenis_surat hint — avoids returning wrong document
+    const best = (rows as RowDataPacket[]).find((r) => {
+      const fp = String((r as { file_path?: unknown }).file_path || "").toLowerCase();
+      return slug && fp.includes(slug);
+    });
+    if (!best) return null;
+    return normalizeFilePath((best as { file_path?: unknown }).file_path);
+  } catch {
+    return null;
+  }
+}
+
 async function findPermohonanOutgoingById(id: number): Promise<RowDataPacket | null> {
   const queryVariants = [
     `SELECT
@@ -496,6 +518,19 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 
     const permohonan = await findPermohonanOutgoingById(Math.abs(parsedId));
     if (permohonan && isEligiblePermohonanForSuratKeluar((permohonan as { status?: unknown }).status)) {
+      // Fallback: if file_path is empty/null, try surat_keluar table by nomor_surat
+      const rawFilePath = (permohonan as { file_path?: unknown }).file_path;
+      const parsedPaths = normalizeFilePaths(rawFilePath);
+      if (parsedPaths.length === 0) {
+        const nomorSurat = String((permohonan as { nomor_surat?: unknown }).nomor_surat || "").trim();
+        const jenisSurat = String((permohonan as { jenis_surat?: unknown }).jenis_surat || "").trim();
+        if (nomorSurat) {
+          const fallbackPath = await findSuratKeluarFileByNomor(nomorSurat, jenisSurat);
+          if (fallbackPath) {
+            (permohonan as Record<string, unknown>).file_path = fallbackPath;
+          }
+        }
+      }
       return NextResponse.json({ success: true, data: mapPermohonanToSuratKeluarDetail(permohonan) });
     }
 

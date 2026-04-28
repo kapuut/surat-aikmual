@@ -92,6 +92,7 @@ export default function SuratMasukPage() {
   const [suratMasuk, setSuratMasuk] = useState<SuratMasuk[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SuratMasuk | null>(null);
   const [alert, setAlert] = useState<{ type: AlertType; message: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
@@ -175,11 +176,6 @@ export default function SuratMasukPage() {
   };
 
   const handleDelete = async (id: number) => {
-    const confirmed = window.confirm("Apakah Anda yakin ingin menghapus surat masuk ini?");
-    if (!confirmed) {
-      return;
-    }
-
     try {
       setDeletingId(id);
       setAlert(null);
@@ -208,6 +204,31 @@ export default function SuratMasukPage() {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const openDeleteDialog = (item: SuratMasuk) => {
+    if (deletingId !== null) {
+      return;
+    }
+
+    setDeleteTarget(item);
+  };
+
+  const closeDeleteDialog = () => {
+    if (deletingId !== null) {
+      return;
+    }
+
+    setDeleteTarget(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    await handleDelete(deleteTarget.id);
+    setDeleteTarget(null);
   };
 
   const handleExportExcel = () => {
@@ -447,7 +468,7 @@ export default function SuratMasukPage() {
                         </Link>
                         <button
                           type="button"
-                          onClick={() => handleDelete(s.id)}
+                          onClick={() => openDeleteDialog(s)}
                           disabled={deletingId === s.id}
                           className="aksi-btn aksi-btn-delete"
                         >
@@ -461,6 +482,37 @@ export default function SuratMasukPage() {
             </table>
           )}
         </div>
+
+        {deleteTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+              <h3 className="text-lg font-semibold text-gray-900">Konfirmasi Hapus</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Apakah Anda yakin ingin menghapus surat masuk
+                <span className="font-semibold text-gray-800"> {deleteTarget.nomor_surat}</span>?
+              </p>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeDeleteDialog}
+                  disabled={deletingId !== null}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  disabled={deletingId !== null}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deletingId !== null ? "Menghapus..." : "Ya, Hapus"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </section>
   );
 }
