@@ -60,6 +60,11 @@ const MONTH_OPTIONS = [
   { value: "12", label: "Desember" },
 ] as const;
 
+const MONTH_LABELS = MONTH_OPTIONS.reduce<Record<string, string>>((acc, month) => {
+  acc[month.value] = month.label;
+  return acc;
+}, {});
+
 function buildYearOptions() {
   const startYear = 2016;
   const currentYear = new Date().getFullYear();
@@ -239,6 +244,45 @@ export default function SuratKeluarPage() {
 
   const hasFilter = Boolean(normalizedSearchTerm || selectedMonth || selectedYear || selectedDayFrom || selectedDayTo || selectedSourceType !== "semua");
 
+  const filterSummaryText = useMemo(() => {
+    const monthLabel = selectedMonth ? (MONTH_LABELS[selectedMonth] || `Bulan ${selectedMonth}`) : "semua bulan";
+    const yearLabel = selectedYear || "semua tahun";
+
+    let dayLabel = "semua tanggal";
+    if (selectedDayFrom && selectedDayTo) {
+      const from = Number(selectedDayFrom);
+      const to = Number(selectedDayTo);
+      const min = Number.isFinite(from) && Number.isFinite(to) ? Math.min(from, to) : selectedDayFrom;
+      const max = Number.isFinite(from) && Number.isFinite(to) ? Math.max(from, to) : selectedDayTo;
+      dayLabel = `tanggal ${min} sampai ${max}`;
+    } else if (selectedDayFrom) {
+      dayLabel = `tanggal mulai ${selectedDayFrom}`;
+    } else if (selectedDayTo) {
+      dayLabel = `tanggal sampai ${selectedDayTo}`;
+    }
+
+    const sourceLabel =
+      selectedSourceType === "manual"
+        ? "input manual"
+        : selectedSourceType === "permohonan"
+        ? "dari permohonan"
+        : "semua sumber";
+
+    const parts: string[] = [];
+    if (selectedDayFrom && selectedDayTo) {
+      parts.push(`tanggal ${Math.min(Number(selectedDayFrom), Number(selectedDayTo))}\u2013${Math.max(Number(selectedDayFrom), Number(selectedDayTo))}`);
+    } else if (selectedDayFrom) {
+      parts.push(`tanggal ${selectedDayFrom}`);
+    } else if (selectedDayTo) {
+      parts.push(`tanggal s/d ${selectedDayTo}`);
+    }
+    if (selectedMonth) parts.push(monthLabel);
+    if (selectedYear) parts.push(`tahun ${selectedYear}`);
+    if (selectedSourceType !== "" && selectedSourceType !== "semua") parts.push(sourceLabel);
+    const desc = parts.length > 0 ? parts.join(' ') : 'semua waktu';
+    return `Jumlah data dari ${desc} = ${filteredSuratKeluar.length} data`;
+  }, [filteredSuratKeluar.length, selectedDayFrom, selectedDayTo, selectedMonth, selectedSourceType, selectedYear]);
+
   const handleExportExcel = () => {
     const exportRows = filteredSuratKeluar.map((item, index) => ({
       No: index + 1,
@@ -389,6 +433,12 @@ export default function SuratKeluarPage() {
           </div>
         </div>
         </div>
+
+        {hasFilter && (
+          <p className="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-base font-bold text-blue-900">
+            {filterSummaryText}
+          </p>
+        )}
 
         {/* Table */}
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">

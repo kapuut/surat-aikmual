@@ -28,6 +28,7 @@ export default function AdminProfilePage() {
   const [profile, setProfile] = useState<AdminProfile | null>(null);
 
   const [nama, setNama] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [alamat, setAlamat] = useState("");
   const [telepon, setTelepon] = useState("");
@@ -65,6 +66,7 @@ export default function AdminProfilePage() {
       const fetchedProfile = data.profile as AdminProfile;
       setProfile(fetchedProfile);
       setNama(fetchedProfile.nama || "");
+      setUsername(fetchedProfile.username || "");
       setEmail(fetchedProfile.email || "");
       setAlamat(String(fetchedProfile.alamat || ""));
       setTelepon(String(fetchedProfile.telepon || ""));
@@ -98,6 +100,7 @@ export default function AdminProfilePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          username,
           nama,
           email,
           alamat,
@@ -210,6 +213,16 @@ export default function AdminProfilePage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              required
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nama</label>
             <input

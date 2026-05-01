@@ -189,6 +189,21 @@ export default function LaporanSuratKeluarPage() {
     return matchSearch && matchDayFrom && matchDayTo && matchBulan && matchTahun;
   });
 
+  const filterDescription = useMemo(() => {
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const parts: string[] = [];
+    if (filterTanggalDari && filterTanggalSampai) {
+      parts.push(`tanggal ${filterTanggalDari}–${filterTanggalSampai}`);
+    } else if (filterTanggalDari) {
+      parts.push(`tanggal ${filterTanggalDari}`);
+    } else if (filterTanggalSampai) {
+      parts.push(`tanggal s/d ${filterTanggalSampai}`);
+    }
+    if (filterBulan) parts.push(months[Number(filterBulan) - 1] || filterBulan);
+    if (filterTahun) parts.push(`tahun ${filterTahun}`);
+    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
+  }, [filterTahun, filterBulan, filterTanggalDari, filterTanggalSampai]);
+
   const monthlyChartData = useMemo(() => {
     const counts = Array.from({ length: 12 }, () => 0);
 
@@ -290,9 +305,13 @@ export default function LaporanSuratKeluarPage() {
         </div>
 
         <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-800">Grafik Surat Keluar per Bulan</h3>
+          <h3 className="text-sm font-semibold text-gray-800">Grafik Surat Keluar per Bulan {filterTahun || new Date().getFullYear()}</h3>
           <p className="mt-1 text-xs text-gray-500">Mengikuti data yang sedang difilter.</p>
           <div className="mt-4 space-y-2">
+            <div className="grid grid-cols-[36px_1fr_28px] items-center gap-2">
+              <span></span><span></span>
+              <span className="text-right text-[10px] font-semibold uppercase tracking-wide text-gray-400">Total</span>
+            </div>
             {monthlyChartData.map((item) => (
               <div key={item.label} className="grid grid-cols-[36px_1fr_28px] items-center gap-2">
                 <span className="text-xs text-gray-500">{item.label}</span>
@@ -392,7 +411,7 @@ export default function LaporanSuratKeluarPage() {
         {/* Action Buttons */}
         <div className="flex items-center justify-between mb-6">
           <div className="text-sm text-gray-600">
-            Menampilkan {filteredData.length} dari {suratKeluar.length} data
+            Jumlah data dari {filterDescription} = {filteredData.length} data
           </div>
           
           <button 

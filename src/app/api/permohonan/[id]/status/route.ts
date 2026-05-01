@@ -504,7 +504,8 @@ function buildDynamicTemplateValuesForGeneration(
   permohonan: PermohonanRow,
   detailData: DetailData,
   nomorSurat: string,
-  tanggalSurat: Date
+  tanggalSurat: Date,
+  signerName?: string
 ): Record<string, string> {
   const createdAtDate = asDate(permohonan.created_at) || tanggalSurat;
   const values: Record<string, string> = {
@@ -514,7 +515,7 @@ function buildDynamicTemplateValuesForGeneration(
     keperluan: String(permohonan.keperluan || '-').trim() || '-',
     jenis_surat: String(permohonan.jenis_surat || '').trim(),
     tanggal_permohonan: formatDateIndonesian(createdAtDate),
-    ...buildOfficialDynamicSystemValues(formatDateIndonesian(tanggalSurat), nomorSurat),
+    ...buildOfficialDynamicSystemValues(formatDateIndonesian(tanggalSurat), nomorSurat, signerName),
   };
 
   for (const [key, rawValue] of Object.entries(detailData)) {
@@ -847,16 +848,57 @@ async function saveGeneratedSuratHtml(
   return uploadText(storagePath, htmlContent, 'text/html');
 }
 
-async function resolveKepalaDesaSignatureUrl(userId: number | null): Promise<string> {
-  const fallback = '/images/sample-ttd.png';
-  if (!userId) return fallback;
+async function resolveUserIdFieldForLookup(): Promise<'id' | 'id_user'> {
+  try {
+    const [columnsRaw] = await db.query<any[]>('SHOW COLUMNS FROM users');
+    const columns = Array.isArray(columnsRaw) ? columnsRaw : [];
+    const columnSet = new Set(columns.map((item: any) => String(item?.Field || '')));
+    return columnSet.has('id') ? 'id' : 'id_user';
+  } catch {
+    return 'id';
+  }
+}
+
+async function resolveKepalaDesaSigner(userId: number | null): Promise<{ nama: string; signatureUrl: string }> {
+  const fallback = { nama: 'Kepala Desa', signatureUrl: '/images/sample-ttd.png' };
 
   try {
-    const [rows]: any = await db.execute(
-      'SELECT signature_url FROM users WHERE id = ? LIMIT 1',
-      [userId]
+    const idField = await resolveUserIdFieldForLookup();
+
+    if (userId && Number.isFinite(userId) && userId > 0) {
+      const [byActorRows]: any = await db.execute(
+        `SELECT nama, signature_url FROM users WHERE ${idField} = ? AND role = 'kepala_desa' LIMIT 1`,
+        [userId]
+      );
+      const byActor = (byActorRows as any[])?.[0];
+      const byActorName = String(byActor?.nama || '').trim();
+      const byActorSignature = String(byActor?.signature_url || '').trim();
+      if (byActorName || byActorSignature) {
+        return {
+          nama: byActorName || fallback.nama,
+          signatureUrl: byActorSignature || fallback.signatureUrl,
+        };
+      }
+    }
+
+    const [kepalaDesaRows]: any = await db.execute(
+      `SELECT nama, signature_url
+       FROM users
+       WHERE role = 'kepala_desa'
+       ORDER BY
+         CASE WHEN LOWER(TRIM(status)) IN ('aktif','active') THEN 0 ELSE 1 END,
+         updated_at DESC
+       LIMIT 1`
     );
-    return (rows as any[])?.[0]?.signature_url || fallback;
+
+    const kepalaDesa = (kepalaDesaRows as any[])?.[0];
+    const signerName = String(kepalaDesa?.nama || '').trim();
+    const signerSignature = String(kepalaDesa?.signature_url || '').trim();
+
+    return {
+      nama: signerName || fallback.nama,
+      signatureUrl: signerSignature || fallback.signatureUrl,
+    };
   } catch {
     return fallback;
   }
@@ -941,12 +983,18 @@ export async function PUT(
     const shouldGenerateSurat = ['dikirim_ke_kepala_desa', 'ditandatangani', 'selesai'].includes(normalizedStatus);
 
     if (shouldGenerateSurat) {
+      const signerInfo = await resolveKepalaDesaSigner(processedBy);
       const detailData = parseDetailData(permohonan.data_detail);
       const jenisSurat = toJenisSurat(permohonan.jenis_surat);
       const dynamicTemplateId = asText(detailData.dynamic_template_id);
-      const dynamicTemplate = jenisSurat
-        ? null
-        : await findDynamicTemplateForGeneration(permohonan.jenis_surat, dynamicTemplateId);
+      // For static surat types, check if admin has saved a DB override template
+      const staticDbOverride = jenisSurat
+        ? await findDynamicTemplateForGeneration(permohonan.jenis_surat, jenisSurat)
+        : null;
+      const dynamicTemplate = staticDbOverride
+        || (jenisSurat
+          ? null
+          : await findDynamicTemplateForGeneration(permohonan.jenis_surat, dynamicTemplateId));
 
       const tanggalSurat = new Date();
       const generatedJenisSuratKey = jenisSurat || dynamicTemplate?.id || permohonan.jenis_surat;
@@ -959,12 +1007,18 @@ export async function PUT(
       const shouldEmbedSignature = ['ditandatangani', 'selesai'].includes(normalizedStatus);
       const shouldRegenerateSurat = !generatedFilePath || shouldEmbedSignature;
 
-      if (!jenisSurat) {
+      if (!jenisSurat || staticDbOverride) {
         if (shouldRegenerateSurat) {
-          const renderValues = buildDynamicTemplateValuesForGeneration(permohonan, detailData, nomorSurat, tanggalSurat);
+          const renderValues = buildDynamicTemplateValuesForGeneration(
+            permohonan,
+            detailData,
+            nomorSurat,
+            tanggalSurat,
+            signerInfo.nama
+          );
 
           if (shouldEmbedSignature) {
-            const signatureImageUrl = await resolveKepalaDesaSignatureUrl(processedBy);
+            const signatureImageUrl = signerInfo.signatureUrl;
             const qr = await createPermohonanQrCode({
               id: Number(params.id),
               nomorSurat,
@@ -1384,7 +1438,7 @@ export async function PUT(
         let signatureImageUrl: string | undefined;
 
         if (shouldEmbedSignature) {
-          signatureImageUrl = await resolveKepalaDesaSignatureUrl(processedBy);
+          signatureImageUrl = signerInfo.signatureUrl;
           const qr = await createPermohonanQrCode({
             id: Number(params.id),
             nomorSurat,
@@ -1524,7 +1578,7 @@ export async function PUT(
               }
             : undefined,
           kepalaDesa: {
-            nama: 'KEPALA DESA AIKMUAL',
+            nama: signerInfo.nama,
             signatureImageUrl: shouldEmbedSignature ? signatureImageUrl : undefined,
             qrCodeDataUrl,
             verificationCode,
@@ -1553,14 +1607,19 @@ export async function PUT(
       const cleanKeperluan = normalizePerihalArchiveDetail(permohonan.keperluan);
       const perihal = `${permohonan.jenis_surat}${cleanKeperluan ? ` - ${cleanKeperluan}` : ''}`;
 
-      await upsertSuratKeluarArchive(connection, {
-        nomorSurat,
-        perihal,
-        tujuan,
-        filePath: generatedFilePath,
-        createdBy: processedBy,
-        tanggal: tanggalArsip,
-      });
+      try {
+        await upsertSuratKeluarArchive(connection, {
+          nomorSurat,
+          perihal,
+          tujuan,
+          filePath: generatedFilePath,
+          createdBy: processedBy,
+          tanggal: tanggalArsip,
+        });
+      } catch (archiveError) {
+        // Jangan gagalkan alur verifikasi/TTD ketika sinkronisasi arsip mengalami mismatch skema.
+        console.warn('Sinkronisasi surat_keluar gagal (best-effort):', archiveError);
+      }
     }
 
     await connection.commit();
@@ -1640,8 +1699,11 @@ export async function PUT(
       // ignore rollback error
     }
     console.error('Gagal mengupdate status permohonan:', error);
+    const detailMessage = error instanceof Error && error.message
+      ? error.message
+      : 'Gagal mengupdate status';
     return NextResponse.json(
-      { error: 'Gagal mengupdate status' },
+      { error: detailMessage },
       { status: 500 }
     );
   } finally {

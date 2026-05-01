@@ -595,17 +595,17 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
               </div>
             </section>
 
-            <div className="flex gap-4">
+            <div className="flex justify-end gap-3">
               <Link
                 href={backHref}
-                className="flex-1 rounded-lg border border-gray-300 px-6 py-3 text-center font-medium text-gray-700 transition duration-200 hover:bg-gray-50"
+                className="rounded-lg border border-gray-300 px-5 py-2.5 text-center text-sm font-medium text-gray-700 transition duration-200 hover:bg-gray-50"
               >
                 Batal
               </Link>
               <button
                 type="submit"
                 disabled={submitting || loadingAuth || !akunNik}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-500 px-6 py-3 font-bold text-white transition duration-200 hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center justify-center gap-2 rounded-lg bg-green-500 px-5 py-2.5 text-sm font-bold text-white transition duration-200 hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting || loadingAuth ? (
                   "Mengirim..."

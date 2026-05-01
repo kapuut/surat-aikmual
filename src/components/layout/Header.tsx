@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: "Beranda", href: "/#beranda" },
   { label: "Permohonan Surat", href: "/#layanan" },
   { label: "Alur Pengajuan", href: "/#alur-pengajuan" },
+  { label: "Informasi", href: "/#informasi" },
   { label: "Lacak Surat", href: "/tracking" },
   { label: "Kontak", href: "https://wa.me/6285253271360", external: true },
 ] as const;

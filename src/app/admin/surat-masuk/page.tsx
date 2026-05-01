@@ -34,6 +34,11 @@ const MONTH_OPTIONS = [
   { value: "12", label: "Desember" },
 ] as const;
 
+const MONTH_LABELS = MONTH_OPTIONS.reduce<Record<string, string>>((acc, month) => {
+  acc[month.value] = month.label;
+  return acc;
+}, {});
+
 function buildYearOptions() {
   const startYear = 2016;
   const currentYear = new Date().getFullYear();
@@ -316,6 +321,26 @@ export default function SuratMasukPage() {
 
   const hasFilter = Boolean(normalizedSearchTerm || selectedMonth || selectedYear || selectedDayFrom || selectedDayTo);
 
+  const filterSummaryText = useMemo(() => {
+    const monthLabel = selectedMonth ? (MONTH_LABELS[selectedMonth] || `Bulan ${selectedMonth}`) : "semua bulan";
+    const yearLabel = selectedYear || "semua tahun";
+
+    let dayLabel = "semua tanggal";
+    if (selectedDayFrom && selectedDayTo) {
+      const from = Number(selectedDayFrom);
+      const to = Number(selectedDayTo);
+      const min = Number.isFinite(from) && Number.isFinite(to) ? Math.min(from, to) : selectedDayFrom;
+      const max = Number.isFinite(from) && Number.isFinite(to) ? Math.max(from, to) : selectedDayTo;
+      dayLabel = `tanggal ${min} sampai ${max}`;
+    } else if (selectedDayFrom) {
+      dayLabel = `tanggal mulai ${selectedDayFrom}`;
+    } else if (selectedDayTo) {
+      dayLabel = `tanggal sampai ${selectedDayTo}`;
+    }
+
+    return `Jumlah data pada ${dayLabel}, ${monthLabel}, ${yearLabel} adalah ${filteredSuratMasuk.length} surat masuk.`;
+  }, [filteredSuratMasuk.length, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear]);
+
   return (
     <section>
         {alert && (
@@ -404,6 +429,12 @@ export default function SuratMasukPage() {
             </Link>
           </div>
         </div>
+
+        {hasFilter && (
+          <p className="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-base font-bold text-blue-900">
+            {filterSummaryText}
+          </p>
+        )}
 
         {/* Table */}
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">

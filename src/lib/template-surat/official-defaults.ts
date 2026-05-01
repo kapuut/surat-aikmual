@@ -59,7 +59,12 @@ export function buildOfficialDynamicRequirements(requiredFields: string[]): stri
   ];
 }
 
-export function buildOfficialDynamicSystemValues(tanggalSurat: string, nomorSurat: string): Record<string, string> {
+export function buildOfficialDynamicSystemValues(
+  tanggalSurat: string,
+  nomorSurat: string,
+  namaKepalaDesa?: string
+): Record<string, string> {
+  const resolvedNama = (namaKepalaDesa || '').trim() || OFFICIAL_DYNAMIC_SURAT_CONTEXT.namaKepalaDesa;
   return {
     nomor_surat: nomorSurat,
     tanggal_surat: tanggalSurat,
@@ -68,6 +73,6 @@ export function buildOfficialDynamicSystemValues(tanggalSurat: string, nomorSura
     kecamatan: OFFICIAL_DYNAMIC_SURAT_CONTEXT.kecamatan,
     kabupaten: OFFICIAL_DYNAMIC_SURAT_CONTEXT.kabupaten,
     provinsi: OFFICIAL_DYNAMIC_SURAT_CONTEXT.provinsi,
-    nama_kepala_desa: OFFICIAL_DYNAMIC_SURAT_CONTEXT.namaKepalaDesa,
+    nama_kepala_desa: resolvedNama.toUpperCase(),
   };
 }

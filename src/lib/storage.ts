@@ -24,15 +24,23 @@ export async function uploadFile(
   contentType?: string
 ): Promise<string> {
   if (USE_BLOB) {
-    const blob = await put(storagePath, buffer, {
-      access: 'public',
-      contentType,
-      addRandomSuffix: false,
-    });
-    return blob.url;
+    try {
+      const blob = await put(storagePath, buffer, {
+        access: 'public',
+        contentType,
+        addRandomSuffix: false,
+      });
+      return blob.url;
+    } catch (blobErr) {
+      // Vercel Blob unavailable (e.g. store deleted or token invalid) — fallback to local
+      console.warn(
+        '[storage] Vercel Blob unavailable, falling back to local:',
+        blobErr instanceof Error ? blobErr.message : String(blobErr)
+      );
+    }
   }
 
-  // Local dev — write to public/ folder
+  // Local dev / fallback — write to public/ folder
   const localPath = path.join(process.cwd(), 'public', storagePath);
   await mkdir(path.dirname(localPath), { recursive: true });
   await writeFile(localPath, buffer);

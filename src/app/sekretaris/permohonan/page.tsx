@@ -238,6 +238,21 @@ export default function SekretarisPermohonanPage() {
     });
   }, [permohonan, archiveCategory, searchTerm, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear]);
 
+  const filterDescription = useMemo(() => {
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const parts: string[] = [];
+    if (selectedDayFrom && selectedDayTo) {
+      parts.push(`tanggal ${selectedDayFrom}–${selectedDayTo}`);
+    } else if (selectedDayFrom) {
+      parts.push(`tanggal ${selectedDayFrom}`);
+    } else if (selectedDayTo) {
+      parts.push(`tanggal s/d ${selectedDayTo}`);
+    }
+    if (selectedMonth) parts.push(months[Number(selectedMonth) - 1] || selectedMonth);
+    if (selectedYear) parts.push(`tahun ${selectedYear}`);
+    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
+  }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
+
   const stats = {
     menungguVerifikasi: permohonan.filter((p) => p.status === "pending" || p.status === "diproses").length,
     dikirimKeKepala: permohonan.filter((p) => p.status === "dikirim_ke_kepala_desa").length,
@@ -312,26 +327,6 @@ export default function SekretarisPermohonanPage() {
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           />
           <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Semua Bulan</option>
-            <option value="1">Januari</option>
-            <option value="2">Februari</option>
-            <option value="3">Maret</option>
-            <option value="4">April</option>
-            <option value="5">Mei</option>
-            <option value="6">Juni</option>
-            <option value="7">Juli</option>
-            <option value="8">Agustus</option>
-            <option value="9">September</option>
-            <option value="10">Oktober</option>
-            <option value="11">November</option>
-            <option value="12">Desember</option>
-          </select>
-
-          <select
             value={selectedDayFrom}
             onChange={(e) => setSelectedDayFrom(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -351,6 +346,26 @@ export default function SekretarisPermohonanPage() {
             {availableDays.map((day) => (
               <option key={day} value={String(day)}>{day}</option>
             ))}
+          </select>
+
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Semua Bulan</option>
+            <option value="1">Januari</option>
+            <option value="2">Februari</option>
+            <option value="3">Maret</option>
+            <option value="4">April</option>
+            <option value="5">Mei</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">Agustus</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
           </select>
 
           <select
@@ -378,7 +393,7 @@ export default function SekretarisPermohonanPage() {
       </div>
 
       <div className="mb-4 text-sm text-gray-600">
-        Menampilkan {filteredPermohonan.length} data berdasarkan filter yang dipilih
+        Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
       </div>
 
       {/* Table */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FiInbox, FiDownload, FiEye, FiSend, FiUserCheck } from "react-icons/fi";
 
@@ -71,6 +71,30 @@ export default function KepalaDesaSuratMasukPage() {
   const [disposisiTarget, setDisposisiTarget] = useState<SuratMasukItem | null>(null);
   const [tujuanLanjutan, setTujuanLanjutan] = useState<string>("");
   const [catatanDisposisi, setCatatanDisposisi] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedDayFrom, setSelectedDayFrom] = useState("");
+  const [selectedDayTo, setSelectedDayTo] = useState("");
+
+  const MONTH_OPTIONS = [
+    { value: "1", label: "Januari" }, { value: "2", label: "Februari" },
+    { value: "3", label: "Maret" }, { value: "4", label: "April" },
+    { value: "5", label: "Mei" }, { value: "6", label: "Juni" },
+    { value: "7", label: "Juli" }, { value: "8", label: "Agustus" },
+    { value: "9", label: "September" }, { value: "10", label: "Oktober" },
+    { value: "11", label: "November" }, { value: "12", label: "Desember" },
+  ];
+
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: currentYear - 2016 + 1 }, (_, i) => String(currentYear - i));
+
+  const availableDays = useMemo(() => {
+    if (selectedMonth === "") return Array.from({ length: 31 }, (_, i) => i + 1);
+    const month = Number(selectedMonth);
+    const year = selectedYear === "" ? currentYear : Number(selectedYear);
+    if (!Number.isFinite(month) || month < 1 || month > 12) return Array.from({ length: 31 }, (_, i) => i + 1);
+    return Array.from({ length: new Date(year, month, 0).getDate() }, (_, i) => i + 1);
+  }, [selectedMonth, selectedYear, currentYear]);
 
   useEffect(() => {
     const fetchSuratMasuk = async () => {
@@ -104,6 +128,38 @@ export default function KepalaDesaSuratMasukPage() {
       month: "long",
       year: "numeric",
     });
+
+  const filteredSuratMasuk = useMemo(() => {
+    return suratMasuk.filter((item) => {
+      const tanggal = new Date(item.tanggal_terima);
+      if (isNaN(tanggal.getTime())) return true;
+      const day = tanggal.getDate();
+      const parsedFrom = selectedDayFrom === "" ? null : Number(selectedDayFrom);
+      const parsedTo = selectedDayTo === "" ? null : Number(selectedDayTo);
+      const dayMin = parsedFrom !== null && parsedTo !== null ? Math.min(parsedFrom, parsedTo) : parsedFrom;
+      const dayMax = parsedFrom !== null && parsedTo !== null ? Math.max(parsedFrom, parsedTo) : parsedTo;
+      const dayFromOk = dayMin === null || day >= dayMin;
+      const dayToOk = dayMax === null || day <= dayMax;
+      const monthOk = !selectedMonth || String(tanggal.getMonth() + 1) === selectedMonth;
+      const yearOk = !selectedYear || String(tanggal.getFullYear()) === selectedYear;
+      return dayFromOk && dayToOk && monthOk && yearOk;
+    });
+  }, [suratMasuk, selectedMonth, selectedYear, selectedDayFrom, selectedDayTo]);
+
+  const filterDescription = useMemo(() => {
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const parts: string[] = [];
+    if (selectedDayFrom && selectedDayTo) {
+      parts.push(`tanggal ${selectedDayFrom}\u2013${selectedDayTo}`);
+    } else if (selectedDayFrom) {
+      parts.push(`tanggal ${selectedDayFrom}`);
+    } else if (selectedDayTo) {
+      parts.push(`tanggal s/d ${selectedDayTo}`);
+    }
+    if (selectedMonth) parts.push(months[Number(selectedMonth) - 1] || selectedMonth);
+    if (selectedYear) parts.push(`tahun ${selectedYear}`);
+    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
+  }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
 
   const openDisposisiDialog = (item: SuratMasukItem) => {
     setDisposisiTarget(item);
@@ -196,11 +252,58 @@ export default function KepalaDesaSuratMasukPage() {
           </div>
         )}
 
+        <div className="mb-4 flex flex-wrap gap-2">
+          <select
+            value={selectedDayFrom}
+            onChange={(e) => setSelectedDayFrom(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Tanggal Dari</option>
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>{day}</option>
+            ))}
+          </select>
+          <select
+            value={selectedDayTo}
+            onChange={(e) => setSelectedDayTo(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Tanggal Sampai</option>
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>{day}</option>
+            ))}
+          </select>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Pilih Bulan</option>
+            {MONTH_OPTIONS.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Pilih Tahun</option>
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+
+        <p className="mb-3 text-sm text-gray-600">
+          <span className="font-medium">Jumlah data dari {filterDescription} = {filteredSuratMasuk.length} data</span>
+        </p>
+
         {loading ? (
           <div className="py-8 text-center text-gray-500">Memuat data surat masuk...</div>
         ) : error ? (
           <div className="py-8 text-center text-red-600">{error}</div>
-        ) : suratMasuk.length === 0 ? (
+        ) : filteredSuratMasuk.length === 0 ? (
           <div className="py-8 text-center text-gray-500">Belum ada data surat masuk.</div>
         ) : (
           <table className="min-w-full text-sm">
@@ -218,7 +321,7 @@ export default function KepalaDesaSuratMasukPage() {
               </tr>
             </thead>
             <tbody>
-              {suratMasuk.map((surat, i) => (
+              {filteredSuratMasuk.map((surat, i) => (
                 <tr key={surat.id} className="border-b hover:bg-gray-50">
                   <td className="px-4 py-3">{i + 1}</td>
                   <td className="px-4 py-3 font-medium">{surat.nomor_surat}</td>

@@ -214,7 +214,7 @@ export default function UserDashboardLayout({ children, onLogout }: UserDashboar
               <span className="w-7 h-7 rounded-full bg-slate-900 text-white text-xs font-semibold flex items-center justify-center">
                 {initials || 'MS'}
               </span>
-              <span className="flex h-7 max-w-[180px] items-center truncate text-xs font-medium text-gray-700 leading-none">{userName}</span>
+              <span className="hidden sm:flex h-7 max-w-[180px] items-center truncate text-xs font-medium text-gray-700 leading-none">{userName}</span>
               <FiChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
 

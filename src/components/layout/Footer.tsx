@@ -5,9 +5,9 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer id="kontak" className="mt-auto border-t border-gray-200 bg-white text-gray-700">
-      <div className="mx-auto max-w-6xl px-6 py-9 md:px-8 md:py-10">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-8">
+    <footer id="kontak" className="border-t border-gray-200 bg-white text-gray-700 text-sm md:text-base w-full">
+      <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-8">
           <div className="text-left">
             <div className="mb-4 flex items-start gap-3">
               <div className="relative h-12 w-12 flex-shrink-0">
@@ -20,18 +20,18 @@ export default function Footer() {
                 />
               </div>
               <div>
-                <h3 className="text-xl font-bold tracking-tight text-gray-900 md:text-2xl">Desa Aikmual</h3>
-                <p className="mt-1 text-sm text-gray-600 md:text-base">Pelayanan Online</p>
+                <h3 className="text-lg font-bold tracking-tight text-gray-900 md:text-2xl">Desa Aikmual</h3>
+                <p className="mt-1 text-xs text-gray-600 md:text-base">Pelayanan Online</p>
               </div>
             </div>
-            <p className="max-w-md text-sm leading-7 text-gray-600 md:text-base">
+            <p className="max-w-md text-xs leading-6 text-gray-600 md:text-base">
               Sistem informasi pelayanan surat online untuk mempermudah pelayanan administrasi desa.
             </p>
           </div>
 
           <div className="text-left md:justify-self-center">
-            <h3 className="mb-4 text-xl font-bold tracking-tight text-gray-900 md:text-2xl">Layanan</h3>
-            <ul className="space-y-2.5 text-sm text-gray-600 md:text-base">
+            <h3 className="mb-4 text-lg font-bold tracking-tight text-gray-900 md:text-2xl">Layanan</h3>
+            <ul className="space-y-2 text-xs text-gray-600 md:text-base">
               <li>
                 <Link href="/permohonan/surat-domisili" className="transition-colors hover:text-blue-600">
                   Surat Keterangan Domisili
@@ -61,8 +61,8 @@ export default function Footer() {
           </div>
 
           <div className="text-left md:justify-self-end">
-            <h3 className="mb-4 text-xl font-bold tracking-tight text-gray-900 md:text-2xl">Kontak</h3>
-            <div className="space-y-2.5 text-sm text-gray-600 md:text-base">
+            <h3 className="mb-4 text-lg font-bold tracking-tight text-gray-900 md:text-2xl">Kontak</h3>
+            <div className="space-y-2 text-xs text-gray-600 md:text-base">
               <p>Kantor Desa Aikmual</p>
               <p>Kecamatan Aikmual</p>
               <p>Kabupaten Lombok Utara</p>
@@ -73,8 +73,8 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 border-t border-gray-200 pt-6 text-center">
-          <p className="text-sm text-gray-500 md:text-base">
+        <div className="mt-8 border-t border-gray-200 pt-4 text-center">
+          <p className="text-xs text-gray-500 md:text-base">
             &copy; {currentYear} SI Pengarsipan Surat Desa Aikmual. All rights reserved.
           </p>
         </div>

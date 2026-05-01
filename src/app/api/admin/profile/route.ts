@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verify } from 'jsonwebtoken';
+import { verify, sign } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 
@@ -77,6 +77,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
+    const username = String(body?.username || '').trim().toLowerCase();
     const nama = String(body?.nama || '').trim();
     const email = String(body?.email || '').trim().toLowerCase();
     const alamat = String(body?.alamat || '').trim();
@@ -86,6 +87,10 @@ export async function PUT(request: Request) {
 
     if (!nama || !email) {
       return NextResponse.json({ error: 'Nama dan email wajib diisi' }, { status: 400 });
+    }
+
+    if (!username) {
+      return NextResponse.json({ error: 'Username wajib diisi' }, { status: 400 });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -114,6 +119,15 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Email sudah digunakan akun lain' }, { status: 409 });
     }
 
+    const [usernameExists]: any = await db.execute(
+      `SELECT ${idField} FROM users WHERE username = ? AND ${idField} <> ? LIMIT 1`,
+      [username, auth.userId]
+    );
+
+    if (Array.isArray(usernameExists) && usernameExists.length > 0) {
+      return NextResponse.json({ error: 'Username sudah digunakan akun lain' }, { status: 409 });
+    }
+
     if (newPassword) {
       if (!currentPassword) {
         return NextResponse.json({ error: 'Password lama wajib diisi untuk mengganti password' }, { status: 400 });
@@ -130,14 +144,48 @@ export async function PUT(request: Request) {
 
       const passwordHash = await bcrypt.hash(newPassword, 10);
       await db.execute(
-        `UPDATE users SET nama = ?, email = ?, alamat = ?, telepon = ?, password = ?, updated_at = NOW() WHERE ${idField} = ?`,
-        [nama, email, alamat || null, telepon || null, passwordHash, auth.userId]
+        `UPDATE users SET username = ?, nama = ?, email = ?, alamat = ?, telepon = ?, password = ?, updated_at = NOW() WHERE ${idField} = ?`,
+        [username, nama, email, alamat || null, telepon || null, passwordHash, auth.userId]
       );
     } else {
       await db.execute(
-        `UPDATE users SET nama = ?, email = ?, alamat = ?, telepon = ?, updated_at = NOW() WHERE ${idField} = ?`,
-        [nama, email, alamat || null, telepon || null, auth.userId]
+        `UPDATE users SET username = ?, nama = ?, email = ?, alamat = ?, telepon = ?, updated_at = NOW() WHERE ${idField} = ?`,
+        [username, nama, email, alamat || null, telepon || null, auth.userId]
       );
+    }
+
+    // Issue new JWT with updated user data so login session reflects changes
+    const cookieStore = await cookies();
+    const currentToken = cookieStore.get('auth-token');
+    if (currentToken) {
+      try {
+        const decoded = verify(currentToken.value, JWT_SECRET) as any;
+        const newToken = sign(
+          {
+            userId: decoded.userId,
+            username,
+            email,
+            nama,
+            role: decoded.role,
+            nik: decoded.nik,
+            alamat: alamat || null,
+            telepon: telepon || null,
+          },
+          JWT_SECRET,
+          { expiresIn: '1d' }
+        );
+        const response = NextResponse.json({ success: true, message: 'Profil admin berhasil diperbarui' });
+        response.cookies.set('auth-token', newToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 86400,
+          path: '/',
+        });
+        return response;
+      } catch {
+        // If token refresh fails, proceed without refreshing
+      }
     }
 
     return NextResponse.json({ success: true, message: 'Profil admin berhasil diperbarui' });

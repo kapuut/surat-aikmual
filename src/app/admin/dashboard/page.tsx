@@ -22,6 +22,21 @@ const BAR_COLOR_PALETTE = [
   "#ea580c", // orange
 ];
 
+const MONTH_LABELS: Record<string, string> = {
+  "1": "Januari",
+  "2": "Februari",
+  "3": "Maret",
+  "4": "April",
+  "5": "Mei",
+  "6": "Juni",
+  "7": "Juli",
+  "8": "Agustus",
+  "9": "September",
+  "10": "Oktober",
+  "11": "November",
+  "12": "Desember",
+};
+
 export default function AdminDashboardPage() {
   // Ensure only admin users can access this page
   const { user: authorizedUser, loading, isAuthenticated } = useRequireRole(['admin']);
@@ -70,6 +85,34 @@ export default function AdminDashboardPage() {
     if (chartData.length === 0) return 0;
     return Math.max(...chartData.map((item) => item.jumlah), 0);
   }, [chartData]);
+
+  const chartFilterSummary = useMemo(() => {
+    const fallbackYear = String(now.getFullYear());
+    const yearLabel = chartYear || fallbackYear;
+    const monthLabel = chartMonth ? (MONTH_LABELS[chartMonth] || `Bulan ${chartMonth}`) : "semua bulan";
+
+    let dateLabel = "semua tanggal";
+    if (chartDateFrom && chartDateTo) {
+      const from = Number(chartDateFrom);
+      const to = Number(chartDateTo);
+      const min = Number.isFinite(from) && Number.isFinite(to) ? Math.min(from, to) : chartDateFrom;
+      const max = Number.isFinite(from) && Number.isFinite(to) ? Math.max(from, to) : chartDateTo;
+      dateLabel = `tanggal ${min} sampai ${max}`;
+    } else if (chartDateFrom) {
+      dateLabel = `tanggal mulai ${chartDateFrom}`;
+    } else if (chartDateTo) {
+      dateLabel = `tanggal sampai ${chartDateTo}`;
+    }
+
+    return `Jumlah data dari ${dateLabel}, ${monthLabel}, tahun ${yearLabel} = ${chartTotalSurat} data`;
+  }, [chartDateFrom, chartDateTo, chartMonth, chartYear, chartTotalSurat, now]);
+
+  const hasChartFilter =
+    chartDateFrom !== '' ||
+    chartDateTo !== '' ||
+    chartMonth !== '' ||
+    chartSort !== 'desc' ||
+    chartYear !== String(now.getFullYear());
 
   const availableChartDays = useMemo(() => {
     if (chartMonth === "") {
@@ -215,20 +258,6 @@ export default function AdminDashboardPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tahun</label>
-                <select
-                  value={chartYear}
-                  onChange={(e) => setChartYear(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {chartYears.map((year) => (
-                    <option key={year} value={String(year)}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Bulan</label>
                 <select
                   value={chartMonth}
@@ -251,6 +280,20 @@ export default function AdminDashboardPage() {
                 </select>
               </div>
               <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tahun</label>
+                <select
+                  value={chartYear}
+                  onChange={(e) => setChartYear(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {chartYears.map((year) => (
+                    <option key={year} value={String(year)}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Urutan</label>
                 <select
                   value={chartSort}
@@ -265,12 +308,12 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
-              <span className="rounded-full bg-indigo-50 px-3 py-1 font-medium text-indigo-700">
-                Total Surat: {chartTotalSurat}
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+              <span className="rounded-full bg-indigo-50 px-3 py-1.5 font-medium text-indigo-700">
+                {chartFilterSummary}
               </span>
-              <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
-                Total Jenis: {chartData.length}
+              <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600">
+                {chartData.length} jenis surat
               </span>
             </div>
 

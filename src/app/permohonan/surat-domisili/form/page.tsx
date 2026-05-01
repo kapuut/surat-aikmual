@@ -577,30 +577,30 @@ export default function SuratDomisiliFormPage() {
             </div>
 
             {/* Submit Button */}
-            <div className="flex gap-4">
+            <div className="flex justify-end gap-3">
               <Link
                 href="/permohonan/surat-domisili"
-                className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition duration-200 text-center"
+                className="px-5 py-2.5 border border-gray-300 rounded-lg text-gray-700 text-sm font-medium hover:bg-gray-50 transition duration-200 text-center"
               >
                 Batal
               </Link>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Mengirim...
-                  </>
-                ) : (
-                  <>
-                    <FiSend />
-                    Ajukan Permohonan
-                  </>
-                )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold py-2.5 px-5 rounded-lg transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Mengirim...
+                    </>
+                  ) : (
+                    <>
+                      <FiSend />
+                      Ajukan Permohonan
+                    </>
+                  )}
+                </button>
             </div>
 
             {loading && (

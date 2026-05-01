@@ -24,28 +24,24 @@ export const AdminStats = memo(function AdminStats({ stats }: { stats: Dashboard
         value={stats.suratMasuk.total}
         icon={<FiInbox className="w-6 h-6" />}
         color="blue"
-        trend={{ value: 12, isPositive: true }}
       />
       <StatsCard
         title="Surat Keluar"
         value={stats.suratKeluar.total}
         icon={<FiSend className="w-6 h-6" />}
         color="green"
-        trend={{ value: 8, isPositive: true }}
       />
       <StatsCard
         title="Permohonan"
         value={stats.permohonan.total}
         icon={<FiFileText className="w-6 h-6" />}
         color="yellow"
-        trend={{ value: 15, isPositive: true }}
       />
       <StatsCard
         title="Total Users"
         value={stats.users.total}
         icon={<FiUsers className="w-6 h-6" />}
         color="purple"
-        trend={{ value: 5, isPositive: true }}
       />
     </div>
   );

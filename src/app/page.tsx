@@ -291,6 +291,26 @@ export default function HomePage() {
               </div>
             )}
 
+            {isPublicView && (
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <Link
+                  href="/login"
+                  className="bg-white text-blue-600 font-semibold py-4 px-8 rounded-full shadow-lg hover:bg-blue-50 transition-all transform hover:scale-105 flex items-center gap-2"
+                >
+                  <FiFileText className="w-5 h-5" />
+                  Ajukan Surat
+                  <FiArrowRight className="w-4 h-4" />
+                </Link>
+                <Link
+                  href="/tracking"
+                  className="border-2 border-white text-white font-semibold py-4 px-8 rounded-full hover:bg-white hover:text-blue-600 transition-all flex items-center gap-2"
+                >
+                  <FiCheckCircle className="w-5 h-5" />
+                  Cek Progres Surat
+                </Link>
+              </div>
+            )}
+
             <div className="mt-8 flex flex-wrap justify-center gap-3 text-sm md:text-base text-blue-100">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-black/20 px-4 py-2">
                 <FiClock className="h-4 w-4" />
@@ -404,7 +424,8 @@ export default function HomePage() {
           </div>
         )}
 
-        <div id="persyaratan" className="mt-16 scroll-mt-28">
+        <div id="informasi" className="mt-16 scroll-mt-20">
+        <div id="persyaratan" className="scroll-mt-28">
           <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Persyaratan Surat Populer</h3>
           <div className="grid gap-5 md:grid-cols-3">
             {POPULAR_REQUIREMENTS.map((item) => (
@@ -436,6 +457,7 @@ export default function HomePage() {
             ))}
           </div>
         </div>
+        </div>{/* end #informasi */}
 
         {/* CTA Section */}
         <div className="mt-16 text-center bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8">

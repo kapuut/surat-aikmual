@@ -228,11 +228,11 @@ export default function SuratJandaPage() {
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <Link href="/" className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-center">
+          <div className="flex justify-end gap-3">
+            <Link href="/" className="bg-gray-100 text-gray-700 text-sm py-2.5 px-5 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-center">
               Batal
             </Link>
-            <button type="submit" disabled={loading} className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-blue-400 flex items-center justify-center gap-2">
+            <button type="submit" disabled={loading} className="bg-blue-600 text-white text-sm py-2.5 px-5 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-blue-400 flex items-center justify-center gap-2">
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

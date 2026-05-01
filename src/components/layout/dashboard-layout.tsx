@@ -88,14 +88,7 @@ export default function DashboardLayout({ children, title, actions }: DashboardL
               );
             })}
           </nav>
-
-          {/* Footer */}
-          <div className="p-4 border-t">
-            <div className="text-xs text-gray-500">
-              <p>&copy; 2025 Desa Aikmual</p>
-              <p>Sistem Pengarsipan Surat</p>
-            </div>
-          </div>
+          {/* Footer dihapus agar dashboard tidak ada footer */}
         </div>
       </div>
 

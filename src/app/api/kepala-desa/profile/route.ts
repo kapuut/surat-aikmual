@@ -8,7 +8,8 @@ export const runtime = 'nodejs';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 type JwtPayload = {
-  userId?: string;
+  userId?: string | number;
+  id?: string | number;
   role?: string;
 };
 
@@ -27,10 +28,10 @@ async function getIdField(): Promise<'id' | 'id_user'> {
   return columnSet.has('id') ? 'id' : 'id_user';
 }
 
-async function getSignatureUrlForUser(userId: string): Promise<string | null> {
+async function getSignatureUrlForUser(userId: string, idField: 'id' | 'id_user'): Promise<string | null> {
   try {
     const [rows]: any = await db.execute(
-      'SELECT signature_url FROM users WHERE id = ? LIMIT 1',
+      `SELECT signature_url FROM users WHERE ${idField} = ? LIMIT 1`,
       [userId]
     );
     return (rows as any[])?.[0]?.signature_url || null;
@@ -53,7 +54,8 @@ async function ensureKepalaDesaAuth() {
       return { ok: false as const, status: 403, error: 'Forbidden - Kepala Desa only' };
     }
 
-    return { ok: true as const, userId: String(decoded.userId || '') };
+    const resolvedUserId = decoded.userId ?? decoded.id;
+    return { ok: true as const, userId: String(resolvedUserId || '') };
   } catch {
     return { ok: false as const, status: 401, error: 'Token tidak valid' };
   }
@@ -80,7 +82,7 @@ export async function GET() {
     }
 
     const profile = rows[0] as Record<string, unknown>;
-    const signatureUrl = await getSignatureUrlForUser(auth.userId);
+    const signatureUrl = await getSignatureUrlForUser(auth.userId, idField);
 
     return NextResponse.json({
       success: true,
@@ -147,7 +149,7 @@ export async function PUT(request: Request) {
       [nama, email, alamat || null, telepon || null, auth.userId]
     );
 
-    const signatureUrl = await getSignatureUrlForUser(auth.userId);
+    const signatureUrl = await getSignatureUrlForUser(auth.userId, idField);
 
     return NextResponse.json({
       success: true,

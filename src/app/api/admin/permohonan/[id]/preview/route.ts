@@ -111,17 +111,58 @@ function normalizeWorkflowStatus(rawStatus: unknown, nomorSurat: unknown, note?:
   return 'pending';
 }
 
-async function resolveKepalaDesaSignatureUrl(processedBy: unknown): Promise<string> {
-  const fallback = '/images/sample-ttd.png';
-  const userId = Number(processedBy);
-  if (!Number.isFinite(userId) || userId <= 0) return fallback;
+async function resolveUserIdFieldForLookup(): Promise<'id' | 'id_user'> {
+  try {
+    const [columnsRaw] = await db.query<any[]>('SHOW COLUMNS FROM users');
+    const columns = Array.isArray(columnsRaw) ? columnsRaw : [];
+    const columnSet = new Set(columns.map((item: any) => String(item?.Field || '')));
+    return columnSet.has('id') ? 'id' : 'id_user';
+  } catch {
+    return 'id';
+  }
+}
+
+async function resolveKepalaDesaSigner(processedBy: unknown): Promise<{ nama: string; signatureUrl: string }> {
+  const fallback = { nama: 'Kepala Desa', signatureUrl: '/images/sample-ttd.png' };
 
   try {
-    const [rows]: any = await db.execute(
-      'SELECT signature_url FROM users WHERE id = ? LIMIT 1',
-      [userId]
+    const idField = await resolveUserIdFieldForLookup();
+    const userId = Number(processedBy);
+
+    if (Number.isFinite(userId) && userId > 0) {
+      const [byActorRows]: any = await db.execute(
+        `SELECT nama, username, signature_url FROM users WHERE ${idField} = ? AND role = 'kepala_desa' LIMIT 1`,
+        [userId]
+      );
+      const byActor = (byActorRows as any[])?.[0];
+      const byActorName = String(byActor?.nama || byActor?.username || '').trim();
+      const byActorSignature = String(byActor?.signature_url || '').trim();
+      if (byActorName || byActorSignature) {
+        return {
+          nama: byActorName || fallback.nama,
+          signatureUrl: byActorSignature || fallback.signatureUrl,
+        };
+      }
+    }
+
+    const [kepalaDesaRows]: any = await db.execute(
+      `SELECT nama, signature_url
+       FROM users
+       WHERE role = 'kepala_desa'
+       ORDER BY
+         CASE WHEN LOWER(TRIM(status)) IN ('aktif','active') THEN 0 ELSE 1 END,
+         updated_at DESC
+       LIMIT 1`
     );
-    return (rows as any[])?.[0]?.signature_url || fallback;
+
+    const kepalaDesa = (kepalaDesaRows as any[])?.[0];
+    const signerName = String(kepalaDesa?.nama || kepalaDesa?.username || '').trim();
+    const signerSignature = String(kepalaDesa?.signature_url || '').trim();
+
+    return {
+      nama: signerName || fallback.nama,
+      signatureUrl: signerSignature || fallback.signatureUrl,
+    };
   } catch {
     return fallback;
   }
@@ -604,7 +645,8 @@ function buildDynamicTemplateValues(
   permohonan: PermohonanRow,
   detailData: DetailData,
   nomorSurat: string,
-  tanggalSurat: Date
+  tanggalSurat: Date,
+  signerName?: string
 ): Record<string, string> {
   const values: Record<string, string> = {
     nama: String(permohonan.nama_pemohon || '').trim(),
@@ -613,7 +655,7 @@ function buildDynamicTemplateValues(
     keperluan: String(permohonan.keperluan || '-').trim() || '-',
     jenis_surat: String(permohonan.jenis_surat || '').trim(),
     tanggal_permohonan: formatDateIndonesian(new Date(permohonan.created_at || tanggalSurat)),
-    ...buildOfficialDynamicSystemValues(formatDateIndonesian(tanggalSurat), nomorSurat),
+    ...buildOfficialDynamicSystemValues(formatDateIndonesian(tanggalSurat), nomorSurat, signerName),
   };
 
   for (const [key, rawValue] of Object.entries(detailData)) {
@@ -1040,6 +1082,7 @@ export async function GET(
     }
 
     const detailData = parseDetailData(permohonan.data_detail);
+    const signerInfo = await resolveKepalaDesaSigner(permohonan.processed_by);
     const suratSlug = normalizeSuratSlug(permohonan.jenis_surat);
     const tanggalSurat = new Date(permohonan.updated_at || permohonan.created_at || Date.now());
 
@@ -1054,7 +1097,13 @@ export async function GET(
       const previewNomorSurat = permohonan.nomor_surat
         ? String(permohonan.nomor_surat)
         : await getNextNomorSuratForDynamicPreview(tanggalSurat, permohonan.jenis_surat, Number(permohonan.id));
-      const renderValues = buildDynamicTemplateValues(permohonan, detailData, previewNomorSurat, tanggalSurat);
+      const renderValues = buildDynamicTemplateValues(
+        permohonan,
+        detailData,
+        previewNomorSurat,
+        tanggalSurat,
+        signerInfo.nama
+      );
       const htmlBody = renderTemplateWithValues(
         normalizeCustomTemplateHtml(dynamicTemplate.htmlTemplate),
         renderValues
@@ -1562,9 +1611,9 @@ export async function GET(
           }
         : undefined,
       kepalaDesa: {
-        nama: 'KEPALA DESA AIKMUAL',
+        nama: signerInfo.nama,
         signatureImageUrl: shouldEmbedSignature
-          ? await resolveKepalaDesaSignatureUrl(permohonan.processed_by)
+          ? signerInfo.signatureUrl
           : undefined,
       },
     };

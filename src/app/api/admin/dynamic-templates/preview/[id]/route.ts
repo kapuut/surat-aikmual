@@ -60,7 +60,22 @@ function parseFieldsJson(fieldsJson: string): TemplateField[] {
   }
 }
 
-function buildSampleValues(fields: TemplateField[]): Record<string, string> {
+async function fetchKepalaDesaName(): Promise<string> {
+  try {
+    const [rows]: any = await db.execute(
+      `SELECT nama FROM users WHERE role = 'kepala_desa'
+       ORDER BY
+         CASE WHEN LOWER(TRIM(status)) IN ('aktif','active') THEN 0 ELSE 1 END,
+         updated_at DESC
+       LIMIT 1`
+    );
+    return String((rows as any[])?.[0]?.nama || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+function buildSampleValues(fields: TemplateField[], kepalaDesaName?: string): Record<string, string> {
   const today = new Date();
   const tanggalSurat = today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   const bulan = String(today.getMonth() + 1).padStart(2, '0');
@@ -69,7 +84,8 @@ function buildSampleValues(fields: TemplateField[]): Record<string, string> {
   // Common/system field values that are always present in every template
   const sampleValues: Record<string, string> = buildOfficialDynamicSystemValues(
     tanggalSurat,
-    `001/Ds.Aml/${bulan}.${tahun}`
+    `001/Ds.Aml/${bulan}.${tahun}`,
+    kepalaDesaName
   );
 
   fields.forEach((field) => {
@@ -331,9 +347,15 @@ export async function GET(
       return NextResponse.json({ error: 'Template placeholder tidak ditemukan' }, { status: 404 });
     }
 
+    const kepalaDesaName = await fetchKepalaDesaName();
+
     const normalizedSlug = normalizeSuratSlug(template.id) || normalizeSuratSlug(template.jenisSurat);
     if (defaultTemplate && normalizedSlug) {
-      const html = generateSuratTemplate(buildSampleSuratData(normalizedSlug as JenisSurat), {
+      const sampleData = buildSampleSuratData(normalizedSlug as JenisSurat);
+      if (kepalaDesaName) {
+        sampleData.kepalaDesa = { ...(sampleData.kepalaDesa || {}), nama: kepalaDesaName };
+      }
+      const html = generateSuratTemplate(sampleData, {
         editable: false,
         showToolbar: false,
         logoUrl: '/images/logo-loteng.png',
@@ -348,7 +370,7 @@ export async function GET(
 
     const renderedHtml = renderTemplateWithValues(
       normalizeCustomTemplateHtml(template.htmlTemplate),
-      buildSampleValues(template.fields)
+      buildSampleValues(template.fields, kepalaDesaName)
     );
     return new NextResponse(renderPreviewPage(template, renderedHtml), {
       headers: {

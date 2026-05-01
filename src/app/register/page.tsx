@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FiUser, FiMail, FiLock, FiMapPin, FiPhone, FiEye, FiEyeOff, FiUserPlus, FiUpload } from "react-icons/fi";
@@ -15,6 +15,17 @@ export default function RegisterPage() {
   const [nikInput, setNikInput] = useState("");
   const [nikCheckState, setNikCheckState] = useState<"idle" | "checking" | "taken" | "available">("idle");
   const [nikCheckMessage, setNikCheckMessage] = useState<string | null>(null);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailCheckState, setEmailCheckState] = useState<"idle" | "checking" | "taken" | "invalid" | "available">("idle");
+  const [emailCheckMessage, setEmailCheckMessage] = useState<string | null>(null);
+  const [conflictModal, setConflictModal] = useState<{ title: string; message: string; field: string } | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error) {
+      setTimeout(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+    }
+  }, [error]);
 
   useEffect(() => {
     const nik = nikInput.trim();
@@ -72,6 +83,56 @@ export default function RegisterPage() {
     };
   }, [nikInput]);
 
+  useEffect(() => {
+    const email = emailInput.trim();
+
+    if (!email) {
+      setEmailCheckState("idle");
+      setEmailCheckMessage(null);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailCheckState("invalid");
+      setEmailCheckMessage("Format email tidak sesuai");
+      return;
+    }
+
+    const abortController = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setEmailCheckState("checking");
+      setEmailCheckMessage("Memeriksa email...");
+
+      try {
+        const response = await fetch(`/api/auth/check-email?email=${encodeURIComponent(email)}`, {
+          method: "GET",
+          signal: abortController.signal,
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (data?.exists) {
+          setEmailCheckState("taken");
+          setEmailCheckMessage("Email sudah digunakan");
+          return;
+        }
+
+        setEmailCheckState("available");
+        setEmailCheckMessage(null);
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        setEmailCheckState("idle");
+        setEmailCheckMessage(null);
+      }
+    }, 400);
+
+    return () => {
+      abortController.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [emailInput]);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
@@ -91,7 +152,7 @@ export default function RegisterPage() {
     const dokumenKK = formData.get("dokumenKK");
 
     if (!payload.nama || !payload.email || !payload.nik || !payload.password || !payload.alamat || !payload.telepon) {
-      setError("Semua field wajib diisi, termasuk nomor WhatsApp aktif");
+      setError("Email dan password wajib diisi");
       setLoading(false);
       return;
     }
@@ -103,7 +164,27 @@ export default function RegisterPage() {
     }
 
     if (nikCheckState === "taken") {
-      setError("NIK sudah digunakan");
+      setConflictModal({
+        title: "NIK Sudah Terdaftar",
+        message: "NIK yang Anda masukkan sudah digunakan oleh akun lain. Pastikan NIK yang dimasukkan benar, atau hubungi admin desa jika terjadi kesalahan.",
+        field: "NIK",
+      });
+      setLoading(false);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+      setError("Format email tidak sesuai");
+      setLoading(false);
+      return;
+    }
+
+    if (emailCheckState === "taken") {
+      setConflictModal({
+        title: "Email Sudah Digunakan",
+        message: "Alamat email yang Anda masukkan sudah terdaftar. Gunakan email lain, atau login jika Anda sudah memiliki akun.",
+        field: "Email",
+      });
       setLoading(false);
       return;
     }
@@ -189,11 +270,13 @@ export default function RegisterPage() {
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Daftar Akun Baru</h2>
 
-            {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+            <div ref={errorRef}>
+              {error && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -228,10 +311,27 @@ export default function RegisterPage() {
                     name="email"
                     type="email"
                     required
-                    className="block w-full pl-10 pr-3 py-3 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    className={`block w-full pl-10 pr-3 py-3 bg-white text-gray-900 border rounded-lg focus:ring-2 ${
+                      emailCheckState === "taken" || emailCheckState === "invalid"
+                        ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                        : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                    }`}
                     placeholder="Masukkan email"
                   />
                 </div>
+                {emailCheckMessage && (
+                  <p
+                    className={`mt-1 text-xs ${
+                      emailCheckState === "taken" || emailCheckState === "invalid"
+                        ? "text-red-600"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    {emailCheckMessage}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -415,6 +515,47 @@ export default function RegisterPage() {
         </div>
       </div>
       <Footer />
+
+      {conflictModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          onClick={() => setConflictModal(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0 bg-red-100 text-red-600 rounded-full p-2">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">{conflictModal.title}</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-6 leading-relaxed">{conflictModal.message}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setConflictModal(null);
+                  const fieldId = conflictModal.field === "NIK" ? "nik" : "email";
+                  document.getElementById(fieldId)?.focus();
+                  document.getElementById(fieldId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-sm"
+              >
+                Ubah {conflictModal.field}
+              </button>
+              <button
+                onClick={() => setConflictModal(null)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 px-4 rounded-lg transition-colors text-sm"
+              >
+                Mengerti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

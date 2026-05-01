@@ -16,9 +16,21 @@ const allowedMimeToExt: Record<string, string> = {
 };
 
 type JwtPayload = {
-  userId?: string;
+  userId?: string | number;
+  id?: string | number;
   role?: string;
 };
+
+type ColumnMeta = {
+  Field: string;
+};
+
+async function getIdField(): Promise<'id' | 'id_user'> {
+  const [columnsRaw] = await db.query('SHOW COLUMNS FROM users');
+  const columns = (columnsRaw as ColumnMeta[]) || [];
+  const columnSet = new Set(columns.map((item) => item.Field));
+  return columnSet.has('id') ? 'id' : 'id_user';
+}
 
 function safeFilePart(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -38,10 +50,19 @@ async function ensureKepalaDesaAuth() {
       return { ok: false as const, status: 403, error: 'Forbidden - Kepala Desa only' };
     }
 
-    return { ok: true as const, userId: String(decoded.userId || '') };
+    const resolvedUserId = decoded.userId ?? decoded.id;
+    return { ok: true as const, userId: String(resolvedUserId || '') };
   } catch {
     return { ok: false as const, status: 401, error: 'Token tidak valid' };
   }
+}
+
+function resolveExtensionFromName(fileName: string): string | null {
+  const lowerName = String(fileName || '').toLowerCase();
+  if (lowerName.endsWith('.png')) return 'png';
+  if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) return 'jpg';
+  if (lowerName.endsWith('.webp')) return 'webp';
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -67,7 +88,7 @@ export async function POST(request: Request) {
     }
 
     const fileType = String(rawFile.type || '').toLowerCase();
-    const fileExt = allowedMimeToExt[fileType];
+    const fileExt = allowedMimeToExt[fileType] || resolveExtensionFromName(rawFile.name);
     if (!fileExt) {
       return NextResponse.json(
         { error: 'Format file tidak didukung. Gunakan PNG, JPG, atau WEBP.' },
@@ -84,7 +105,10 @@ export async function POST(request: Request) {
     const storedFileName = `kepala-desa-${safeUserId}.${fileExt}`;
     const storagePath = `uploads/signatures/${storedFileName}`;
     const bytes = await rawFile.arrayBuffer();
-    const signatureUrl = await uploadFile(storagePath, Buffer.from(bytes), fileType);
+    const normalizedContentType = fileType || (fileExt === 'png' ? 'image/png' : fileExt === 'webp' ? 'image/webp' : 'image/jpeg');
+    const signatureUrl = await uploadFile(storagePath, Buffer.from(bytes), normalizedContentType);
+
+    const idField = await getIdField();
 
     // Persist URL to DB so profile lookup doesn't need readdir
     try {
@@ -92,7 +116,7 @@ export async function POST(request: Request) {
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS signature_url VARCHAR(500) NULL'
       );
     } catch { /* column may already exist */ }
-    await db.execute('UPDATE users SET signature_url = ? WHERE id = ?', [signatureUrl, auth.userId]);
+    await db.execute(`UPDATE users SET signature_url = ? WHERE ${idField} = ?`, [signatureUrl, auth.userId]);
 
     return NextResponse.json({
       success: true,

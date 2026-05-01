@@ -386,6 +386,21 @@ export default function KepalaDesaWorkflowClient() {
     });
   }, [data, archiveCategory, searchTerm, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear]);
 
+  const filterDescription = useMemo(() => {
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const parts: string[] = [];
+    if (selectedDayFrom && selectedDayTo) {
+      parts.push(`tanggal ${selectedDayFrom}–${selectedDayTo}`);
+    } else if (selectedDayFrom) {
+      parts.push(`tanggal ${selectedDayFrom}`);
+    } else if (selectedDayTo) {
+      parts.push(`tanggal s/d ${selectedDayTo}`);
+    }
+    if (selectedMonth) parts.push(months[Number(selectedMonth) - 1] || selectedMonth);
+    if (selectedYear) parts.push(`tahun ${selectedYear}`);
+    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
+  }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
+
   const stats = {
     menungguTtd: data.filter((p) => p.status === "dikirim_ke_kepala_desa").length,
     perluRevisi: data.filter((p) => p.status === "perlu_revisi").length,
@@ -473,6 +488,17 @@ export default function KepalaDesaWorkflowClient() {
           </select>
 
           <select
+            value={selectedDayTo}
+            onChange={(e) => setSelectedDayTo(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Tanggal Sampai</option>
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>{day}</option>
+            ))}
+          </select>
+
+          <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -490,17 +516,6 @@ export default function KepalaDesaWorkflowClient() {
             <option value="10">Oktober</option>
             <option value="11">November</option>
             <option value="12">Desember</option>
-          </select>
-
-          <select
-            value={selectedDayTo}
-            onChange={(e) => setSelectedDayTo(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Tanggal Sampai</option>
-            {availableDays.map((day) => (
-              <option key={day} value={String(day)}>{day}</option>
-            ))}
           </select>
 
           <select
@@ -529,7 +544,7 @@ export default function KepalaDesaWorkflowClient() {
       </div>
 
       <div className="mb-4 text-sm text-gray-600">
-        Menampilkan {filteredPermohonan.length} data berdasarkan filter yang dipilih
+        Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">

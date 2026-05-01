@@ -171,6 +171,21 @@ export default function SekretarisSuratMasukPage() {
 
   const hasFilter = Boolean(normalizedSearchTerm || selectedMonth || selectedYear || selectedDayFrom || selectedDayTo);
 
+  const filterDescription = useMemo(() => {
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const parts: string[] = [];
+    if (selectedDayFrom && selectedDayTo) {
+      parts.push(`tanggal ${selectedDayFrom}\u2013${selectedDayTo}`);
+    } else if (selectedDayFrom) {
+      parts.push(`tanggal ${selectedDayFrom}`);
+    } else if (selectedDayTo) {
+      parts.push(`tanggal s/d ${selectedDayTo}`);
+    }
+    if (selectedMonth) parts.push(months[Number(selectedMonth) - 1] || selectedMonth);
+    if (selectedYear) parts.push(`tahun ${selectedYear}`);
+    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
+  }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
+
   const handleExportExcel = () => {
     const exportRows = filteredSuratMasuk.map((item, index) => ({
       No: index + 1,
@@ -305,6 +320,10 @@ export default function SekretarisSuratMasukPage() {
           </button>
         </div>
       </div>
+
+      <p className="mb-2 text-sm text-gray-600">
+        <span className="font-medium">Jumlah data dari {filterDescription} = {filteredSuratMasuk.length} data</span>
+      </p>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
         {loading ? (

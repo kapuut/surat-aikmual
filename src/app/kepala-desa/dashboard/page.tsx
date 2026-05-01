@@ -54,6 +54,8 @@ export default function HeadVillageDashboardPage() {
   const [suratKeluarRows, setSuratKeluarRows] = useState<SuratKeluarDateRow[]>([]);
   const [chartYear, setChartYear] = useState<string>(String(now.getFullYear()));
   const [chartMonth, setChartMonth] = useState<string>('');
+  const [chartDateFrom, setChartDateFrom] = useState<string>('');
+  const [chartDateTo, setChartDateTo] = useState<string>('');
   const [chartSort, setChartSort] = useState<'asc' | 'desc' | 'date_desc' | 'date_asc'>('desc');
   const [chartData, setChartData] = useState<Array<{ jenis_surat: string; jumlah: number }>>([]);
   const [chartYears, setChartYears] = useState<number[]>([now.getFullYear()]);
@@ -113,6 +115,8 @@ export default function HeadVillageDashboardPage() {
       const params = new URLSearchParams();
       params.set('year', chartYear);
       if (chartMonth) params.set('month', chartMonth);
+      if (chartDateFrom) params.set('date_from', chartDateFrom);
+      if (chartDateTo) params.set('date_to', chartDateTo);
       params.set('sort', chartSort);
 
       const response = await fetch(`/api/stats/surat-jenis?${params.toString()}`, {
@@ -139,7 +143,7 @@ export default function HeadVillageDashboardPage() {
   useEffect(() => {
     if (!authorizedUser) return;
     fetchJenisSuratChart();
-  }, [authorizedUser, chartYear, chartMonth, chartSort]);
+  }, [authorizedUser, chartYear, chartMonth, chartDateFrom, chartDateTo, chartSort]);
 
   const pendingApproval = stats?.permohonan.menunggu_tanda_tangan ?? stats?.permohonan.pending ?? 0;
   const totalApproved = stats?.permohonan.selesai_ditandatangani ?? stats?.permohonan.disetujui ?? 0;
@@ -160,6 +164,21 @@ export default function HeadVillageDashboardPage() {
     : (stats?.suratKeluar.bulanIni ?? 0);
   const totalBulanIni = (stats?.suratMasuk.bulanIni ?? 0) + totalSuratKeluarBulanIni;
   const totalBelumDibacaMasuk = stats?.suratMasuk.belumDibaca ?? 0;
+
+  const filterDescription = useMemo(() => {
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const parts: string[] = [];
+    if (chartDateFrom && chartDateTo) {
+      parts.push(`tanggal ${chartDateFrom}–${chartDateTo}`);
+    } else if (chartDateFrom) {
+      parts.push(`tanggal ${chartDateFrom}`);
+    } else if (chartDateTo) {
+      parts.push(`tanggal s/d ${chartDateTo}`);
+    }
+    if (chartMonth) parts.push(months[Number(chartMonth) - 1] || chartMonth);
+    if (chartYear) parts.push(`tahun ${chartYear}`);
+    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
+  }, [chartYear, chartMonth, chartDateFrom, chartDateTo]);
 
   const chartAxisMax = useMemo(() => {
     if (chartData.length === 0) return 0;
@@ -271,18 +290,30 @@ export default function HeadVillageDashboardPage() {
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tahun</label>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Dari</label>
             <select
-              value={chartYear}
-              onChange={(e) => setChartYear(e.target.value)}
+              value={chartDateFrom}
+              onChange={(e) => setChartDateFrom(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {chartYears.map((year) => (
-                <option key={year} value={String(year)}>
-                  {year}
-                </option>
+              <option value="">Semua</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={String(d)}>{d}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Sampai</label>
+            <select
+              value={chartDateTo}
+              onChange={(e) => setChartDateTo(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Semua</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={String(d)}>{d}</option>
               ))}
             </select>
           </div>
@@ -309,6 +340,20 @@ export default function HeadVillageDashboardPage() {
             </select>
           </div>
           <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tahun</label>
+            <select
+              value={chartYear}
+              onChange={(e) => setChartYear(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {chartYears.map((year) => (
+                <option key={year} value={String(year)}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Urutan</label>
             <select
               value={chartSort}
@@ -323,12 +368,12 @@ export default function HeadVillageDashboardPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
-          <span className="rounded-full bg-indigo-50 px-3 py-1 font-medium text-indigo-700">
-            Total Surat: {chartTotalSurat}
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-full bg-indigo-50 px-3 py-1.5 font-medium text-indigo-700">
+            Jumlah data dari {filterDescription} = {chartTotalSurat} data
           </span>
-          <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
-            Total Jenis: {chartData.length}
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600">
+            {chartData.length} jenis surat
           </span>
         </div>
 

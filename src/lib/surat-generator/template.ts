@@ -111,7 +111,7 @@ export function generateSuratTemplate(
   const editable = Boolean(options.editable);
   const showToolbar = options.showToolbar ?? editable;
   const logoUrl = options.logoUrl || '/images/logo-loteng.png';
-  const kepalaDesaName = data.kepalaDesa?.nama || 'Kepala Desa Aikmual';
+  const kepalaDesaName = ((data.kepalaDesa?.nama || '').trim() || 'Kepala Desa').toUpperCase();
   const signatureImageUrl = (data.kepalaDesa?.signatureImageUrl || '').trim();
   const qrCodeDataUrl = (data.kepalaDesa?.qrCodeDataUrl || '').trim();
   const hasDigitalSignatureAssets = Boolean(signatureImageUrl || qrCodeDataUrl);
@@ -861,7 +861,7 @@ export function generateSuratTemplate(
     <div class="tanda-tangan">
       <div class="pejabat">
         <div>Aikmual, ${escapeHtml(tanggalSurat)}</div>
-        <div>${escapeHtml(kepalaDesaName)}</div>
+        <div>Kepala Desa Aikmual</div>
         ${hasDigitalSignatureAssets
           ? `
         <div class="ttd-assets">

@@ -47,19 +47,10 @@ export default function SecretaryDashboardPage() {
 
   const suratMasukBulanIni = stats?.suratMasuk.bulanIni ?? 0;
   const suratKeluarBulanIni = stats?.suratKeluar.bulanIni ?? 0;
-  const permohonanPending = stats?.permohonan.pending ?? 0;
+  const [disposisiMasuk, setDisposisiMasuk] = useState<number>(0);
 
-  const [recentSuratMasuk] = useState([
-    { nomor: 'SM-001/2025', pengirim: 'Kecamatan Sukabumi', perihal: 'Undangan Rapat Koordinasi', tanggal: '2025-01-10' },
-    { nomor: 'SM-002/2025', pengirim: 'Dinas Kesehatan', perihal: 'Program Posyandu', tanggal: '2025-01-09' },
-    { nomor: 'SM-003/2025', pengirim: 'BPS Kabupaten', perihal: 'Sensus Penduduk', tanggal: '2025-01-08' },
-  ]);
-
-  const [recentSuratKeluar] = useState([
-    { nomor: 'SK-001/2025', penerima: 'Seluruh RT/RW', perihal: 'Pemberitahuan Gotong Royong', tanggal: '2025-01-10', status: 'Dikirim' },
-    { nomor: 'SK-002/2025', penerima: 'Kecamatan', perihal: 'Laporan Bulanan', tanggal: '2025-01-09', status: 'Dikirim' },
-    { nomor: 'SK-003/2025', penerima: 'Dinas Sosial', perihal: 'Data Penerima Bantuan', tanggal: '2025-01-08', status: 'Draft' },
-  ]);
+  const [recentSuratMasuk, setRecentSuratMasuk] = useState<{ nomor_surat: string; asal_surat: string; perihal: string; tanggal_terima: string }[]>([]);
+  const [recentSuratKeluar, setRecentSuratKeluar] = useState<{ nomor_surat: string; tujuan: string; perihal: string; tanggal: string; tanggal_surat: string; status: string }[]>([]);
 
   const chartAxisMax = useMemo(() => {
     if (chartData.length === 0) return 0;
@@ -118,9 +109,63 @@ export default function SecretaryDashboardPage() {
   }, []);
 
   useEffect(() => {
+    const fetchRecentSurat = async () => {
+      try {
+        const [resMasuk, resKeluar] = await Promise.all([
+          fetch('/api/surat-masuk', { credentials: 'include' }),
+          fetch('/api/surat-keluar', { credentials: 'include' }),
+        ]);
+        if (resMasuk.ok) {
+          const data = await resMasuk.json();
+          const rows = Array.isArray(data) ? data : (data?.data ?? []);
+          setRecentSuratMasuk(rows.slice(0, 3));
+        }
+        if (resKeluar.ok) {
+          const data = await resKeluar.json();
+          const rows = Array.isArray(data) ? data : (data?.data ?? []);
+          setRecentSuratKeluar(rows.slice(0, 3));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchRecentSurat();
+  }, []);
+
+  useEffect(() => {
+    const fetchDisposisi = async () => {
+      try {
+        const response = await fetch('/api/sekretaris/disposisi-surat-masuk', { credentials: 'include' });
+        const result = await response.json();
+        if (result?.success && Array.isArray(result.data)) {
+          setDisposisiMasuk(result.data.length);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchDisposisi();
+  }, []);
+
+  useEffect(() => {
     if (!authorizedUser) return;
     fetchJenisSuratChart();
   }, [authorizedUser, chartYear, chartMonth, chartDateFrom, chartDateTo, chartSort]);
+
+  const filterDescription = useMemo(() => {
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const parts: string[] = [];
+    if (chartDateFrom && chartDateTo) {
+      parts.push(`tanggal ${chartDateFrom}\u2013${chartDateTo}`);
+    } else if (chartDateFrom) {
+      parts.push(`tanggal ${chartDateFrom}`);
+    } else if (chartDateTo) {
+      parts.push(`tanggal s/d ${chartDateTo}`);
+    }
+    if (chartMonth) parts.push(months[Number(chartMonth) - 1] || chartMonth);
+    if (chartYear) parts.push(`tahun ${chartYear}`);
+    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
+  }, [chartYear, chartMonth, chartDateFrom, chartDateTo]);
 
   if (loading || !isAuthenticated || !authorizedUser || !user) {
     return (
@@ -171,11 +216,11 @@ export default function SecretaryDashboardPage() {
         <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between min-h-[140px]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-1">Permohonan Pending</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{permohonanPending}</p>
+              <p className="text-sm font-medium text-gray-600 mb-1">Disposisi Masuk</p>
+              <p className="text-3xl font-bold text-gray-900 mb-1">{disposisiMasuk}</p>
               <div className="flex items-center text-xs text-orange-600">
                 <FiActivity className="w-4 h-4 mr-1" />
-                <span>Perlu diproses</span>
+                <span>Total disposisi</span>
               </div>
             </div>
             <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
@@ -248,36 +293,38 @@ export default function SecretaryDashboardPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Dari</label>
-            <input
-              type="number"
-              min={1}
-              max={31}
-              placeholder="1"
+            <select
               value={chartDateFrom}
               onChange={(e) => setChartDateFrom(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="">Semua</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={String(d)}>{d}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Sampai</label>
-            <input
-              type="number"
-              min={1}
-              max={31}
-              placeholder="31"
+            <select
               value={chartDateTo}
               onChange={(e) => setChartDateTo(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="">Semua</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={String(d)}>{d}</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
-          <span className="rounded-full bg-indigo-50 px-3 py-1 font-medium text-indigo-700">
-            Total Surat: {chartTotalSurat}
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-full bg-indigo-50 px-3 py-1.5 font-medium text-indigo-700">
+            Jumlah data dari {filterDescription} = {chartTotalSurat} data
           </span>
-          <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
-            Total Jenis: {chartData.length}
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600">
+            {chartData.length} jenis surat
           </span>
         </div>
 
@@ -371,18 +418,22 @@ export default function SecretaryDashboardPage() {
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              {recentSuratMasuk.map((surat, index) => (
-                <div key={index} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-900">{surat.nomor}</p>
-                      <p className="text-sm text-gray-700">{surat.perihal}</p>
-                      <p className="text-xs text-gray-500 mt-1">Dari: {surat.pengirim}</p>
+              {recentSuratMasuk.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">Belum ada surat masuk</p>
+              ) : (
+                recentSuratMasuk.map((surat, index) => (
+                  <div key={index} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900">{surat.nomor_surat}</p>
+                        <p className="text-sm text-gray-700">{surat.perihal}</p>
+                        <p className="text-xs text-gray-500 mt-1">Dari: {surat.asal_surat}</p>
+                      </div>
+                      <span className="text-xs text-gray-500 shrink-0">{surat.tanggal_terima ? new Date(surat.tanggal_terima).toLocaleDateString('id-ID') : '-'}</span>
                     </div>
-                    <span className="text-xs text-gray-500 shrink-0">{surat.tanggal}</span>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
             <div className="mt-4 pt-4 border-t border-gray-200">
               <a href="/sekretaris/surat-masuk" className="text-blue-600 text-sm hover:underline inline-flex items-center gap-1">
@@ -408,31 +459,35 @@ export default function SecretaryDashboardPage() {
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              {recentSuratKeluar.map((surat, index) => (
-                <div key={index} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-900">{surat.nomor}</p>
-                      <p className="text-sm text-gray-700">{surat.perihal}</p>
-                      <p className="text-xs text-gray-500 mt-1">Kepada: {surat.penerima}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xs text-gray-500">{surat.tanggal}</span>
-                      <div className="mt-1">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs rounded-full font-medium ${
-                            surat.status === 'Dikirim'
-                              ? 'bg-green-50 text-green-700 border border-green-200'
-                              : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                          }`}
-                        >
-                          {surat.status}
-                        </span>
+              {recentSuratKeluar.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">Belum ada surat keluar</p>
+              ) : (
+                recentSuratKeluar.map((surat, index) => (
+                  <div key={index} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900">{surat.nomor_surat}</p>
+                        <p className="text-sm text-gray-700">{surat.perihal}</p>
+                        <p className="text-xs text-gray-500 mt-1">Kepada: {surat.tujuan}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-xs text-gray-500">{(surat.tanggal || surat.tanggal_surat) ? new Date(surat.tanggal || surat.tanggal_surat).toLocaleDateString('id-ID') : '-'}</span>
+                        <div className="mt-1">
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs rounded-full font-medium ${
+                              surat.status === 'dikirim' || surat.status === 'Dikirim'
+                                ? 'bg-green-50 text-green-700 border border-green-200'
+                                : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                            }`}
+                          >
+                            {surat.status}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
             <div className="mt-4 pt-4 border-t border-gray-200">
               <a href="/sekretaris/surat-keluar" className="text-red-600 text-sm hover:underline inline-flex items-center gap-1">
