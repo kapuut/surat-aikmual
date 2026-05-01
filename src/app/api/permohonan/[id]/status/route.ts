@@ -859,6 +859,15 @@ async function resolveUserIdFieldForLookup(): Promise<'id' | 'id_user'> {
   }
 }
 
+async function queryKepalaDesaRow(sql: string, params: unknown[] = []): Promise<Record<string, unknown> | null> {
+  try {
+    const [rows]: any = await db.execute(sql, params);
+    return (rows as any[])?.[0] || null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveKepalaDesaSigner(userId: number | null): Promise<{ nama: string; signatureUrl: string }> {
   const fallback = { nama: 'Kepala Desa', signatureUrl: '/images/sample-ttd.png' };
 
@@ -866,11 +875,17 @@ async function resolveKepalaDesaSigner(userId: number | null): Promise<{ nama: s
     const idField = await resolveUserIdFieldForLookup();
 
     if (userId && Number.isFinite(userId) && userId > 0) {
-      const [byActorRows]: any = await db.execute(
+      // Try with signature_url; if that column doesn't exist yet, fall back to nama-only query
+      let byActor = await queryKepalaDesaRow(
         `SELECT nama, signature_url FROM users WHERE ${idField} = ? AND role = 'kepala_desa' LIMIT 1`,
         [userId]
       );
-      const byActor = (byActorRows as any[])?.[0];
+      if (!byActor) {
+        byActor = await queryKepalaDesaRow(
+          `SELECT nama FROM users WHERE ${idField} = ? AND role = 'kepala_desa' LIMIT 1`,
+          [userId]
+        );
+      }
       const byActorName = String(byActor?.nama || '').trim();
       const byActorSignature = String(byActor?.signature_url || '').trim();
       if (byActorName || byActorSignature) {
@@ -881,17 +896,16 @@ async function resolveKepalaDesaSigner(userId: number | null): Promise<{ nama: s
       }
     }
 
-    const [kepalaDesaRows]: any = await db.execute(
-      `SELECT nama, signature_url
-       FROM users
-       WHERE role = 'kepala_desa'
-       ORDER BY
-         CASE WHEN LOWER(TRIM(status)) IN ('aktif','active') THEN 0 ELSE 1 END,
-         updated_at DESC
-       LIMIT 1`
+    // Role-based lookup — try with signature_url first, then nama-only if column missing
+    let kepalaDesa = await queryKepalaDesaRow(
+      `SELECT nama, signature_url FROM users WHERE role = 'kepala_desa' LIMIT 1`
     );
+    if (!kepalaDesa) {
+      kepalaDesa = await queryKepalaDesaRow(
+        `SELECT nama FROM users WHERE role = 'kepala_desa' LIMIT 1`
+      );
+    }
 
-    const kepalaDesa = (kepalaDesaRows as any[])?.[0];
     const signerName = String(kepalaDesa?.nama || '').trim();
     const signerSignature = String(kepalaDesa?.signature_url || '').trim();
 

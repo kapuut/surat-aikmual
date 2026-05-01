@@ -65,6 +65,19 @@ function resolveExtensionFromName(fileName: string): string | null {
   return null;
 }
 
+/** Ensure the signature_url column exists with enough capacity for blob URLs or data URIs */
+async function ensureSignatureUrlColumn(idField: string): Promise<void> {
+  try {
+    // Try to widen/create column as TEXT so it can hold both blob URLs and base64 data URIs
+    await db.execute('ALTER TABLE users MODIFY COLUMN signature_url MEDIUMTEXT NULL');
+  } catch {
+    // Column may not exist yet — create it
+    try {
+      await db.execute('ALTER TABLE users ADD COLUMN signature_url MEDIUMTEXT NULL');
+    } catch { /* already exists or permission denied — safe to ignore */ }
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await ensureKepalaDesaAuth();
@@ -101,27 +114,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ID tidak valid' }, { status: 400 });
     }
 
-    // Use a stable path so uploading a new signature overwrites the old one (addRandomSuffix: false in storage.ts)
-    const storedFileName = `kepala-desa-${safeUserId}.${fileExt}`;
-    const storagePath = `uploads/signatures/${storedFileName}`;
     const bytes = await rawFile.arrayBuffer();
+    const buffer = Buffer.from(bytes);
     const normalizedContentType = fileType || (fileExt === 'png' ? 'image/png' : fileExt === 'webp' ? 'image/webp' : 'image/jpeg');
-    const signatureUrl = await uploadFile(storagePath, Buffer.from(bytes), normalizedContentType);
+
+    let signatureUrl: string;
+
+    // Try Vercel Blob or local filesystem first
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const storedFileName = `kepala-desa-${safeUserId}.${fileExt}`;
+      const storagePath = `uploads/signatures/${storedFileName}`;
+      signatureUrl = await uploadFile(storagePath, buffer, normalizedContentType);
+    } else {
+      // No external storage available (e.g. Vercel without Blob token, or local dev fallback)
+      // Store signature as base64 data URI directly in the database
+      const base64 = buffer.toString('base64');
+      signatureUrl = `data:${normalizedContentType};base64,${base64}`;
+    }
 
     const idField = await getIdField();
-
-    // Persist URL to DB so profile lookup doesn't need readdir
-    try {
-      await db.execute(
-        'ALTER TABLE users ADD COLUMN IF NOT EXISTS signature_url VARCHAR(500) NULL'
-      );
-    } catch { /* column may already exist */ }
+    await ensureSignatureUrlColumn(idField);
     await db.execute(`UPDATE users SET signature_url = ? WHERE ${idField} = ?`, [signatureUrl, auth.userId]);
+
+    // Return a cache-busted URL for display; for data URIs the timestamp param is stripped on display
+    const displayUrl = signatureUrl.startsWith('data:') ? signatureUrl : `${signatureUrl}?t=${Date.now()}`;
 
     return NextResponse.json({
       success: true,
       message: 'File tanda tangan berhasil diunggah',
-      signature_url: `${signatureUrl}?t=${Date.now()}`,
+      signature_url: displayUrl,
     });
   } catch (error) {
     console.error('Kepala Desa signature upload error:', error);
@@ -131,3 +152,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

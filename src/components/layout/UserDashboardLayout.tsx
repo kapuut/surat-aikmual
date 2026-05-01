@@ -10,7 +10,9 @@ import {
   FiSearch,
   FiUser,
   FiLogOut,
-  FiChevronDown
+  FiChevronDown,
+  FiMenu,
+  FiX,
 } from 'react-icons/fi';
 
 interface UserDashboardLayoutProps {
@@ -26,27 +28,27 @@ type HeaderContent = {
 
 const HEADER_BY_PATH: Record<string, HeaderContent> = {
   '/dashboard': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Layanan Warga Desa Aikmual',
     title: 'Dashboard Masyarakat',
     description: 'Kelola pengajuan surat dan pantau progres layanan administrasi desa.',
   },
   '/permohonan': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Layanan Warga Desa Aikmual',
     title: 'Permohonan Surat',
     description: 'Pilih jenis surat, lengkapi formulir, dan kirim pengajuan secara online.',
   },
   '/tracking': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Layanan Warga Desa Aikmual',
     title: 'Lacak Surat',
     description: 'Pantau status setiap permohonan sampai surat selesai diterbitkan.',
   },
   '/profile': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Layanan Warga Desa Aikmual',
     title: 'Profil Akun',
     description: 'Kelola data pribadi dan informasi akun masyarakat.',
   },
   '/change-password': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Layanan Warga Desa Aikmual',
     title: 'Ganti Password',
     description: 'Perbarui password akun untuk menjaga keamanan akses Anda.',
   },
@@ -56,6 +58,7 @@ export default function UserDashboardLayout({ children, onLogout }: UserDashboar
   const pathname = usePathname();
   const [userName, setUserName] = useState('Warga Desa');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
   const headerContent = (() => {
@@ -75,7 +78,7 @@ export default function UserDashboardLayout({ children, onLogout }: UserDashboar
     }
 
     return {
-      eyebrow: 'Portal Administrasi Terpadu',
+      eyebrow: 'Layanan Warga Desa Aikmual',
       title: 'Layanan Masyarakat',
       description: 'Akses seluruh layanan administrasi surat desa dari satu panel.',
     };
@@ -119,7 +122,113 @@ export default function UserDashboardLayout({ children, onLogout }: UserDashboar
 
   return (
     <div className="flex h-screen overflow-hidden font-display">
-      {/* Sidebar */}
+      {/* Mobile menu overlay */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 h-full w-64 bg-slate-900 text-white flex flex-col overflow-y-auto">
+            <div className="p-4 border-b border-slate-700 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-2xl border border-slate-600 bg-slate-800/80 p-1 shadow-sm ring-1 ring-white/10 backdrop-blur-sm">
+                  <Image
+                    src="/images/logo-desa.png"
+                    alt="Logo Desa"
+                    width={40}
+                    height={40}
+                    className="h-full w-full rounded-xl object-contain"
+                    priority
+                  />
+                </div>
+                <div className="flex h-12 flex-col justify-center gap-0.5">
+                  <h1 className="text-lg leading-tight font-semibold tracking-tight text-white">SI Surat</h1>
+                  <p className="text-xs leading-tight text-blue-100/90">Desa Aikmual</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1 text-gray-400 hover:text-white"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <nav className="flex-1 p-4 space-y-2">
+              <Link
+                href="/dashboard"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
+                  pathname === '/dashboard'
+                    ? 'bg-slate-800 text-white font-semibold'
+                    : 'text-gray-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <FiHome className="w-4 h-4" />
+                <span>Dashboard</span>
+              </Link>
+
+              <div>
+                <p className="text-xs uppercase text-gray-400 mt-4 mb-2 font-semibold tracking-wider">Manajemen Surat</p>
+                <Link
+                  href="/permohonan"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
+                    pathname.startsWith('/permohonan')
+                      ? 'bg-slate-800 text-white font-semibold'
+                      : 'text-gray-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <FiFileText className="w-4 h-4" />
+                  <span>Permohonan</span>
+                </Link>
+
+                <Link
+                  href="/tracking"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
+                    pathname === '/tracking'
+                      ? 'bg-slate-800 text-white font-semibold'
+                      : 'text-gray-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <FiSearch className="w-4 h-4" />
+                  <span>Lacak Surat</span>
+                </Link>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase text-gray-400 mt-4 mb-2 font-semibold tracking-wider">Pengaturan</p>
+                <Link
+                  href="/profile"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
+                    pathname === '/profile'
+                      ? 'bg-slate-800 text-white font-semibold'
+                      : 'text-gray-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <FiUser className="w-4 h-4" />
+                  <span>Profil Saya</span>
+                </Link>
+              </div>
+            </nav>
+
+            <div className="p-4 border-t border-slate-700">
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); onLogout?.(); }}
+                className="flex items-center space-x-3 px-3 py-2 rounded text-red-400 hover:bg-slate-800 hover:text-red-300 w-full transition-colors"
+              >
+                <FiLogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 h-screen bg-slate-900 text-white flex-col overflow-y-auto">
         <div className="p-4 border-b border-slate-700 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800">
           <div className="flex items-center gap-3">
@@ -199,11 +308,21 @@ export default function UserDashboardLayout({ children, onLogout }: UserDashboar
 
       {/* Main Content */}
       <main className="flex-1 h-screen bg-gray-50 overflow-y-auto w-full">
-        <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{headerContent.eyebrow}</p>
-            <h1 className="mt-1 text-xl md:text-2xl font-bold text-gray-900">{headerContent.title}</h1>
-            <p className="mt-1 text-sm text-gray-600 max-w-3xl">{headerContent.description}</p>
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            {/* Hamburger button — mobile only */}
+            <button
+              className="md:hidden mt-1 p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg shrink-0"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Buka menu navigasi"
+            >
+              <FiMenu className="w-5 h-5" />
+            </button>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{headerContent.eyebrow}</p>
+              <h1 className="mt-1 text-xl md:text-2xl font-bold text-gray-900">{headerContent.title}</h1>
+              <p className="mt-1 text-sm text-gray-600 max-w-3xl">{headerContent.description}</p>
+            </div>
           </div>
 
           <div className="relative" ref={profileRef}>
