@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import type { RowDataPacket } from 'mysql2';
 import { NextResponse } from 'next/server';
 import { sendNotificationEmail } from '@/lib/email';
 import { cookies } from 'next/headers';
@@ -47,7 +48,7 @@ type PermohonanRow = {
 
 type DetailData = Record<string, unknown>;
 
-type DynamicTemplateGenerationRow = {
+type DynamicTemplateGenerationRow = RowDataPacket & {
   id: string;
   nama: string;
   jenis_surat: string;
@@ -918,10 +919,44 @@ async function resolveKepalaDesaSigner(userId: number | null): Promise<{ nama: s
   }
 }
 
+/**
+ * Ensure permohonan_surat.status is VARCHAR(50) instead of a restrictive ENUM.
+ * The original schema used ENUM('pending','diproses','selesai','ditolak') but
+ * the workflow requires 7 status values. This auto-migrates on first request.
+ */
+let statusColumnChecked = false;
+async function ensureStatusColumnIsVarchar(): Promise<void> {
+  if (statusColumnChecked) return;
+  try {
+    const [rows]: any = await db.execute(
+      `SELECT COLUMN_TYPE
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'permohonan_surat'
+         AND COLUMN_NAME = 'status'
+       LIMIT 1`
+    );
+    const colType = String((rows as any[])?.[0]?.COLUMN_TYPE || '').toLowerCase();
+    if (colType.startsWith('enum')) {
+      console.log('[permohonan] Migrating status column from ENUM to VARCHAR(50)...');
+      await db.execute(
+        "ALTER TABLE permohonan_surat MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'pending'"
+      );
+      console.log('[permohonan] status column migrated successfully.');
+    }
+    statusColumnChecked = true;
+  } catch (error) {
+    console.error('[permohonan] ensureStatusColumnIsVarchar error:', error instanceof Error ? error.message : String(error));
+  }
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  // Auto-migrate ENUM → VARCHAR on first request to prevent "Data truncated" error
+  await ensureStatusColumnIsVarchar();
+
   const connection = await db.getConnection();
   let whatsappNotification:
     | 'not_triggered'

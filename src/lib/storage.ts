@@ -40,6 +40,10 @@ export async function uploadFile(
     }
   }
 
+  if (process.env.VERCEL) {
+    throw new Error('Vercel Blob storage failed or is not configured, and local fallback is not supported on Vercel (read-only filesystem).');
+  }
+
   // Local dev / fallback — write to public/ folder
   const localPath = path.join(process.cwd(), 'public', storagePath);
   await mkdir(path.dirname(localPath), { recursive: true });

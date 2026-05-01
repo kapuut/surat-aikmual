@@ -161,6 +161,12 @@ export default function KepalaDesaSuratMasukPage() {
     return parts.length > 0 ? parts.join(' ') : 'semua waktu';
   }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
 
+  const isFilterActive =
+    selectedDayFrom !== "" ||
+    selectedDayTo !== "" ||
+    selectedMonth !== "" ||
+    selectedYear !== "";
+
   const openDisposisiDialog = (item: SuratMasukItem) => {
     setDisposisiTarget(item);
     setTujuanLanjutan("");
@@ -295,9 +301,11 @@ export default function KepalaDesaSuratMasukPage() {
           </select>
         </div>
 
-        <p className="mb-3 text-sm text-gray-600">
-          <span className="font-medium">Jumlah data dari {filterDescription} = {filteredSuratMasuk.length} data</span>
-        </p>
+        {isFilterActive && (
+          <p className="mb-3 text-sm text-gray-600">
+            <span className="font-medium">Jumlah data dari {filterDescription} = {filteredSuratMasuk.length} data</span>
+          </p>
+        )}
 
         {loading ? (
           <div className="py-8 text-center text-gray-500">Memuat data surat masuk...</div>

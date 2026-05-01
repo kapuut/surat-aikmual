@@ -66,15 +66,38 @@ function resolveExtensionFromName(fileName: string): string | null {
 }
 
 /** Ensure the signature_url column exists with enough capacity for blob URLs or data URIs */
-async function ensureSignatureUrlColumn(idField: string): Promise<void> {
+async function ensureSignatureUrlColumn(_idField: string): Promise<void> {
   try {
-    // Try to widen/create column as TEXT so it can hold both blob URLs and base64 data URIs
-    await db.execute('ALTER TABLE users MODIFY COLUMN signature_url MEDIUMTEXT NULL');
-  } catch {
-    // Column may not exist yet — create it
-    try {
+    // Check if column exists using INFORMATION_SCHEMA
+    const [rows]: any = await db.execute(
+      `SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'users'
+         AND COLUMN_NAME = 'signature_url'
+       LIMIT 1`
+    );
+
+    const existing = Array.isArray(rows) ? rows[0] : null;
+
+    if (!existing) {
+      // Column doesn't exist — create it
+      console.log('[signature] Adding signature_url column to users table...');
       await db.execute('ALTER TABLE users ADD COLUMN signature_url MEDIUMTEXT NULL');
-    } catch { /* already exists or permission denied — safe to ignore */ }
+      console.log('[signature] signature_url column added successfully.');
+      return;
+    }
+
+    // Column exists — widen to MEDIUMTEXT if it's still VARCHAR/TEXT (too small for base64)
+    const colType = String(existing.COLUMN_TYPE || existing.column_type || '').toLowerCase();
+    if (colType.includes('varchar') || colType === 'text') {
+      console.log('[signature] Widening signature_url column to MEDIUMTEXT...');
+      await db.execute('ALTER TABLE users MODIFY COLUMN signature_url MEDIUMTEXT NULL');
+      console.log('[signature] signature_url column widened successfully.');
+    }
+  } catch (error) {
+    // Log the error explicitly instead of silently swallowing it
+    console.error('[signature] ensureSignatureUrlColumn error:', error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -124,7 +147,13 @@ export async function POST(request: Request) {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const storedFileName = `kepala-desa-${safeUserId}.${fileExt}`;
       const storagePath = `uploads/signatures/${storedFileName}`;
-      signatureUrl = await uploadFile(storagePath, buffer, normalizedContentType);
+      try {
+        signatureUrl = await uploadFile(storagePath, buffer, normalizedContentType);
+      } catch (err) {
+        console.warn('[signature] Vercel Blob failed, falling back to base64 data URI:', err);
+        const base64 = buffer.toString('base64');
+        signatureUrl = `data:${normalizedContentType};base64,${base64}`;
+      }
     } else {
       // No external storage available (e.g. Vercel without Blob token, or local dev fallback)
       // Store signature as base64 data URI directly in the database

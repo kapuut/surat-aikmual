@@ -441,9 +441,41 @@ async function findActiveDynamicTemplate(
     throw error;
   }
 }
+/**
+ * Ensure permohonan_surat.status is VARCHAR(50) instead of a restrictive ENUM.
+ * Auto-migrates on first request to prevent "Data truncated" errors.
+ */
+let statusColumnChecked = false;
+async function ensureStatusColumnIsVarchar(): Promise<void> {
+  if (statusColumnChecked) return;
+  try {
+    const [rows]: any = await db.execute(
+      `SELECT COLUMN_TYPE
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'permohonan_surat'
+         AND COLUMN_NAME = 'status'
+       LIMIT 1`
+    );
+    const colType = String((rows as any[])?.[0]?.COLUMN_TYPE || '').toLowerCase();
+    if (colType.startsWith('enum')) {
+      console.log('[permohonan] Migrating status column from ENUM to VARCHAR(50)...');
+      await db.execute(
+        "ALTER TABLE permohonan_surat MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'pending'"
+      );
+      console.log('[permohonan] status column migrated successfully.');
+    }
+    statusColumnChecked = true;
+  } catch (error) {
+    console.error('[permohonan] ensureStatusColumnIsVarchar error:', error instanceof Error ? error.message : String(error));
+  }
+}
 
 async function handlePermohonanPost(request: Request) {
   try {
+    // Auto-migrate ENUM → VARCHAR on first request to prevent "Data truncated" error
+    await ensureStatusColumnIsVarchar();
+
     const contentType = request.headers.get('content-type') || '';
     let payload: Record<string, unknown> = {};
     let uploadedFiles: string[] = [];

@@ -253,6 +253,13 @@ export default function SekretarisPermohonanPage() {
     return parts.length > 0 ? parts.join(' ') : 'semua waktu';
   }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
 
+  const isFilterActive =
+    searchTerm !== "" ||
+    selectedDayFrom !== "" ||
+    selectedDayTo !== "" ||
+    selectedMonth !== "" ||
+    selectedYear !== "";
+
   const stats = {
     menungguVerifikasi: permohonan.filter((p) => p.status === "pending" || p.status === "diproses").length,
     dikirimKeKepala: permohonan.filter((p) => p.status === "dikirim_ke_kepala_desa").length,
@@ -392,9 +399,11 @@ export default function SekretarisPermohonanPage() {
         </div>
       </div>
 
-      <div className="mb-4 text-sm text-gray-600">
-        Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
-      </div>
+      {isFilterActive && (
+        <div className="mb-4 text-sm text-gray-600">
+          Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">

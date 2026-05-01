@@ -167,6 +167,12 @@ export default function SecretaryDashboardPage() {
     return parts.length > 0 ? parts.join(' ') : 'semua waktu';
   }, [chartYear, chartMonth, chartDateFrom, chartDateTo]);
 
+  const hasChartFilter =
+    chartDateFrom !== '' ||
+    chartDateTo !== '' ||
+    chartMonth !== '' ||
+    chartYear !== String(now.getFullYear());
+
   if (loading || !isAuthenticated || !authorizedUser || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -320,9 +326,11 @@ export default function SecretaryDashboardPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded-full bg-indigo-50 px-3 py-1.5 font-medium text-indigo-700">
-            Jumlah data dari {filterDescription} = {chartTotalSurat} data
-          </span>
+          {hasChartFilter && (
+            <span className="rounded-full bg-indigo-50 px-3 py-1.5 font-medium text-indigo-700">
+              Jumlah data dari {filterDescription} = {chartTotalSurat} data
+            </span>
+          )}
           <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600">
             {chartData.length} jenis surat
           </span>
@@ -352,13 +360,14 @@ export default function SecretaryDashboardPage() {
           {!chartLoading && !chartError && chartData.length > 0 && (
             <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
               <div className="mb-4">
-                <p className="text-sm font-medium text-gray-700">Perbandingan Jumlah Surat per Jenis</p>
+                <p className="text-base font-semibold text-gray-800">Grafik Surat Tahun {chartYear || new Date().getFullYear()}</p>
+                <p className="text-xs text-gray-500 mt-1">Perbandingan Jumlah Surat per Jenis</p>
               </div>
 
               <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
                 <div className="mb-3 flex items-center justify-between text-[11px] text-gray-500">
                   <span>Jenis Surat</span>
-                  <span>Skala 0 - {chartAxisMax}</span>
+                  <span>Total</span>
                 </div>
 
                 <div className="space-y-2.5">

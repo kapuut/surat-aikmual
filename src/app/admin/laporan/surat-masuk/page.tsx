@@ -218,6 +218,13 @@ export default function LaporanSuratMasukPage() {
     return parts.length > 0 ? parts.join(' ') : 'semua waktu';
   }, [filterTahun, filterBulan, filterTanggalDari, filterTanggalSampai]);
 
+  const isFilterActive =
+    searchTerm !== "" ||
+    filterTanggalDari !== "" ||
+    filterTanggalSampai !== "" ||
+    filterBulan !== "" ||
+    filterTahun !== "";
+
   const monthlyChartData = useMemo(() => {
     const counts = Array.from({ length: 12 }, () => 0);
 
@@ -425,7 +432,7 @@ export default function LaporanSuratMasukPage() {
         {/* Action Buttons */}
         <div className="flex items-center justify-between mb-6">
           <div className="text-sm text-gray-600">
-            Jumlah data dari {filterDescription} = {filteredData.length} data
+            {isFilterActive && `Jumlah data dari ${filterDescription} = ${filteredData.length} data`}
           </div>
           
           <button 

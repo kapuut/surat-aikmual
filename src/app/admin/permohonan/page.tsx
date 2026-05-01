@@ -488,6 +488,13 @@ export default function PermohonanAdminPage() {
     return parts.length > 0 ? parts.join(' ') : 'semua waktu';
   }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
 
+  const isFilterActive =
+    searchTerm !== "" ||
+    selectedDayFrom !== "" ||
+    selectedDayTo !== "" ||
+    selectedMonth !== "" ||
+    selectedYear !== "";
+
   const groupedPermohonan = useMemo(() => {
     return {
       baru: filteredPermohonan.filter((p) => isPermohonanBaruStatus(p.status)),
@@ -671,9 +678,11 @@ export default function PermohonanAdminPage() {
         </div>
       </div>
 
-      <div className="mb-4 text-sm text-gray-600">
-        Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
-      </div>
+      {isFilterActive && (
+        <div className="mb-4 text-sm text-gray-600">
+          Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
+        </div>
+      )}
 
       {loading ? (
         <div className="rounded-lg border border-gray-200 bg-white shadow-sm px-4 py-5 text-center text-sm text-gray-500">

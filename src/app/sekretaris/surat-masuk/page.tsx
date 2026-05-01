@@ -186,6 +186,15 @@ export default function SekretarisSuratMasukPage() {
     return parts.length > 0 ? parts.join(' ') : 'semua waktu';
   }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
 
+  const isFilterActive =
+    searchTerm !== "" ||
+    selectedDayFrom !== "" ||
+    selectedDayTo !== "" ||
+    selectedMonth !== "" ||
+    selectedYear !== "";
+
+
+
   const handleExportExcel = () => {
     const exportRows = filteredSuratMasuk.map((item, index) => ({
       No: index + 1,
@@ -321,9 +330,11 @@ export default function SekretarisSuratMasukPage() {
         </div>
       </div>
 
-      <p className="mb-2 text-sm text-gray-600">
-        <span className="font-medium">Jumlah data dari {filterDescription} = {filteredSuratMasuk.length} data</span>
-      </p>
+      {isFilterActive && (
+        <p className="mb-2 text-sm text-gray-600">
+          <span className="font-medium">Jumlah data dari {filterDescription} = {filteredSuratMasuk.length} data</span>
+        </p>
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
         {loading ? (

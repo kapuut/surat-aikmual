@@ -401,6 +401,13 @@ export default function KepalaDesaWorkflowClient() {
     return parts.length > 0 ? parts.join(' ') : 'semua waktu';
   }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
 
+  const isFilterActive =
+    searchTerm !== "" ||
+    selectedDayFrom !== "" ||
+    selectedDayTo !== "" ||
+    selectedMonth !== "" ||
+    selectedYear !== "";
+
   const stats = {
     menungguTtd: data.filter((p) => p.status === "dikirim_ke_kepala_desa").length,
     perluRevisi: data.filter((p) => p.status === "perlu_revisi").length,
@@ -543,9 +550,11 @@ export default function KepalaDesaWorkflowClient() {
         </div>
       </div>
 
-      <div className="mb-4 text-sm text-gray-600">
-        Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
-      </div>
+      {isFilterActive && (
+        <div className="mb-4 text-sm text-gray-600">
+          Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
