@@ -376,11 +376,11 @@ export default function HeadVillageDashboardPage() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
           {hasChartFilter && (
-            <span className="rounded-full bg-indigo-50 px-3 py-1.5 font-medium text-indigo-700">
+            <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 border border-indigo-100">
               Jumlah data dari {filterDescription} = {chartTotalSurat} data
             </span>
           )}
-          <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600">
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600 border border-slate-200">
             {chartData.length} jenis surat
           </span>
         </div>

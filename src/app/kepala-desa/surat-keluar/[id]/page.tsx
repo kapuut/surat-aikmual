@@ -85,6 +85,56 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function HtmlIframe({ url, title }: { url: string; title: string }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [error, setError] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error("Network response was not ok");
+        return res.text();
+      })
+      .then((text) => {
+        if (isMounted) setContent(text);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch HTML:", err);
+        if (isMounted) setError(true);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [url]);
+
+  if (error) {
+    return (
+      <iframe
+        src={url}
+        title={title}
+        className="min-h-[78vh] w-full rounded-xl border border-slate-200 bg-slate-100"
+      />
+    );
+  }
+
+  if (content === null) {
+    return (
+      <div className="flex min-h-[78vh] w-full items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-sm text-slate-500">
+        Memuat preview...
+      </div>
+    );
+  }
+
+  return (
+    <iframe
+      srcDoc={content}
+      title={title}
+      className="min-h-[78vh] w-full rounded-xl border border-slate-200 bg-slate-100"
+    />
+  );
+}
+
 export default function DetailKepalaDesaSuratKeluarPage() {
   const params = useParams<{ id: string }>();
   const suratId = useMemo(() => {
@@ -227,11 +277,15 @@ export default function DetailKepalaDesaSuratKeluarPage() {
 
             {previewKind === "pdf" && detail.file_path ? (
               <div className="mt-3 space-y-3">
-                <iframe
-                  src={detail.file_path}
-                  title={`Preview surat keluar ${detail.nomor_surat || ""}`}
-                  className="min-h-[78vh] w-full rounded-xl border border-slate-200 bg-slate-100"
-                />
+                {/\.(html|htm|xhtml)$/i.test(detail.file_path) ? (
+                  <HtmlIframe url={detail.file_path} title={`Preview surat keluar ${detail.nomor_surat || ""}`} />
+                ) : (
+                  <iframe
+                    src={detail.file_path}
+                    title={`Preview surat keluar ${detail.nomor_surat || ""}`}
+                    className="min-h-[78vh] w-full rounded-xl border border-slate-200 bg-slate-100"
+                  />
+                )}
               </div>
             ) : null}
 

@@ -339,9 +339,11 @@ export default function KepalaDesaSuratKeluarPage() {
       </div>
 
       {isFilterActive && (
-        <p className="mb-2 text-sm text-gray-600">
-          <span className="font-medium">Jumlah data dari {filterDescription} = {filteredData.length} data</span>
-        </p>
+        <div className="mb-4">
+          <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 border border-indigo-100">
+            Jumlah data dari {filterDescription} = {filteredData.length} data
+          </span>
+        </div>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">

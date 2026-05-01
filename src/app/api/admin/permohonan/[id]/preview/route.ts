@@ -605,7 +605,7 @@ async function findDynamicTemplateForPreview(
       const [rows] = await db.query<DynamicTemplateRow[]>(
         `SELECT id, nama, jenis_surat, html_template, fields_json
          FROM dynamic_template_surat
-         WHERE id = ? AND status = 'aktif'
+         WHERE id = ?
          LIMIT 1`,
         [dynamicTemplateId.trim()]
       );
@@ -626,7 +626,6 @@ async function findDynamicTemplateForPreview(
       `SELECT id, nama, jenis_surat, html_template, fields_json
        FROM dynamic_template_surat
        WHERE LOWER(TRIM(jenis_surat)) = LOWER(TRIM(?))
-         AND status = 'aktif'
        ORDER BY updated_at DESC
        LIMIT 1`,
       [jenisSurat]

@@ -551,8 +551,10 @@ export default function KepalaDesaWorkflowClient() {
       </div>
 
       {isFilterActive && (
-        <div className="mb-4 text-sm text-gray-600">
-          Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
+        <div className="mb-4">
+          <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 border border-indigo-100">
+            Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
+          </span>
         </div>
       )}
 

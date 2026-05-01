@@ -247,22 +247,34 @@ export default function SecretaryDashboardPage() {
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tahun</label>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-6">
+          <div className="md:col-span-1">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Dari</label>
             <select
-              value={chartYear}
-              onChange={(e) => setChartYear(e.target.value)}
+              value={chartDateFrom}
+              onChange={(e) => setChartDateFrom(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {chartYears.map((year) => (
-                <option key={year} value={String(year)}>
-                  {year}
-                </option>
+              <option value="">Semua</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={String(d)}>{d}</option>
               ))}
             </select>
           </div>
-          <div>
+          <div className="md:col-span-1">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Sampai</label>
+            <select
+              value={chartDateTo}
+              onChange={(e) => setChartDateTo(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Semua</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={String(d)}>{d}</option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-1">
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Bulan</label>
             <select
               value={chartMonth}
@@ -284,7 +296,21 @@ export default function SecretaryDashboardPage() {
               <option value="12">Desember</option>
             </select>
           </div>
-          <div>
+          <div className="md:col-span-1">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tahun</label>
+            <select
+              value={chartYear}
+              onChange={(e) => setChartYear(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {chartYears.map((year) => (
+                <option key={year} value={String(year)}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-2">
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Urutan</label>
             <select
               value={chartSort}
@@ -297,41 +323,15 @@ export default function SecretaryDashboardPage() {
               <option value="date_asc">Tanggal Terlama</option>
             </select>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Dari</label>
-            <select
-              value={chartDateFrom}
-              onChange={(e) => setChartDateFrom(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua</option>
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                <option key={d} value={String(d)}>{d}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Sampai</label>
-            <select
-              value={chartDateTo}
-              onChange={(e) => setChartDateTo(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua</option>
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                <option key={d} value={String(d)}>{d}</option>
-              ))}
-            </select>
-          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
           {hasChartFilter && (
-            <span className="rounded-full bg-indigo-50 px-3 py-1.5 font-medium text-indigo-700">
+            <span className="rounded-full bg-indigo-50 px-3 py-1.5 font-medium text-indigo-700 border border-indigo-100">
               Jumlah data dari {filterDescription} = {chartTotalSurat} data
             </span>
           )}
-          <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600">
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600 border border-slate-200">
             {chartData.length} jenis surat
           </span>
         </div>

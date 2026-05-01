@@ -23,33 +23,33 @@ type HeaderContent = {
 
 const HEADER_BY_PATH: Record<string, HeaderContent> = {
   '/sekretaris/dashboard': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Sekretaris',
     title: 'Selamat datang, Sekretaris Desa',
     description:
       'Kelola surat masuk, surat keluar, dan verifikasi permohonan warga dengan alur kerja yang terstruktur.',
   },
   '/sekretaris/surat-masuk': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Sekretaris',
     title: 'Surat Masuk',
     description: 'Kelola distribusi surat masuk agar proses disposisi berjalan cepat.',
   },
   '/sekretaris/surat-keluar': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Sekretaris',
     title: 'Surat Keluar',
     description: 'Pantau surat keluar dari tahap draft hingga arsip pengiriman.',
   },
   '/sekretaris/permohonan': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Sekretaris',
     title: 'Permohonan Warga',
     description: 'Verifikasi kelengkapan berkas sebelum diteruskan ke kepala desa.',
   },
   '/sekretaris/disposisi': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Sekretaris',
     title: 'Disposisi Surat',
     description: 'Atur tindak lanjut surat masuk ke unit atau petugas terkait.',
   },
   '/sekretaris/change-password': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Sekretaris',
     title: 'Profil Akun',
     description: 'Kelola data profil, ubah password, dan pengaturan akun Sekretaris.',
   },
@@ -83,7 +83,7 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
 
     if (pathname.startsWith('/sekretaris/')) {
       return {
-        eyebrow: 'Portal Administrasi Terpadu',
+        eyebrow: 'Portal Sekretaris',
         title: 'Panel Sekretaris',
         description: 'Kelola proses surat desa dari verifikasi hingga arsip final.',
       };

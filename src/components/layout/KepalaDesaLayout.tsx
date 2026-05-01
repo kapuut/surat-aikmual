@@ -22,48 +22,48 @@ type HeaderContent = {
 
 const HEADER_BY_PATH: Record<string, HeaderContent> = {
   '/kepala-desa/dashboard': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Kepala Desa',
     title: 'Selamat datang, Kepala Desa',
     description:
       'Pantau permohonan warga yang menunggu persetujuan, tindak lanjuti penandatanganan, dan awasi performa layanan surat desa dalam satu panel.',
   },
   '/kepala-desa/permohonan': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Kepala Desa',
     title: 'Permohonan Warga',
     description: 'Tinjau kelengkapan berkas permohonan sebelum persetujuan final.',
   },
   '/kepala-desa/approval': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Kepala Desa',
     title: 'Approval Dokumen',
     description: 'Lakukan persetujuan akhir untuk permohonan yang sudah diverifikasi.',
   },
   '/kepala-desa/penandatanganan': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Kepala Desa',
     title: 'Penandatanganan Surat',
     description: 'Selesaikan proses tanda tangan surat yang siap diterbitkan.',
   },
   '/kepala-desa/surat-masuk': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Kepala Desa',
     title: 'Surat Masuk',
     description: 'Pantau arsip surat masuk sebagai bahan monitoring pimpinan.',
   },
   '/kepala-desa/surat-keluar': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Kepala Desa',
     title: 'Surat Keluar',
     description: 'Pastikan surat keluar telah diproses sesuai standar pelayanan.',
   },
   '/kepala-desa/laporan/surat-masuk': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Kepala Desa',
     title: 'Surat Masuk',
     description: 'Pantau ringkasan surat masuk untuk pengambilan keputusan cepat.',
   },
   '/kepala-desa/laporan/surat-keluar': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Kepala Desa',
     title: 'Surat Keluar',
     description: 'Tinjau performa distribusi surat keluar kantor desa.',
   },
   '/kepala-desa/change-password': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Kepala Desa',
     title: 'Profil Akun',
     description: 'Kelola data profil, ubah password, dan upload file tanda tangan digital.',
   },
@@ -89,7 +89,7 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
 
     if (pathname.startsWith('/kepala-desa/laporan/')) {
       return {
-        eyebrow: 'Portal Administrasi Terpadu',
+        eyebrow: 'Portal Kepala Desa',
         title: 'Laporan Kepala Desa',
         description: 'Pantau ringkasan data strategis untuk evaluasi layanan desa.',
       };
@@ -97,7 +97,7 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
 
     if (pathname.startsWith('/kepala-desa/')) {
       return {
-        eyebrow: 'Portal Administrasi Terpadu',
+        eyebrow: 'Portal Kepala Desa',
         title: 'Panel Kepala Desa',
         description: 'Kelola persetujuan dan pengawasan administrasi surat desa.',
       };

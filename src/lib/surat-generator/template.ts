@@ -443,7 +443,7 @@ export function generateSuratTemplate(
           window.addEventListener('load', function () {
             setTimeout(function () {
               window.print();
-            }, 180);
+            }, 1500);
           });
         }
       } catch {
@@ -543,10 +543,9 @@ export function generateSuratTemplate(
     }
 
     .kop-row {
-      display: grid;
-      grid-template-columns: 98px 1fr;
-      column-gap: 10px;
+      display: flex;
       align-items: center;
+      gap: 15px;
     }
 
     .logo-wrap {
@@ -564,8 +563,9 @@ export function generateSuratTemplate(
     }
 
     .kop-text {
+      flex: 1;
       text-align: center;
-      padding-right: 98px;
+      padding-right: 40px;
       font-family: 'Times New Roman', serif;
     }
 
@@ -823,7 +823,7 @@ export function generateSuratTemplate(
     <div class="kop-surat">
       <div class="kop-row">
         <div class="logo-wrap">
-          <img src="${escapeHtml(logoUrl)}" alt="Logo Lombok Tengah" />
+          <img src="${escapeHtml(logoUrl)}" alt="Logo Lombok Tengah" crossorigin="anonymous" />
         </div>
         <div class="kop-text">
           <div class="kabupaten">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>

@@ -302,9 +302,11 @@ export default function KepalaDesaSuratMasukPage() {
         </div>
 
         {isFilterActive && (
-          <p className="mb-3 text-sm text-gray-600">
-            <span className="font-medium">Jumlah data dari {filterDescription} = {filteredSuratMasuk.length} data</span>
-          </p>
+          <div className="mb-4">
+            <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 border border-indigo-100">
+              Jumlah data dari {filterDescription} = {filteredSuratMasuk.length} data
+            </span>
+          </div>
         )}
 
         {loading ? (

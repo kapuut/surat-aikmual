@@ -27,62 +27,62 @@ type HeaderContent = {
 
 const HEADER_BY_PATH: Record<string, HeaderContent> = {
   '/admin/dashboard': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Selamat datang, Administrator Sistem',
     description: '',
   },
   '/admin/surat-masuk': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Surat Masuk',
     description: 'Kelola data surat masuk yang diterima oleh kantor desa.',
   },
   '/admin/surat-keluar': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Surat Keluar',
     description: 'Kelola data surat keluar yang dikirim oleh kantor desa.',
   },
   '/admin/permohonan': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Permohonan Surat',
     description: 'Kelola permohonan, approval, dan penandatanganan surat oleh warga desa.',
   },
   '/admin/template-surat': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Template Surat',
     description: 'Kelola template surat yang digunakan untuk pembuatan surat.',
   },
   '/admin/laporan/surat-masuk': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Laporan Surat Masuk',
     description: 'Laporan lengkap data surat masuk yang diterima oleh kantor desa.',
   },
   '/admin/laporan/surat-keluar': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Laporan Surat Keluar',
     description: 'Laporan lengkap data surat keluar yang dikirim oleh kantor desa.',
   },
   '/admin/pemantauan-user': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Pemantauan User',
     description: 'Kelola aktivitas user dan hak akses dalam sistem.',
   },
   '/admin/profile': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Profil Akun',
     description: 'Kelola data akun dan keamanan administrator sistem.',
   },
   '/admin/approval': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Approval Dokumen',
     description: 'Kelola persetujuan dan penandatanganan dokumen surat.',
   },
   '/admin/laporan/grafik': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Laporan Grafik',
     description: 'Visualisasi data surat masuk dan keluar dalam bentuk grafik per bulan.',
   },
   '/admin/surat-masuk/tambah': {
-    eyebrow: 'Portal Administrasi Terpadu',
+    eyebrow: 'Portal Admin',
     title: 'Tambah Surat Masuk',
     description: 'Input dan arsipkan surat masuk baru ke dalam sistem.',
   },
@@ -108,7 +108,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     if (pathname.startsWith('/admin/laporan/')) {
       return {
-        eyebrow: 'Portal Administrasi Terpadu',
+        eyebrow: 'Portal Admin',
         title: 'Laporan Administrasi',
         description: 'Pantau ringkasan laporan untuk mendukung pengambilan keputusan.',
       };
@@ -116,7 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     if (pathname.startsWith('/admin/')) {
       return {
-        eyebrow: 'Portal Administrasi Terpadu',
+        eyebrow: 'Portal Admin',
         title: 'Menu Administrasi',
         description: 'Kelola operasional surat dan layanan desa melalui panel admin.',
       };

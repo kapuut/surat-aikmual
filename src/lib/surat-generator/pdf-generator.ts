@@ -25,6 +25,18 @@ export async function generateSuratPDFClient(
   document.body.appendChild(container);
 
   try {
+    // Wait for all images to load
+    const images = Array.from(container.getElementsByTagName('img'));
+    await Promise.all(
+      images.map((img) => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        });
+      })
+    );
+
     // Convert HTML to Canvas
     const canvas = await html2canvas(container, {
       scale: 2,
