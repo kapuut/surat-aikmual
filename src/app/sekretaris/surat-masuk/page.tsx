@@ -338,7 +338,7 @@ export default function SekretarisSuratMasukPage() {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         {loading ? (
           <div className="p-8 text-center">
             <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
@@ -349,49 +349,49 @@ export default function SekretarisSuratMasukPage() {
             <p>{hasFilter ? "Data surat masuk tidak ditemukan" : "Belum ada data surat masuk"}</p>
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-100">
+          <table className="w-full text-xs sm:text-sm table-auto border-collapse">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal Terima</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Asal Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Perihal</th>
-                <th className="w-52 px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
+                <th className="px-2 py-3 text-left font-bold text-gray-700 w-10">No</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-36">Nomor Surat</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">Tgl Surat</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">Tgl Terima</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[150px]">Asal Surat</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[200px]">Perihal</th>
+                <th className="px-2 py-3 text-center font-bold text-gray-700 w-48">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredSuratMasuk.map((surat, index) => (
-                <tr key={surat.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{index + 1}</td>
-                  <td className="px-4 py-3 font-medium">{surat.nomor_surat}</td>
-                  <td className="px-4 py-3">{formatDate(surat.tanggal_surat)}</td>
-                  <td className="px-4 py-3">{formatDate(surat.tanggal_terima)}</td>
-                  <td className="px-4 py-3">{surat.asal_surat}</td>
-                  <td className="px-4 py-3">{surat.perihal}</td>
-                  <td className="px-4 py-3 text-center align-middle">
-                    <div className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+                <tr key={surat.id} className="hover:bg-indigo-50/30 transition-colors">
+                  <td className="px-2 py-3 text-gray-500">{index + 1}</td>
+                  <td className="px-3 py-3 font-semibold text-gray-900 break-words">{surat.nomor_surat}</td>
+                  <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{formatDate(surat.tanggal_surat)}</td>
+                  <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{formatDate(surat.tanggal_terima)}</td>
+                  <td className="px-3 py-3 text-gray-700 max-w-[150px] truncate" title={surat.asal_surat}>{surat.asal_surat}</td>
+                  <td className="px-3 py-3 text-gray-600 max-w-[200px] truncate" title={surat.perihal}>{surat.perihal}</td>
+                  <td className="px-2 py-3 text-center align-middle">
+                    <div className="flex items-center justify-center gap-2">
                       {surat.file_path ? (
                         <>
                           <Link
                             href={`/sekretaris/surat-masuk/${surat.id}/preview`}
-                            className="aksi-btn aksi-btn-view"
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
                           >
-                            <FiEye className="mr-1 h-4 w-4" />
+                            <FiEye className="w-3.5 h-3.5" />
                             Lihat
                           </Link>
                           <a
                             href={surat.file_path}
                             download={getStoredFileName(surat.file_path)}
-                            className="aksi-btn aksi-btn-download"
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
                           >
-                            <FiDownload className="mr-1 h-4 w-4" />
+                            <FiDownload className="w-3.5 h-3.5" />
                             Unduh
                           </a>
                         </>
                       ) : (
-                        <span className="aksi-btn-muted">
+                        <span className="text-[10px] font-semibold text-gray-400 italic bg-gray-50 px-2 py-1 rounded border border-gray-100">
                           Tidak ada file
                         </span>
                       )}

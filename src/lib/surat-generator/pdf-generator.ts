@@ -10,18 +10,34 @@ export async function generateSuratPDFClient(
   data: SuratData,
   filename?: string
 ): Promise<void> {
+  // Generate HTML template
+  const htmlContent = generateSuratTemplate(data);
+  const finalFilename = filename || generateSuratFilename(data);
+  
+  return generatePDFFromHTML(htmlContent, finalFilename);
+}
+
+/**
+ * Shared logic untuk generate PDF dari HTML string dengan kualitas HD
+ */
+export async function generatePDFFromHTML(
+  htmlContent: string,
+  filename: string
+): Promise<void> {
   // Dynamic import untuk client-side only
   const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
 
-  // Generate HTML template
-  const htmlContent = generateSuratTemplate(data);
-
   // Create temporary container
   const container = document.createElement('div');
   container.innerHTML = htmlContent;
-  container.style.opacity = '0';
-  container.style.position = 'absolute';
+  
+  // Style container agar tidak merusak layout utama tapi tetap bisa di-render
+  container.style.position = 'fixed';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  container.style.width = '21cm'; // A4 Width
+  container.style.backgroundColor = '#ffffff';
   document.body.appendChild(container);
 
   try {
@@ -37,41 +53,55 @@ export async function generateSuratPDFClient(
       })
     );
 
-    // Convert HTML to Canvas
+    // Wait a bit for layout stabilization
+    await new Promise(r => setTimeout(r, 500));
+
+    // Convert HTML to Canvas with HD Quality settings
     const canvas = await html2canvas(container, {
-      scale: 2,
+      scale: 3, // HD quality
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
+      logging: false,
+      windowWidth: 794, // Force A4 width (210mm at 96dpi)
+      imageTimeout: 0,
     });
 
     // Create PDF from canvas
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgData = canvas.toDataURL('image/png');
+    const imgData = canvas.toDataURL('image/png', 1.0);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
+    
+    // Calculate dimensions to fit A4
     const imgWidth = pdfWidth;
     const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
     let heightLeft = imgHeight;
     let position = 0;
 
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    // First page
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
     heightLeft -= pdfHeight;
 
-    while (heightLeft >= 0) {
+    // Additional pages if needed
+    while (heightLeft > 0) {
       position = heightLeft - imgHeight;
       pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
       heightLeft -= pdfHeight;
     }
 
     // Save PDF
-    const finalFilename = filename || `surat-${new Date().getTime()}.pdf`;
-    pdf.save(finalFilename);
+    pdf.save(filename);
+  } catch (error) {
+    console.error('Failed to generate PDF:', error);
+    throw error;
   } finally {
     // Cleanup
-    document.body.removeChild(container);
+    if (container.parentNode) {
+      document.body.removeChild(container);
+    }
   }
 }
 
@@ -97,3 +127,4 @@ export function generateSuratFilename(data: SuratData): string {
   const tanggal = formatTanggalSurat(data.tanggalSurat).replace(/\s+/g, '-');
   return `surat-${data.jenisSurat}-${sanatizedNama}-${tanggal}.pdf`;
 }
+

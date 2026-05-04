@@ -73,8 +73,26 @@ export default function GeneratorSuratPage() {
 
     setLoading(true);
     try {
-      await generateSuratPDFClient(formData as SuratData);
-      alert('PDF berhasil didownload!');
+      const html = generateSuratPreviewHTML(formData as SuratData);
+      
+      // Open new window for printing
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        throw new Error('Gagal membuka jendela cetak. Pastikan pop-up tidak diblokir.');
+      }
+      
+      // Inject HTML with a small delay to trigger print
+      printWindow.document.write(html);
+      printWindow.document.close();
+      
+      // Trigger print manually in case the embedded script doesn't catch it
+      // The template already has ?print=1 logic, but here we don't have a URL
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      };
+
     } catch (error) {
       console.error('Error:', error);
       alert('Gagal membuat PDF: ' + (error instanceof Error ? error.message : 'Unknown error'));

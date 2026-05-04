@@ -331,9 +331,6 @@ export default function SecretaryDashboardPage() {
               Jumlah data dari {filterDescription} = {chartTotalSurat} data
             </span>
           )}
-          <span className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600 border border-slate-200">
-            {chartData.length} jenis surat
-          </span>
         </div>
 
         <div className="mt-5">

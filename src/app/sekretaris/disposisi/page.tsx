@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -394,7 +394,7 @@ export default function SekretarisDisposisiPage() {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         {loading ? (
           <div className="p-8 text-center text-gray-500">Memuat data disposisi...</div>
         ) : filteredDisposisi.length === 0 ? (
@@ -404,79 +404,73 @@ export default function SekretarisDisposisiPage() {
               : "Tidak ada surat yang sesuai dengan filter proses ini."}
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-100">
+          <table className="w-full text-xs sm:text-sm table-auto border-collapse">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">No Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal Disposisi</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Perihal</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Urgensi</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Dari</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
+                <th className="px-2 py-3 text-left font-bold text-gray-700 w-10">No</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-36">No Surat</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-28">Tgl Disposisi</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[200px]">Perihal</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-20">Urgensi</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[120px]">Dari</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-24">Status</th>
+                <th className="px-2 py-3 text-center font-bold text-gray-700 w-72">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredDisposisi.map((item, i) => {
                 const normalized = normalizeStatus(item.status);
                 return (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">{i + 1}</td>
-                    <td className="px-4 py-3 font-medium">{item.nomor_surat || "-"}</td>
-                    <td className="px-4 py-3">{formatDate(item.disposed_at)}</td>
-                    <td className="px-4 py-3">{item.perihal || "-"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${urgensiClass(item.urgensi)}`}>
+                  <tr key={item.id} className="hover:bg-indigo-50/30 transition-colors">
+                    <td className="px-2 py-3 text-gray-500">{i + 1}</td>
+                    <td className="px-3 py-3 font-semibold text-gray-900 break-words">{item.nomor_surat || "-"}</td>
+                    <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{formatDate(item.disposed_at)}</td>
+                    <td className="px-3 py-3 text-gray-600 max-w-[200px] truncate" title={item.perihal || "-"}>{item.perihal || "-"}</td>
+                    <td className="px-3 py-3">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${urgensiClass(item.urgensi)}`}>
                         {urgensiLabel(item.urgensi)}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{item.disposed_by_name || "Kepala Desa"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusClass(item.status)}`}>
+                    <td className="px-3 py-3 text-gray-700 max-w-[120px] truncate" title={item.disposed_by_name || "Kepala Desa"}>
+                      {item.disposed_by_name || "Kepala Desa"}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap ${statusClass(item.status)}`}>
                         {statusLabel(item.status)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex flex-wrap items-center justify-center gap-2">
+                    <td className="px-2 py-3 text-center align-middle">
+                      <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => setDetailItem(item)}
-                          className="bg-blue-500 text-white px-2.5 py-1.5 rounded hover:bg-blue-600"
+                          className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
                           title="Lihat detail surat"
                         >
-                          <FiEye className="w-4 h-4" />
+                          <FiEye className="w-3.5 h-3.5" />
+                          Detail
                         </button>
 
                         {item.file_path ? (
                           <a
                             href={item.file_path}
                             download={getFileNameFromPath(item.file_path)}
-                            className="bg-emerald-500 text-white px-2.5 py-1.5 rounded hover:bg-emerald-600"
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
                             title="Unduh file"
                           >
-                            <FiDownload className="w-4 h-4" />
+                            <FiDownload className="w-3.5 h-3.5" />
+                            Unduh
                           </a>
                         ) : null}
-
-                        {normalized === "didisposisikan" && (
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateStatus(item, "diproses")}
-                            disabled={updatingId === item.id}
-                            className="rounded bg-sky-600 px-2 py-1 text-xs font-semibold text-white hover:bg-sky-700 disabled:bg-sky-300"
-                          >
-                            Proses
-                          </button>
-                        )}
 
                         {normalized !== "selesai" && (
                           <button
                             type="button"
                             onClick={() => handleUpdateStatus(item, "selesai")}
                             disabled={updatingId === item.id}
-                            className="rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:bg-indigo-300"
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-indigo-50 text-indigo-600 text-[10px] font-bold hover:bg-indigo-100 border border-indigo-200 transition-all shadow-sm disabled:opacity-50"
                           >
+                            <FiCheck className="w-3.5 h-3.5" />
                             Selesai
                           </button>
                         )}
@@ -485,10 +479,11 @@ export default function SekretarisDisposisiPage() {
                           type="button"
                           onClick={() => handleDeleteDisposisi(item)}
                           disabled={deletingId === item.id}
-                          className="bg-red-500 text-white px-2.5 py-1.5 rounded hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed"
+                          className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-rose-50 text-rose-600 text-[10px] font-bold hover:bg-rose-100 border border-rose-200 transition-all shadow-sm disabled:opacity-50"
                           title="Hapus disposisi"
                         >
-                          <FiTrash2 className="w-4 h-4" />
+                          <FiTrash2 className="w-3.5 h-3.5" />
+                          Hapus
                         </button>
                       </div>
                     </td>

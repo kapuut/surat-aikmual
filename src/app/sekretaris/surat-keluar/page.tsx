@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { FiDownload, FiSearch } from "react-icons/fi";
+import { FiDownload, FiEye, FiSearch } from "react-icons/fi";
 import * as XLSX from "xlsx";
 
 interface SuratKeluarItem {
@@ -348,7 +348,7 @@ export default function SekretarisSuratKeluarPage() {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         {loading ? (
           <div className="p-8 text-center text-gray-500">Memuat data surat keluar...</div>
         ) : error ? (
@@ -358,16 +358,16 @@ export default function SekretarisSuratKeluarPage() {
             {hasFilter ? "Data surat keluar tidak ditemukan" : "Belum ada data surat keluar."}
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-100">
+          <table className="w-full text-xs sm:text-sm table-auto border-collapse">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal Kirim</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tujuan</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Perihal</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-                <th className="w-52 px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
+                <th className="px-2 py-3 text-left font-bold text-gray-700 w-10">No</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-36">Nomor Surat</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">Tgl Kirim</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[150px]">Tujuan</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[200px]">Perihal</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-24">Status</th>
+                <th className="px-2 py-3 text-center font-bold text-gray-700 w-48">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -375,14 +375,14 @@ export default function SekretarisSuratKeluarPage() {
                 const refId = getReferenceId(surat);
 
                 return (
-                <tr key={surat.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{i + 1}</td>
-                  <td className="px-4 py-3 font-medium">{surat.nomor_surat}</td>
-                  <td className="px-4 py-3">{formatDate(surat.tanggal_surat)}</td>
-                  <td className="px-4 py-3">{surat.tujuan}</td>
-                  <td className="px-4 py-3">{surat.perihal}</td>
-                  <td className="px-4 py-3">
-                    <span className={`status-chip ${
+                <tr key={surat.id} className="hover:bg-indigo-50/30 transition-colors">
+                  <td className="px-2 py-3 text-gray-500">{i + 1}</td>
+                  <td className="px-3 py-3 font-semibold text-gray-900 break-words">{surat.nomor_surat}</td>
+                  <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{formatDate(surat.tanggal_surat)}</td>
+                  <td className="px-3 py-3 text-gray-700 max-w-[150px] truncate" title={surat.tujuan}>{surat.tujuan}</td>
+                  <td className="px-3 py-3 text-gray-600 max-w-[200px] truncate" title={surat.perihal}>{surat.perihal}</td>
+                  <td className="px-3 py-3">
+                    <span className={`status-chip scale-90 origin-left ${
                       surat.status === "Menunggu"
                         ? "status-chip-warning"
                         : surat.status === "Draft"
@@ -392,27 +392,28 @@ export default function SekretarisSuratKeluarPage() {
                       {surat.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center align-middle">
-                    <div className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+                  <td className="px-2 py-3 text-center align-middle">
+                    <div className="flex items-center justify-center gap-2">
                       {surat.file_path ? (
                         <>
                           <Link
                             href={`/sekretaris/surat-keluar/${refId}/preview`}
-                            className="aksi-btn aksi-btn-view"
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
                           >
-                            Lihat File
+                            <FiEye className="w-3.5 h-3.5" />
+                            Lihat
                           </Link>
                           <a
                             href={surat.file_path}
                             download={getStoredFileName(surat.file_path)}
-                            className="aksi-btn aksi-btn-download"
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
                           >
-                            <FiDownload className="mr-1 h-4 w-4" />
+                            <FiDownload className="w-3.5 h-3.5" />
                             Unduh
                           </a>
                         </>
                       ) : (
-                        <span className="aksi-btn-muted">
+                        <span className="text-[10px] font-semibold text-gray-400 italic bg-gray-50 px-2 py-1 rounded border border-gray-100">
                           Tidak ada file
                         </span>
                       )}

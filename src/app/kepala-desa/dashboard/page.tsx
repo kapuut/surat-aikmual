@@ -205,16 +205,16 @@ export default function HeadVillageDashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6">
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm text-gray-500">Ringkasan Layanan Surat</p>
-            <h2 className="text-2xl font-bold text-gray-800 mt-1">Dashboard Kepala Desa</h2>
-            <p className="text-gray-500 mt-2 text-sm">
-              Pantau performa surat masuk, surat keluar, dan permohonan warga dalam satu tampilan.
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-3xl">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">Ringkasan Layanan Surat</p>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard Kepala Desa</h2>
+            <p className="text-slate-500 mt-2 text-sm leading-relaxed">
+              Pantau performa surat masuk, surat keluar, dan permohonan warga dalam satu tampilan panel kendali terpadu.
             </p>
-          </div>
-          <div className="inline-flex items-center rounded-lg bg-blue-50 text-blue-700 px-3 py-2 text-sm font-medium">
-            Pengguna aktif: {user?.nama || 'Kepala Desa'}
           </div>
         </div>
       </div>
@@ -380,9 +380,6 @@ export default function HeadVillageDashboardPage() {
               Jumlah data dari {filterDescription} = {chartTotalSurat} data
             </span>
           )}
-          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600 border border-slate-200">
-            {chartData.length} jenis surat
-          </span>
         </div>
 
         <div className="mt-5">

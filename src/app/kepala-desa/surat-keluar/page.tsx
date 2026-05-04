@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { FiDownload, FiSearch } from "react-icons/fi";
+import { FiDownload, FiSearch, FiEye } from "react-icons/fi";
 import * as XLSX from "xlsx";
 
 interface SuratKeluarItem {
@@ -356,16 +356,16 @@ export default function KepalaDesaSuratKeluarPage() {
             {hasFilter ? "Data surat keluar tidak ditemukan" : "Belum ada data surat keluar."}
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-100">
+          <table className="w-full text-xs sm:text-sm table-auto border-collapse">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal Kirim</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tujuan</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Perihal</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-                <th className="w-52 px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
+                <th className="px-2 py-3 text-left font-bold text-gray-700 w-10">No</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">Nomor Surat</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 w-28">Tanggal Kirim</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700">Tujuan</th>
+                <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[250px]">Perihal</th>
+                <th className="px-2 py-3 text-left font-bold text-gray-700 w-24">Status</th>
+                <th className="px-2 py-3 text-center font-bold text-gray-700 w-48">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -373,14 +373,16 @@ export default function KepalaDesaSuratKeluarPage() {
                 const refId = getReferenceId(item);
 
                 return (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{index + 1}</td>
-                  <td className="px-4 py-3 font-medium">{item.nomor_surat}</td>
-                  <td className="px-4 py-3">{formatDate(item.tanggal_surat)}</td>
-                  <td className="px-4 py-3">{item.tujuan}</td>
-                  <td className="px-4 py-3">{item.perihal}</td>
-                  <td className="px-4 py-3">
-                    <span className={`status-chip ${
+                <tr key={item.id} className="hover:bg-purple-50/30 transition-colors">
+                  <td className="px-2 py-3 text-gray-500">{index + 1}</td>
+                  <td className="px-3 py-3 font-semibold text-gray-900 break-words">{item.nomor_surat}</td>
+                  <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{formatDate(item.tanggal_surat)}</td>
+                  <td className="px-3 py-3 text-gray-700 leading-snug max-w-[150px] truncate" title={item.tujuan}>{item.tujuan}</td>
+                  <td className="px-3 py-3 text-gray-600 leading-snug italic truncate max-w-[200px]" title={item.perihal}>
+                    {item.perihal}
+                  </td>
+                  <td className="px-2 py-3">
+                    <span className={`status-chip scale-90 origin-left ${
                       item.status === "Terkirim"
                         ? "status-chip-success"
                         : item.status === "Menunggu"
@@ -390,29 +392,34 @@ export default function KepalaDesaSuratKeluarPage() {
                       {item.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center align-middle">
-                    {item.file_path ? (
-                      <div className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
-                        <Link
-                          href={`/kepala-desa/surat-keluar/${refId}`}
-                          className="aksi-btn aksi-btn-view"
-                        >
-                          Lihat File
-                        </Link>
-                        <a
-                          href={item.file_path}
-                          download={getStoredFileName(item.file_path)}
-                          className="aksi-btn aksi-btn-download"
-                        >
-                          <FiDownload className="mr-1 h-4 w-4" />
-                          Unduh
-                        </a>
-                      </div>
-                    ) : (
-                      <span className="aksi-btn-muted">
-                        Tidak ada file
-                      </span>
-                    )}
+                  <td className="px-2 py-3 text-center align-middle">
+                    <div className="flex items-center justify-center gap-2">
+                      {item.file_path ? (
+                        <>
+                          <Link
+                            href={`/kepala-desa/surat-keluar/${refId}`}
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
+                            title="Lihat detail"
+                          >
+                            <FiEye className="w-3.5 h-3.5" />
+                            Detail
+                          </Link>
+                          <a
+                            href={item.file_path}
+                            download={getStoredFileName(item.file_path)}
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
+                            title="Unduh file"
+                          >
+                            <FiDownload className="w-3.5 h-3.5" />
+                            Unduh
+                          </a>
+                        </>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-gray-400 italic bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                          Tidak ada file
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );})}

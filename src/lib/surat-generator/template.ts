@@ -487,11 +487,12 @@ export function generateSuratTemplate(
       min-height: 29.7cm;
       height: auto;
       margin: 0 auto;
-      padding: 1.2cm 1.3cm 1.2cm 1.3cm;
+      padding: 1.5cm 1.5cm 1.5cm 1.5cm;
       font-size: 12pt;
       line-height: 1.5;
       background: white;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      position: relative;
     }
 
     .editor-toolbar {
@@ -537,72 +538,75 @@ export function generateSuratTemplate(
     
     /* Kop Surat */
     .kop-surat {
-      margin-bottom: 0.7cm;
+      margin-bottom: 0.4cm;
       position: relative;
-      padding-bottom: 0.15cm;
+      padding-bottom: 0.1cm;
     }
 
     .kop-row {
       display: flex;
       align-items: center;
-      gap: 15px;
+      gap: 20px;
     }
 
     .logo-wrap {
-      width: 98px;
-      height: 98px;
+      width: 100px;
+      height: 100px;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
     }
 
     .logo-wrap img {
-      width: 88px;
-      height: 88px;
+      width: 85px;
+      height: 85px;
       object-fit: contain;
     }
 
     .kop-text {
       flex: 1;
       text-align: center;
-      padding-right: 40px;
-      font-family: 'Times New Roman', serif;
+      padding-right: 100px; /* Offset the logo width to center text properly */
     }
 
     .kop-text .kabupaten {
       font-size: 14pt;
       font-weight: bold;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.02em;
       text-transform: uppercase;
+      font-family: 'Times New Roman', Times, serif;
     }
 
     .kop-text .kecamatan {
       font-size: 14pt;
       font-weight: bold;
       text-transform: uppercase;
+      font-family: 'Times New Roman', Times, serif;
     }
 
     .kop-text .desa {
-      font-size: 14pt;
+      font-size: 16pt;
       font-weight: bold;
       text-transform: uppercase;
-      margin-bottom: 1px;
+      margin-bottom: 2px;
+      font-family: 'Times New Roman', Times, serif;
     }
 
     .kop-text .alamat {
       font-size: 9pt;
-      border: 1px solid #111;
-      padding: 2px 6px;
+      border: 1px solid #000;
+      padding: 3px 10px;
       display: inline-block;
-      min-width: 86%;
-      white-space: nowrap;
+      margin-top: 4px;
+      font-style: italic;
+      font-family: Arial, sans-serif;
     }
 
     .kop-divider {
-      margin-top: 4px;
-      border-top: 1px solid #000;
-      border-bottom: 2px solid #000;
-      height: 3px;
+      margin-top: 2px;
+      border-top: 3px solid #000;
+      height: 0;
     }
     
     /* Judul Surat */
@@ -639,32 +643,35 @@ export function generateSuratTemplate(
     .isi-surat table {
       width: 100%;
       border-collapse: collapse;
-      margin: 0.15cm 0 0.35cm 1.1cm;
+      margin: 0.2cm 0 0.4cm 1.2cm;
       font-size: 12pt;
     }
     
     .isi-surat td {
-      padding: 0.03cm 0;
+      padding: 0.05cm 0;
       border: none;
       vertical-align: top;
     }
     
     .isi-surat .label {
-      width: 3.8cm;
-      white-space: nowrap;
+      width: 4.5cm;
+      white-space: normal; /* Allow wrap for long labels */
     }
 
     .isi-surat .colon {
-      width: 0.35cm;
-      text-align: center;
+      width: 0.5cm;
+      text-align: left;
+      padding-left: 5px;
     }
 
     .isi-surat .nilai {
       font-weight: 400;
+      text-align: left;
     }
 
     .isi-surat .nilai-bold {
       font-weight: 700;
+      text-transform: uppercase;
     }
     
     /* Penutup */
@@ -764,54 +771,97 @@ export function generateSuratTemplate(
     /* Print Styles */
     @page {
       size: A4;
-      margin: 0.9cm;
+      margin: 0 !important;
     }
     
     @media print {
-      body {
+      /* Hide browser headers/footers by removing title and forcing margin 0 */
+      @page { margin: 0 !important; }
+      html, body {
         background: #fff;
-        padding: 0;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
 
       .page {
-        width: 100%;
-        min-height: auto;
-        height: auto;
-        box-shadow: none;
-        margin: 0;
-        padding: 0;
+        width: 21cm !important;
+        min-height: 29.7cm !important; /* Back to full A4 for print */
+        height: auto !important;
+        box-shadow: none !important;
+        margin: 0 auto !important;
+        padding: 1.5cm 1.5cm 1.5cm 1.5cm !important; /* Document margins handled here */
+        border: none !important;
+        page-break-after: always;
       }
 
-      .editable-region[contenteditable="true"] {
-        outline: none;
-      }
-
+      .editor-toolbar,
       .no-print {
         display: none !important;
       }
     }
+    
+    <script>
+      (function() {
+        var originalTitle = document.title;
+        window.onbeforeprint = function() {
+          document.title = "";
+        };
+        window.onafterprint = function() {
+          document.title = originalTitle;
+        };
+      })();
+    </script>
 
     @media (max-width: 900px) {
       body {
-        padding: 8px;
+        padding: 10px;
+        background-color: #f3f4f6;
       }
 
-      .editor-toolbar,
       .page {
         width: 100%;
-      }
-
-      .page {
-        height: auto;
-        min-height: 29.7cm;
+        padding: 0.8cm;
+        font-size: 11pt; /* Slightly smaller for mobile preview */
       }
 
       .kop-row {
-        grid-template-columns: 72px 1fr;
+        gap: 10px;
+      }
+
+      .logo-wrap {
+        width: 60px;
+        height: 60px;
+      }
+
+      .logo-wrap img {
+        width: 50px;
+        height: 50px;
       }
 
       .kop-text {
         padding-right: 0;
+      }
+
+      .kop-text .kabupaten,
+      .kop-text .kecamatan,
+      .kop-text .desa {
+        font-size: 11pt;
+      }
+
+      .kop-text .alamat {
+        font-size: 7pt;
+        white-space: normal;
+        min-width: 0;
+      }
+
+      .isi-surat table {
+        margin-left: 0.2cm;
+      }
+
+      .isi-surat .label {
+        width: 3.2cm;
       }
     }
   </style>

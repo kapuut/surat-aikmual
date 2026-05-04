@@ -291,59 +291,9 @@ export default function TrackingDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full sm:w-auto"
-                  onClick={async () => {
-                    try {
-                      // Fetch the HTML content first
-                      const pdfUrl = buildPdfUrl(detail);
-                      const response = await fetch(pdfUrl);
-                      if (!response.ok) throw new Error('Gagal mengambil konten surat');
-                      
-                      const htmlText = await response.text();
-                      
-                      // Create a temporary container to hold the HTML
-                      const container = document.createElement('div');
-                      container.innerHTML = htmlText;
-                      container.style.position = 'fixed';
-                      container.style.left = '-9999px';
-                      container.style.top = '0';
-                      container.style.width = '21cm'; // A4 width
-                      document.body.appendChild(container);
-                      
-                      // Import html2canvas dynamically
-                      const html2canvas = (await import('html2canvas')).default;
-                      const { jsPDF } = await import('jspdf');
-                      
-                      // Wait for images
-                      const images = Array.from(container.getElementsByTagName('img'));
-                      await Promise.all(images.map(img => {
-                        if (img.complete) return Promise.resolve();
-                        return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
-                      }));
-
-                      // Wait a bit more for fonts/layout
-                      await new Promise(r => setTimeout(r, 500));
-
-                      const canvas = await html2canvas(container, {
-                        scale: 2,
-                        useCORS: true,
-                        logging: false,
-                        windowWidth: 794, // 21cm at 96dpi
-                      });
-                      
-                      const imgData = canvas.toDataURL('image/png');
-                      const pdf = new jsPDF('p', 'mm', 'a4');
-                      const pdfWidth = pdf.internal.pageSize.getWidth();
-                      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-                      
-                      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-                      pdf.save(`surat-${detail.jenis_surat || 'desa'}-${detail.id}.pdf`);
-                      
-                      document.body.removeChild(container);
-                    } catch (error) {
-                      console.error('PDF Generation error:', error);
-                      // Fallback to window.open if generation fails
-                      window.open(buildPdfUrl(detail), '_blank');
-                    }
+                  onClick={() => {
+                    const printUrl = buildPdfUrl(detail);
+                    window.open(printUrl, '_blank');
                   }}
                 >
                   <FiDownload className="mr-2 h-4 w-4" />

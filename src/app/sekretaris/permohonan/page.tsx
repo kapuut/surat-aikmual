@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FiDownload, FiEye, FiSearch } from "react-icons/fi";
 
 type ArchiveCategory = "Semua" | "Surat Menunggu" | "Surat Selesai" | "Ditolak";
 
@@ -400,38 +401,42 @@ export default function SekretarisPermohonanPage() {
       </div>
 
       {isFilterActive && (
-        <div className="mb-4 text-sm text-gray-600">
-          Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
+        <div className="mb-4">
+          <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 border border-indigo-100">
+            Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
+          </span>
         </div>
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-100">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <table className="w-full text-xs sm:text-sm table-auto border-collapse">
+          <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Nama Pemohon</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">NIK</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Jenis Surat</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Keperluan</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">File</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
+              <th className="px-2 py-3 text-left font-bold text-gray-700 w-10">No</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">Nomor</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 w-24">Tanggal</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[150px]">Nama Pemohon</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">NIK</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700">Jenis Surat</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[150px]">Keperluan</th>
+              <th className="px-2 py-3 text-left font-bold text-gray-700 w-32">Status</th>
+              <th className="px-2 py-3 text-center font-bold text-gray-700 w-48">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td className="px-4 py-5 text-center text-gray-500" colSpan={10}>
-                  Memuat data permohonan...
+                <td className="px-4 py-8 text-center text-gray-500" colSpan={9}>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+                    <span>Memuat data permohonan...</span>
+                  </div>
                 </td>
               </tr>
             ) : filteredPermohonan.length === 0 ? (
               <tr>
-                <td className="px-4 py-5 text-center text-gray-500" colSpan={10}>
+                <td className="px-4 py-8 text-center text-gray-500 italic" colSpan={9}>
                   Belum ada data permohonan
                 </td>
               </tr>
@@ -439,43 +444,43 @@ export default function SekretarisPermohonanPage() {
               filteredPermohonan.map((item, i) => {
                 const isFinalized = isFinalizedStatus(item.status);
                 const previewUrl = `/sekretaris/permohonan/${item.id}/preview`;
-                const previewLabel = isFinalized ? "File Final" : "Lihat Draft Surat";
 
                 return (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{i + 1}</td>
-                  <td className="px-4 py-3 font-medium">{nomorPermohonan(item)}</td>
-                  <td className="px-4 py-3">{new Date(item.created_at).toLocaleDateString("id-ID")}</td>
-                  <td className="px-4 py-3 font-medium">{item.nama_pemohon}</td>
-                  <td className="px-4 py-3">{item.nik || "-"}</td>
-                  <td className="px-4 py-3">{item.jenis_surat}</td>
-                  <td className="px-4 py-3">{item.keperluan || "-"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`status-chip ${statusClass(item.status)}`}>
+                <tr key={item.id} className="hover:bg-indigo-50/30 transition-colors">
+                  <td className="px-2 py-3 text-gray-500">{i + 1}</td>
+                  <td className="px-3 py-3 font-semibold text-gray-900 break-words">{nomorPermohonan(item)}</td>
+                  <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{new Date(item.created_at).toLocaleDateString("id-ID")}</td>
+                  <td className="px-3 py-3 text-gray-700 font-medium max-w-[150px] truncate" title={item.nama_pemohon}>{item.nama_pemohon}</td>
+                  <td className="px-3 py-3 text-gray-600">{item.nik || "-"}</td>
+                  <td className="px-3 py-3 text-gray-700 leading-snug">{item.jenis_surat}</td>
+                  <td className="px-3 py-3 text-gray-500 leading-snug italic truncate max-w-[150px]" title={item.keperluan || "-"}>
+                    {item.keperluan || "-"}
+                  </td>
+                  <td className="px-2 py-3">
+                    <span className={`status-chip scale-90 origin-left ${statusClass(item.status)}`}>
                       {statusLabel(item.status)}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
+                  <td className="px-2 py-3 text-center align-middle">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => window.open(previewUrl, "_blank")}
+                        className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
+                        title={isFinalized ? "Lihat surat final" : "Lihat draft surat"}
+                      >
+                        <FiEye className="w-3.5 h-3.5" />
+                        Lihat
+                      </button>
                       <a
                         href={previewUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className={`aksi-btn ${isFinalized ? "aksi-btn-success" : "aksi-btn-view"}`}
+                        className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
+                        title={isFinalized ? "Unduh surat final" : "Unduh draft surat"}
                       >
-                        {previewLabel}
+                        <FiDownload className="w-3.5 h-3.5" />
+                        Unduh
                       </a>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex justify-center">
-                      <button
-                        onClick={() => window.open(previewUrl, "_blank")}
-                        className={`aksi-btn ${isFinalized ? "aksi-btn-success" : "aksi-btn-view"}`}
-                        title={isFinalized ? "Lihat surat final" : "Lihat draft surat"}
-                      >
-                        Lihat
-                      </button>
                     </div>
                   </td>
                 </tr>

@@ -316,99 +316,102 @@ export default function KepalaDesaSuratMasukPage() {
         ) : filteredSuratMasuk.length === 0 ? (
           <div className="py-8 text-center text-gray-500">Belum ada data surat masuk.</div>
         ) : (
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="px-4 py-3 text-left font-semibold">No</th>
-                <th className="px-4 py-3 text-left font-semibold">Nomor Surat</th>
-                <th className="px-4 py-3 text-left font-semibold">Tanggal</th>
-                <th className="px-4 py-3 text-left font-semibold">Pengirim</th>
-                <th className="px-4 py-3 text-left font-semibold">Urgensi</th>
-                <th className="px-4 py-3 text-left font-semibold">Perihal</th>
-                <th className="px-4 py-3 text-left font-semibold">Disposisi</th>
-                <th className="px-4 py-3 text-left font-semibold">Status</th>
-                <th className="px-4 py-3 text-center font-semibold">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSuratMasuk.map((surat, i) => (
-                <tr key={surat.id} className="border-b hover:bg-gray-50">
-                  <td className="px-4 py-3">{i + 1}</td>
-                  <td className="px-4 py-3 font-medium">{surat.nomor_surat}</td>
-                  <td className="px-4 py-3">{formatDate(surat.tanggal_terima)}</td>
-                  <td className="px-4 py-3">{surat.asal_surat}</td>
-                  <td className="px-4 py-3">
-                    <span className={`status-chip ${getUrgensiClass(surat.urgensi)}`}>
-                      {getUrgensiLabel(surat.urgensi)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">{surat.perihal}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-2">
-                      {surat.latest_disposisi_tujuan ? (
-                        <div className="text-[10px] text-emerald-700">
-                          <span className="status-chip status-chip-success">
-                            Sudah didisposisikan
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <table className="w-full text-xs sm:text-sm table-auto border-collapse">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-2 py-3 text-left font-bold text-gray-700 w-10">No</th>
+                  <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">Nomor Surat</th>
+                  <th className="px-3 py-3 text-left font-bold text-gray-700 w-28">Tanggal</th>
+                  <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[150px]">Pengirim</th>
+                  <th className="px-2 py-3 text-left font-bold text-gray-700 w-24">Urgensi</th>
+                  <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[180px]">Perihal</th>
+                  <th className="px-3 py-3 text-left font-bold text-gray-700 w-40">Disposisi</th>
+                  <th className="px-2 py-3 text-left font-bold text-gray-700 w-28">Status</th>
+                  <th className="px-2 py-3 text-center font-bold text-gray-700 w-[320px]">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredSuratMasuk.map((surat, i) => (
+                  <tr key={surat.id} className="hover:bg-blue-50/30 transition-colors">
+                    <td className="px-2 py-3 text-gray-500">{i + 1}</td>
+                    <td className="px-3 py-3 font-semibold text-gray-900 break-words">{surat.nomor_surat}</td>
+                    <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{formatDate(surat.tanggal_terima)}</td>
+                    <td className="px-3 py-3 text-gray-700 leading-snug max-w-[150px] truncate" title={surat.asal_surat}>
+                      {surat.asal_surat}
+                    </td>
+                    <td className="px-2 py-3">
+                      <span className={`status-chip scale-90 origin-left ${getUrgensiClass(surat.urgensi)}`}>
+                        {getUrgensiLabel(surat.urgensi)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-gray-600 leading-snug italic max-w-[180px] truncate" title={surat.perihal}>
+                      {surat.perihal}
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-col gap-1">
+                        {surat.latest_disposisi_tujuan ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 w-fit">
+                              Sudah didisposisikan
+                            </span>
+                            <p className="text-[10px] font-medium text-slate-500 truncate max-w-[150px]" title={surat.latest_disposisi_tujuan_label || surat.latest_disposisi_tujuan}>
+                              Ke: {surat.latest_disposisi_tujuan_label || surat.latest_disposisi_tujuan}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-500 border border-slate-100 w-fit italic">
+                            Tanpa disposisi
                           </span>
-                          <p className="mt-1 text-[10px] font-semibold text-gray-700">
-                            Tujuan: {surat.latest_disposisi_tujuan_label || surat.latest_disposisi_tujuan}
-                          </p>
-                        </div>
-                      ) : (
-                        <span className="status-chip status-chip-neutral">
-                          Tanpa disposisi
-                        </span>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => openDisposisiDialog(surat)}
-                        disabled={submittingId === surat.id}
-                        className="aksi-btn aksi-btn-primary"
-                      >
-                        <FiSend className="h-3.5 w-3.5" />
-                        {submittingId === surat.id ? "Memproses..." : "Kirim ke Sekretaris"}
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {(() => {
-                      const meta = getPenangananMeta(getPenangananStatus(surat));
-                      return (
-                        <span className={`status-chip ${meta.className}`}>
-                          {meta.label}
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex gap-2 justify-center">
-                      <Link
-                        href={`/kepala-desa/surat-masuk/${surat.id}`}
-                        className="aksi-btn-icon aksi-btn-view"
-                        title="Lihat detail surat"
-                      >
-                        <FiEye className="w-4 h-4" />
-                      </Link>
-                      {surat.file_path ? (
-                        <>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => openDisposisiDialog(surat)}
+                          disabled={submittingId === surat.id}
+                          className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-sky-50 text-sky-600 text-[10px] font-bold hover:bg-sky-100 border border-sky-200 transition-all shadow-sm disabled:opacity-50"
+                        >
+                          <FiSend className="w-3.5 h-3.5" />
+                          {submittingId === surat.id ? "..." : "Kirim Sekretaris"}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-2 py-3">
+                      {(() => {
+                        const meta = getPenangananMeta(getPenangananStatus(surat));
+                        return (
+                          <span className={`status-chip scale-90 origin-left ${meta.className}`}>
+                            {meta.label}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-2 py-3 text-center align-middle">
+                      <div className="flex items-center justify-center gap-2">
+                        <Link
+                          href={`/kepala-desa/surat-masuk/${surat.id}`}
+                          className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
+                          title="Lihat detail"
+                        >
+                          <FiEye className="w-3.5 h-3.5" />
+                          Detail
+                        </Link>
+                        {surat.file_path && (
                           <Link
                             href={`/kepala-desa/surat-masuk/${surat.id}/preview`}
-                            className="aksi-btn-icon aksi-btn-download"
-                            title="Lihat file surat"
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
+                            title="Unduh file"
                           >
-                            <FiDownload className="w-4 h-4" />
+                            <FiDownload className="w-3.5 h-3.5" />
+                            Unduh
                           </Link>
-                        </>
-                      ) : (
-                        <span className="status-chip status-chip-neutral">Tidak ada file</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

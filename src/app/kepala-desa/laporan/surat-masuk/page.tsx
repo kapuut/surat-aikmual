@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
-import { FiCalendar, FiCheckCircle, FiDownload, FiInbox, FiRefreshCw, FiSend, FiUserCheck } from "react-icons/fi";
+import { FiCalendar, FiCheckCircle, FiDownload, FiInbox, FiRefreshCw, FiSend, FiUserCheck, FiEye } from "react-icons/fi";
 
 interface SuratMasukItem {
   id: number;
@@ -468,17 +468,30 @@ export default function KepalaDesaLaporanSuratMasukPage() {
     };
 
     rows.sort((a, b) => {
+      const statusA = getPenangananStatus(a);
+      const statusB = getPenangananStatus(b);
+      const hasDispA = hasRealDisposisi(a);
+      const hasDispB = hasRealDisposisi(b);
+
+      const getStatusWeight = (status: PenangananSurat, hasDisp: boolean) => {
+        if (status === "baru") return 0;
+        if (hasDisp) return 1; // Didisposisikan
+        return 2; // Selesai ditangani
+      };
+
+      const weightStatusA = getStatusWeight(statusA, hasDispA);
+      const weightStatusB = getStatusWeight(statusB, hasDispB);
+
+      if (weightStatusA !== weightStatusB) {
+        return weightStatusA - weightStatusB;
+      }
+
       const dateA = parseDate(a.tanggal_terima || a.tanggal_surat);
       const dateB = parseDate(b.tanggal_terima || b.tanggal_surat);
-
       const timeA = dateA?.getTime() ?? 0;
       const timeB = dateB?.getTime() ?? 0;
-      const urgensiA = getUrgensiRank(a.urgensi);
-      const urgensiB = getUrgensiRank(b.urgensi);
 
-      const weightA = getUrgensiWeight(urgensiA);
-      const weightB = getUrgensiWeight(urgensiB);
-      return weightA - weightB || timeB - timeA;
+      return timeB - timeA;
     });
 
     return rows;
@@ -746,18 +759,18 @@ export default function KepalaDesaLaporanSuratMasukPage() {
         ) : sortedData.length === 0 ? (
           <div className="p-8 text-center text-gray-500">Tidak ada data yang sesuai filter.</div>
         ) : (
-          <table className="min-w-[1280px] divide-y divide-gray-200 text-xs">
+          <table className="w-full divide-y divide-gray-200 text-xs table-auto">
             <thead className="bg-gray-100">
               <tr>
-                <th className="w-12 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">No</th>
-                <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Nomor Surat</th>
-                <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Tanggal Terima</th>
-                <th className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Asal Surat</th>
-                <th className="w-24 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Urgensi</th>
-                <th className="min-w-[200px] px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Perihal</th>
-                <th className="w-[260px] px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Disposisi</th>
-                <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Status Penanganan</th>
-                <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700">Aksi</th>
+                <th className="w-10 px-3 py-2.5 text-left text-[11px] font-bold text-gray-700">No</th>
+                <th className="w-32 px-3 py-2.5 text-left text-[11px] font-bold text-gray-700">Nomor Surat</th>
+                <th className="w-32 px-3 py-2.5 text-left text-[11px] font-bold text-gray-700">Tanggal Terima</th>
+                <th className="w-40 px-3 py-2.5 text-left text-[11px] font-bold text-gray-700 max-w-[150px]">Asal Surat</th>
+                <th className="w-20 px-3 py-2.5 text-center text-[11px] font-bold text-gray-700">Urgensi</th>
+                <th className="min-w-[180px] px-3 py-2.5 text-left text-[11px] font-bold text-gray-700 max-w-[200px]">Perihal</th>
+                <th className="w-40 px-3 py-2.5 text-center text-[11px] font-bold text-gray-700">Status Disposisi</th>
+                <th className="w-32 px-3 py-2.5 text-center text-[11px] font-bold text-gray-700">Status Laporan</th>
+                <th className="w-[380px] px-3 py-2.5 text-center text-[11px] font-bold text-gray-700">Aksi Penanganan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -771,68 +784,79 @@ export default function KepalaDesaLaporanSuratMasukPage() {
                   <td className="px-3 py-3 align-top text-gray-700">{index + 1}</td>
                   <td className="px-3 py-3 align-top whitespace-nowrap font-semibold text-gray-900">{item.nomor_surat || "-"}</td>
                   <td className="px-3 py-3 align-top whitespace-nowrap text-gray-700">{formatDate(item.tanggal_terima || item.tanggal_surat)}</td>
-                  <td className="px-3 py-3 align-top text-gray-700">{item.asal_surat || "-"}</td>
-                  <td className="px-3 py-3 align-top">
-                    <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${getUrgensiClass(item.urgensi)}`}>
+                  <td className="px-3 py-3 align-top text-gray-700 max-w-[150px] truncate" title={item.asal_surat || "-"}>{item.asal_surat || "-"}</td>
+                  <td className="px-3 py-3 align-middle text-center">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${getUrgensiClass(item.urgensi)}`}>
                       {getUrgensiLabel(item.urgensi)}
                     </span>
                   </td>
-                  <td className="px-3 py-3 align-top text-gray-700">{item.perihal || "-"}</td>
-                  <td className="px-3 py-3 align-top">
-                    <div className="flex flex-col gap-2">
+                  <td className="px-3 py-3 align-middle text-gray-700 max-w-[200px] truncate italic" title={item.perihal || "-"}>{item.perihal || "-"}</td>
+                  <td className="px-3 py-3 align-middle text-center">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
                       {hasDisposisi ? (
-                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] text-emerald-800">
-                          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-800">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className="inline-flex rounded-md bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 text-[10px] font-bold w-fit">
                             Sudah didisposisikan
                           </span>
                         </div>
                       ) : (
-                        <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                        <span className="inline-flex w-fit rounded-md bg-slate-50 text-slate-500 border border-slate-100 px-2 py-0.5 text-[10px] font-bold italic">
                           Tanpa disposisi
                         </span>
                       )}
-
-                      {penanganan !== "selesai" && !hasDisposisi ? (
-                        <button
-                          type="button"
-                          onClick={() => openDisposisiDialog(item)}
-                          disabled={submittingId === item.id}
-                          className="inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-md bg-blue-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-                        >
-                          <FiSend className="h-3 w-3" />
-                          {submittingId === item.id ? "Memproses..." : "Kirim Sekretaris"}
-                        </button>
-                      ) : null}
                     </div>
                   </td>
-                  <td className="px-3 py-3 align-top">
-                    <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${meta.className}`}>
+                  <td className="px-3 py-3 align-middle text-center">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap ${meta.className}`}>
                       {meta.label}
                     </span>
                   </td>
-                  <td className="px-3 py-3 align-top">
-                    <div className="flex flex-col items-start gap-1.5">
+                  <td className="px-3 py-3 align-middle text-center">
+                    <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                       <Link
                         href={`/kepala-desa/surat-masuk/${item.id}`}
-                        className="inline-flex rounded-md bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-700"
+                        className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
+                        title="Lihat detail"
                       >
-                        Lihat Detail
+                        <FiEye className="w-3.5 h-3.5" />
+                        Detail
                       </Link>
 
-                      {penanganan !== "selesai" ? (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmTarget(item)}
-                          disabled={confirmingId === item.id}
-                          className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                      {item.file_path && (
+                        <a
+                          href={item.file_path}
+                          download={getStoredFileName(item.file_path)}
+                          className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
+                          title="Unduh file"
                         >
-                          <FiCheckCircle className="h-3 w-3" />
-                          {confirmingId === item.id ? "Memproses..." : "Centang Selesai"}
-                        </button>
-                      ) : (
-                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">
-                          Sudah selesai
-                        </span>
+                          <FiDownload className="w-3.5 h-3.5" />
+                          Unduh
+                        </a>
+                      )}
+
+                      {penanganan !== "selesai" && !hasDisposisi && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openDisposisiDialog(item)}
+                            disabled={submittingId === item.id}
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm disabled:opacity-50"
+                            title="Disposisi ke Sekretaris"
+                          >
+                            <FiSend className="w-3.5 h-3.5" />
+                            Kirim Sekretaris
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmTarget(item)}
+                            disabled={confirmingId === item.id}
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-slate-50 text-slate-600 text-[10px] font-bold hover:bg-slate-100 border border-slate-200 transition-all shadow-sm disabled:opacity-50"
+                            title="Tandai selesai tanpa disposisi"
+                          >
+                            <FiCheckCircle className="w-3.5 h-3.5" />
+                            Tanpa Disposisi
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

@@ -122,6 +122,10 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
     };
 
     fetchUser();
+    
+    // Listen for profile updates to refresh name dynamically
+    window.addEventListener('profile-updated', fetchUser);
+    return () => window.removeEventListener('profile-updated', fetchUser);
   }, []);
 
   useEffect(() => {
@@ -270,17 +274,17 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
               <span className="w-7 h-7 rounded-full bg-slate-900 text-white text-xs font-semibold flex items-center justify-center">
                 {initials || 'KD'}
               </span>
-              <span className="flex h-7 items-center text-xs font-medium text-gray-700 leading-none">{profileLabel}</span>
+              <span className="flex h-7 items-center text-xs font-medium text-gray-700 leading-none truncate max-w-[100px]">{userName}</span>
               <FiChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isProfileOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-30">
+              <div className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-30">
                 <button
                   onClick={handleLogout}
-                  className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  className="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                 >
-                  <FiLogOut className="w-4 h-4" />
+                  <FiLogOut className="w-3.5 h-3.5" />
                   Logout
                 </button>
               </div>

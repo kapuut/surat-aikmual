@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { FiCalendar, FiDownload, FiRefreshCw } from "react-icons/fi";
+import { FiCalendar, FiDownload, FiRefreshCw, FiEye } from "react-icons/fi";
 
 type SuratKeluarStatus = "Draft" | "Menunggu" | "Terkirim";
 
@@ -432,50 +432,66 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
         ) : sortedData.length === 0 ? (
           <div className="p-8 text-center text-gray-500">Tidak ada data yang sesuai filter.</div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <table className="w-full divide-y divide-gray-200 text-xs table-auto">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal Surat</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Tujuan</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Perihal</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-700">File</th>
+                <th className="w-10 px-4 py-3 text-left font-bold text-gray-700">No</th>
+                <th className="w-32 px-4 py-3 text-left font-bold text-gray-700">Nomor Surat</th>
+                <th className="w-32 px-4 py-3 text-left font-bold text-gray-700">Tanggal Surat</th>
+                <th className="w-40 px-4 py-3 text-left font-bold text-gray-700 max-w-[150px]">Tujuan</th>
+                <th className="min-w-[180px] px-4 py-3 text-left font-bold text-gray-700 max-w-[200px]">Perihal</th>
+                <th className="w-24 px-4 py-3 text-left font-bold text-gray-700">Status</th>
+                <th className="w-40 px-4 py-3 text-center font-bold text-gray-700">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {sortedData.map((item, index) => (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">{index + 1}</td>
-                  <td className="px-4 py-3 font-medium">{item.nomor_surat || "-"}</td>
-                  <td className="px-4 py-3">{formatDate(item.tanggal_surat)}</td>
-                  <td className="px-4 py-3">{item.tujuan || "-"}</td>
-                  <td className="px-4 py-3">{item.perihal || "-"}</td>
+                  <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{item.nomor_surat || "-"}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{formatDate(item.tanggal_surat)}</td>
+                  <td className="px-4 py-3 max-w-[150px] truncate" title={item.tujuan || "-"}>{item.tujuan || "-"}</td>
+                  <td className="px-4 py-3 max-w-[200px] truncate italic" title={item.perihal || "-"}>{item.perihal || "-"}</td>
                   <td className="px-4 py-3">
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         item.status === "Terkirim"
-                          ? "bg-green-100 text-green-800"
+                          ? "bg-green-100 text-green-700"
                           : item.status === "Menunggu"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-gray-100 text-gray-800"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-gray-100 text-gray-700"
                       }`}
                     >
                       {item.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {item.file_path ? (
-                      <Link
-                        href={`/kepala-desa/surat-keluar/${item.id}`}
-                        className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-                      >
-                        Lihat File
-                      </Link>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
+                    <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+                      {item.file_path ? (
+                        <Link
+                          href={`/kepala-desa/surat-keluar/${item.id}`}
+                          className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
+                          title="Lihat detail"
+                        >
+                          <FiEye className="w-3.5 h-3.5" />
+                          Detail
+                        </Link>
+                      ) : (
+                        <span className="text-gray-400 italic text-[10px]">-</span>
+                      )}
+
+                      {item.file_path && (
+                        <a
+                          href={item.file_path}
+                          download={getStoredFileName(item.file_path)}
+                          className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
+                          title="Unduh file"
+                        >
+                          <FiDownload className="w-3.5 h-3.5" />
+                          Unduh
+                        </a>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

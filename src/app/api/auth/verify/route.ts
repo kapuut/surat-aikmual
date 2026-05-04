@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
+import { db } from '@/lib/db';
 
 export async function GET() {
   try {
@@ -25,18 +26,33 @@ export async function GET() {
       process.env.JWT_SECRET || 'si-surat-secret-key-2024'
     ) as any;
 
-    console.log('Verify API - Token verified successfully:', decoded);
+    const userId = decoded.userId;
+
+    // Fetch fresh user data from database to ensure dynamic name updates
+    const [rows]: any = await db.execute(
+      'SELECT id, username, email, nama, role, nik, alamat, telepon FROM users WHERE id = ? LIMIT 1',
+      [userId]
+    );
+
+    const dbUser = rows && rows.length > 0 ? rows[0] : null;
+
+    if (!dbUser) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 401 }
+      );
+    }
 
     // Return complete user data structure that matches AuthUser interface
     const user = {
-      id: decoded.userId,
-      username: decoded.username || 'admin',
-      email: decoded.email || 'admin@aikmual.com',
-      nama: decoded.nama || 'Administrator',
-      role: decoded.role,
-      nik: decoded.nik || '',
-      alamat: decoded.alamat || '',
-      telepon: decoded.telepon || '',
+      id: dbUser.id,
+      username: dbUser.username,
+      email: dbUser.email,
+      nama: dbUser.nama,
+      role: dbUser.role,
+      nik: dbUser.nik || '',
+      alamat: dbUser.alamat || '',
+      telepon: dbUser.telepon || '',
     };
 
     return NextResponse.json({

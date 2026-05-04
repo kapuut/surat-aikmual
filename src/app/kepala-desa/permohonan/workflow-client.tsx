@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiTrash2 } from "react-icons/fi";
+import {
+  FiCheck,
+  FiDownload,
+  FiEdit,
+  FiEye,
+  FiTrash2,
+  FiX,
+} from "react-icons/fi";
 
 type WorkflowStatus =
   | "pending"
@@ -558,129 +565,117 @@ export default function KepalaDesaWorkflowClient() {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-100">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <table className="w-full text-xs sm:text-sm table-auto border-collapse">
+          <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Pemohon</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Jenis Surat</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Keperluan</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">File Surat</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">Nomor</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700">Pemohon</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 w-40">Jenis Surat</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[200px]">Keperluan</th>
+              <th className="px-2 py-3 text-left font-bold text-gray-700 w-32">Status</th>
+              <th className="px-2 py-3 text-center font-bold text-gray-700 w-[220px]">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td className="px-4 py-5 text-center text-gray-500" colSpan={7}>
-                  Memuat data...
+                <td className="px-4 py-8 text-center text-gray-500" colSpan={6}>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+                    <span>Memuat data...</span>
+                  </div>
                 </td>
               </tr>
             ) : filteredPermohonan.length === 0 ? (
               <tr>
-                <td className="px-4 py-5 text-center text-gray-500" colSpan={7}>
+                <td className="px-4 py-8 text-center text-gray-500 italic" colSpan={6}>
                   Belum ada data surat.
                 </td>
               </tr>
             ) : (
               filteredPermohonan.map((item) => {
                 const suratPreviewPageUrl = `/kepala-desa/permohonan/${item.id}/preview`;
-                const shouldOpenFinalFile = isFinalizedStatus(item.status);
-                const suratPreviewLabel = shouldOpenFinalFile ? "File Final" : "Lihat Draft Surat";
 
                 return (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">
-                    {item.nomor_surat || `REG-${item.id}/${new Date(item.created_at).getFullYear()}`}
-                  </td>
-                  <td className="px-4 py-3">{item.nama_pemohon}</td>
-                  <td className="px-4 py-3">{item.jenis_surat}</td>
-                  <td className="px-4 py-3">{item.keperluan}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      <span className={`status-chip ${statusClass(item.status)}`}>
+                  <tr key={item.id} className="hover:bg-indigo-50/30 transition-colors">
+                    <td className="px-3 py-3 font-semibold text-gray-900 break-words truncate max-w-[150px]" title={item.nomor_surat || `REG-${item.id}`}>
+                      {item.nomor_surat || `REG-${item.id}`}
+                    </td>
+                    <td className="px-3 py-3 text-gray-700 font-medium truncate max-w-[150px]" title={item.nama_pemohon}>
+                      {item.nama_pemohon}
+                    </td>
+                    <td className="px-3 py-3 text-gray-600 truncate max-w-[150px]" title={item.jenis_surat}>
+                      {item.jenis_surat}
+                    </td>
+                    <td className="px-3 py-3 text-gray-500 leading-snug italic truncate max-w-[180px]" title={item.keperluan || "-"}>
+                      {item.keperluan || "-"}
+                    </td>
+                    <td className="px-2 py-3">
+                      <span className={`status-chip scale-90 origin-left ${statusClass(item.status)}`}>
                         {statusLabel(item.status)}
                       </span>
-                      {processNote(item.status) && (
-                        <span className="text-[11px] text-gray-500">{processNote(item.status)}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      <button
-                        onClick={() => router.push(suratPreviewPageUrl)}
-                        className={`aksi-btn ${shouldOpenFinalFile ? "aksi-btn-success" : "aksi-btn-view"}`}
-                      >
-                        {suratPreviewLabel}
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col items-center gap-1.5">
-                      {item.status === "dikirim_ke_kepala_desa" && (
+                    </td>
+                    <td className="px-2 py-3 text-center align-middle">
+                      <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                         <button
-                          onClick={() =>
-                            handleUpdate(
-                              item.id,
-                              "selesai",
-                              "",
-                              "Surat berhasil diverifikasi dan ditandatangani digital. Data otomatis masuk ke menu Surat Keluar.",
-                              "Pastikan data surat sudah benar. Lanjut verifikasi + tanda tangan digital sekarang?"
-                            )
-                          }
-                          disabled={actionId === item.id}
-                          className="aksi-btn aksi-btn-primary w-full"
+                          onClick={() => window.open(suratPreviewPageUrl, "_blank")}
+                          className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
+                          title="Lihat detail surat"
                         >
-                          Verifikasi & TTD
+                          <FiEye className="w-3.5 h-3.5" />
+                          Lihat
                         </button>
-                      )}
-
-                      {item.status === "ditandatangani" && (
-                        <button
-                          onClick={() =>
-                            handleUpdate(
-                              item.id,
-                              "selesai",
-                              "Permohonan selesai setelah proses tanda tangan digital.",
-                              "Permohonan ditandai selesai."
-                            )
-                          }
-                          disabled={actionId === item.id}
-                          className="aksi-btn aksi-btn-success w-full"
+                        <a
+                          href={suratPreviewPageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
+                          title="Unduh surat"
                         >
-                          Tandai Selesai
-                        </button>
-                      )}
+                          <FiDownload className="w-3.5 h-3.5" />
+                          Unduh
+                        </a>
 
-                      {(item.status === "perlu_revisi" || item.status === "selesai") && (
-                        <div className="flex flex-col w-full items-center gap-1.5">
+                        {item.status === "dikirim_ke_kepala_desa" && (
                           <button
-                            onClick={() => handleDelete(item.id)}
-                            disabled={deleteId === item.id}
-                            className="aksi-btn aksi-btn-delete"
+                            onClick={() =>
+                              handleUpdate(
+                                item.id,
+                                "selesai",
+                                "",
+                                "Surat berhasil diverifikasi dan ditandatangani digital.",
+                                "Lanjut verifikasi + tanda tangan digital sekarang?"
+                              )
+                            }
+                            disabled={actionId === item.id}
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-indigo-50 text-indigo-600 text-[10px] font-bold hover:bg-indigo-100 border border-indigo-200 transition-all shadow-sm disabled:opacity-50"
                           >
-                            <FiTrash2 className="w-3.5 h-3.5" />
-                            {deleteId === item.id ? "Menghapus..." : "Hapus"}
+                            <FiCheck className="w-3.5 h-3.5" />
+                            TTD
                           </button>
-                        </div>
-                      )}
+                        )}
 
-                      {item.status === "ditandatangani" && (
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          disabled={deleteId === item.id}
-                          className="aksi-btn aksi-btn-delete w-full"
-                        >
-                          <FiTrash2 className="w-3.5 h-3.5" />
-                          {deleteId === item.id ? "Menghapus..." : "Hapus"}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                        {item.status === "ditandatangani" && (
+                          <button
+                            onClick={() =>
+                              handleUpdate(
+                                item.id,
+                                "selesai",
+                                "Permohonan selesai setelah proses tanda tangan digital.",
+                                "Permohonan ditandai selesai."
+                              )
+                            }
+                            disabled={actionId === item.id}
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm disabled:opacity-50"
+                          >
+                            <FiCheck className="w-3.5 h-3.5" />
+                            Selesai
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 );
               })
             )}

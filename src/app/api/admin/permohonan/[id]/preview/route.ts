@@ -841,13 +841,56 @@ function renderDynamicTemplatePage(
       min-height: 29.7cm;
       height: auto;
       margin: 0 auto;
-      padding: 1.2cm 1.3cm 1.2cm 1.3cm;
+      padding: 1.5cm 1.5cm 1.5cm 1.5cm;
       font-size: 12pt;
       line-height: 1.5;
       background: white;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     }
 
+    @page {
+      size: A4;
+      margin: 0; /* Forced 0 margin to hide browser headers/footers */
+    }
+
+    @media print {
+      html, body {
+        background: #fff;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .page {
+        width: 21cm !important;
+        min-height: 29.7cm !important;
+        height: auto !important;
+        box-shadow: none !important;
+        margin: 0 auto !important;
+        padding: 1.5cm 1.5cm 1.5cm 1.5cm !important; /* Internal margins for document */
+        border: none !important;
+        page-break-after: always;
+      }
+
+      .editor-toolbar,
+      .no-print {
+        display: none !important;
+      }
+    }
+
+    <script>
+      (function() {
+        var originalTitle = document.title;
+        window.onbeforeprint = function() {
+          document.title = "";
+        };
+        window.onafterprint = function() {
+          document.title = originalTitle;
+        };
+      })();
+    </script>
+    
     .kop-surat {
       margin-bottom: 0.7cm;
       position: relative;
@@ -940,32 +983,6 @@ function renderDynamicTemplatePage(
     }
 
     .no-print { display: block; }
-
-    @page {
-      size: A4;
-      margin: 0.9cm;
-    }
-
-    @media print {
-      body {
-        background: #fff;
-        padding: 0;
-        margin: 0;
-      }
-
-      .page {
-        width: 100%;
-        min-height: auto;
-        height: auto;
-        box-shadow: none;
-        margin: 0;
-        padding: 0;
-      }
-
-      .no-print {
-        display: none !important;
-      }
-    }
 
     @media (max-width: 900px) {
       body { padding: 8px; }

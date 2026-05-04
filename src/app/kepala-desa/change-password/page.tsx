@@ -121,6 +121,7 @@ export default function KepalaDesaProfilePage() {
 
       setProfileMessage(data?.message || "Profil berhasil diperbarui.");
       await fetchProfile();
+      window.dispatchEvent(new Event("profile-updated"));
     } catch (err) {
       setProfileError(err instanceof Error ? err.message : "Gagal menyimpan profil");
     } finally {
