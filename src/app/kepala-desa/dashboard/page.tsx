@@ -12,8 +12,7 @@ import {
   FiClock,
   FiFileText,
   FiInbox,
-  FiSend, 
-  FiTrendingUp
+  FiSend
 } from 'react-icons/fi';
 
 const BAR_COLOR_PALETTE = [
@@ -204,31 +203,12 @@ export default function HeadVillageDashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6">
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="max-w-3xl">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
-              <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">Ringkasan Layanan Surat</p>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard Kepala Desa</h2>
-            <p className="text-slate-500 mt-2 text-sm leading-relaxed">
-              Pantau performa surat masuk, surat keluar, dan permohonan warga dalam satu tampilan panel kendali terpadu.
-            </p>
-          </div>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-600 mb-1">Menunggu Persetujuan</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{pendingApproval}</p>
-              <div className="flex items-center text-sm text-orange-600">
-                <FiClock className="w-4 h-4 mr-1" />
-                <span>Perlu tindakan</span>
-              </div>
+              <p className="text-3xl font-bold text-gray-900">{pendingApproval}</p>
             </div>
             <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
               <FiClock className="w-6 h-6 text-orange-600" />
@@ -240,11 +220,7 @@ export default function HeadVillageDashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-600 mb-1">Disetujui / Selesai</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{totalApproved}</p>
-              <div className="flex items-center text-sm text-green-600">
-                <FiTrendingUp className="w-4 h-4 mr-1" />
-                <span>Proses selesai</span>
-              </div>
+              <p className="text-3xl font-bold text-gray-900">{totalApproved}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
               <FiCheckCircle className="w-6 h-6 text-green-600" />
@@ -256,11 +232,7 @@ export default function HeadVillageDashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-600 mb-1">Total Surat Masuk</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{totalSuratMasuk}</p>
-              <div className="flex items-center text-sm text-blue-600">
-                <FiInbox className="w-4 h-4 mr-1" />
-                <span>Belum dibaca: {totalBelumDibacaMasuk}</span>
-              </div>
+              <p className="text-3xl font-bold text-gray-900">{totalSuratMasuk}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
               <FiInbox className="w-6 h-6 text-blue-600" />
@@ -272,11 +244,7 @@ export default function HeadVillageDashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-600 mb-1">Total Surat Keluar</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{totalSuratKeluar}</p>
-              <div className="flex items-center text-sm text-purple-600">
-                <FiSend className="w-4 h-4 mr-1" />
-                <span>Draft: {totalDraftKeluar}</span>
-              </div>
+              <p className="text-3xl font-bold text-gray-900">{totalSuratKeluar}</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
               <FiSend className="w-6 h-6 text-purple-600" />

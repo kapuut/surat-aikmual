@@ -8,7 +8,6 @@ import {
   FiEyeOff,
   FiLock,
   FiUpload,
-  FiUser,
 } from "react-icons/fi";
 
 type KepalaDesaProfile = {
@@ -223,13 +222,6 @@ export default function KepalaDesaProfilePage() {
 
   return (
     <section className="space-y-6">
-      <div className="mb-2">
-        <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <FiUser className="text-purple-600" /> Profil Akun
-        </h2>
-        <p className="text-gray-500 mt-1">Kelola data akun, ubah password, dan upload file tanda tangan digital.</p>
-      </div>
-
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Informasi Akun</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">

@@ -10,6 +10,7 @@ import {
   FiSend, 
   FiFileText, 
   FiUser,
+  FiMenu,
   FiLogOut,
   FiChevronDown
 } from 'react-icons/fi';
@@ -73,7 +74,9 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
   const pathname = usePathname();
   const [userName, setUserName] = useState('Kepala Desa');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const isDashboard = pathname === '/kepala-desa/dashboard';
 
   const headerContent = (() => {
     if (pathname === '/kepala-desa/dashboard') {
@@ -160,8 +163,15 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="flex h-screen overflow-hidden font-display">
+      {/* Mobile Overlay */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
       {/* Sidebar */}
-      <aside className="w-64 shrink-0 h-screen bg-slate-900 text-white flex flex-col overflow-y-auto">
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 h-screen bg-slate-900 text-white flex flex-col overflow-y-auto transition-transform duration-300 ease-in-out md:relative md:translate-x-0 md:z-auto md:shrink-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="p-4 border-b border-slate-700 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-2xl border border-slate-600 bg-slate-800/80 p-1 shadow-sm ring-1 ring-white/10 backdrop-blur-sm">
@@ -181,7 +191,7 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2" onClick={() => setIsSidebarOpen(false)}>
           <Link
             href="/kepala-desa/dashboard"
             className={`flex items-center space-x-3 px-3 py-2 rounded transition-colors ${
@@ -253,29 +263,38 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
 
       {/* Main Content */}
       <main className="flex-1 h-screen bg-gray-50 overflow-y-auto w-full">
-        <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            {headerContent && (
-              <>
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{headerContent.eyebrow}</p>
-                <h1 className="mt-1 text-xl md:text-2xl font-bold text-gray-900">{headerContent.title}</h1>
-                <p className="mt-1 text-sm text-gray-600 max-w-3xl">
-                  {headerContent.description}
-                </p>
-              </>
-            )}
+        <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              className="md:hidden p-1.5 rounded-md hover:bg-gray-100 transition shrink-0"
+              onClick={() => setIsSidebarOpen(true)}
+              aria-label="Buka menu"
+            >
+              <FiMenu className="w-5 h-5 text-gray-700" />
+            </button>
+            <div className="min-w-0">
+              {headerContent && (
+                <>
+                  <p className="hidden md:block text-xs font-semibold uppercase tracking-wide text-blue-600">{headerContent.eyebrow}</p>
+                  <h1 className="text-base md:text-2xl font-bold text-gray-900 leading-tight truncate">{headerContent.title}</h1>
+                  <p className="hidden md:block mt-1 text-sm text-gray-600 max-w-3xl">
+                    {headerContent.description}
+                  </p>
+                </>
+              )}
+            </div>
           </div>
 
-          <div className="relative" ref={profileRef}>
+          <div className="relative shrink-0" ref={profileRef}>
             <button
               onClick={() => setIsProfileOpen((prev) => !prev)}
-              className="flex h-9 items-center gap-2 bg-gray-100 hover:bg-gray-200 rounded-lg px-2.5 transition"
+              className="flex h-8 md:h-9 items-center gap-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg px-2 md:px-2.5 transition"
             >
-              <span className="w-7 h-7 rounded-full bg-slate-900 text-white text-xs font-semibold flex items-center justify-center">
+              <span className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-slate-900 text-white text-xs font-semibold flex items-center justify-center">
                 {initials || 'KD'}
               </span>
-              <span className="flex h-7 items-center text-xs font-medium text-gray-700 leading-none truncate max-w-[100px]">{userName}</span>
-              <FiChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
+              <span className="hidden sm:flex h-7 items-center text-xs font-medium text-gray-700 leading-none truncate max-w-[80px]">{userName}</span>
+              <FiChevronDown className={`h-3.5 w-3.5 text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isProfileOpen && (
@@ -291,7 +310,7 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
             )}
           </div>
         </div>
-        <div className={pathname === '/kepala-desa/dashboard' ? '' : 'px-6 py-6 lg:px-8'}>{children}</div>
+        <div className={`${isDashboard ? '' : 'px-3 py-4 md:px-6 md:py-6 lg:px-8'}`}>{children}</div>
       </main>
     </div>
   );
