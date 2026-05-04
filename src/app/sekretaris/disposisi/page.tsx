@@ -137,6 +137,14 @@ export default function SekretarisDisposisiPage() {
   const [detailItem, setDetailItem] = useState<DisposisiRow | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
   const [prosesFilter, setProsesFilter] = useState<ProsesFilter>("semua");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [limit, setLimit] = useState(10);
+  const [filterDayFrom, setFilterDayFrom] = useState("");
+  const [filterDayTo, setFilterDayTo] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterYear, setFilterYear] = useState("");
+  const [sortCol, setSortCol] = useState<"tgl" | "urgensi" | "status">("tgl");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const fetchDisposisi = async () => {
     try {
@@ -285,20 +293,115 @@ export default function SekretarisDisposisiPage() {
     [disposisi]
   );
 
-  const filteredDisposisi = useMemo(() => {
-    if (prosesFilter === "semua") {
-      return disposisi;
-    }
-
-    if (prosesFilter === "belum_diproses") {
-      return disposisi.filter((item) => normalizeStatus(item.status) === "didisposisikan");
-    }
-
-    return disposisi.filter((item) => {
-      const status = normalizeStatus(item.status);
-      return status === "diproses" || status === "selesai";
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const values = new Set<number>([currentYear]);
+    disposisi.forEach((item) => {
+      if (item.disposed_at) {
+        const d = new Date(item.disposed_at);
+        if (!isNaN(d.getTime())) values.add(d.getFullYear());
+      }
     });
-  }, [disposisi, prosesFilter]);
+    return Array.from(values).sort((a, b) => b - a);
+  }, [disposisi]);
+
+  const filteredDisposisi = useMemo(() => {
+    let result = [...disposisi];
+
+    // Process Filter (Tabs)
+    if (prosesFilter === "belum_diproses") {
+      result = result.filter((item) => normalizeStatus(item.status) === "didisposisikan");
+    } else if (prosesFilter === "sudah_diproses") {
+      result = result.filter((item) => {
+        const status = normalizeStatus(item.status);
+        return status === "diproses" || status === "selesai";
+      });
+    }
+
+    // Search Filter
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      result = result.filter(
+        (item) =>
+          (item.nomor_surat || "").toLowerCase().includes(q) ||
+          (item.asal_surat || "").toLowerCase().includes(q) ||
+          (item.perihal || "").toLowerCase().includes(q)
+      );
+    }
+
+    // Date Filters
+    if (filterDayFrom) {
+      result = result.filter((item) => {
+        if (!item.disposed_at) return false;
+        return new Date(item.disposed_at).getDate() >= parseInt(filterDayFrom);
+      });
+    }
+    if (filterDayTo) {
+      result = result.filter((item) => {
+        if (!item.disposed_at) return false;
+        return new Date(item.disposed_at).getDate() <= parseInt(filterDayTo);
+      });
+    }
+    if (filterMonth) {
+      result = result.filter((item) => {
+        if (!item.disposed_at) return false;
+        return new Date(item.disposed_at).getMonth() + 1 === parseInt(filterMonth);
+      });
+    }
+    if (filterYear) {
+      result = result.filter((item) => {
+        if (!item.disposed_at) return false;
+        return new Date(item.disposed_at).getFullYear() === parseInt(filterYear);
+      });
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortCol === "tgl") {
+        const tA = a.disposed_at ? new Date(a.disposed_at).getTime() : 0;
+        const tB = b.disposed_at ? new Date(b.disposed_at).getTime() : 0;
+        return sortOrder === "asc" ? tA - tB : tB - tA;
+      }
+      if (sortCol === "urgensi") {
+        const getUrgWeight = (u?: string | null) => {
+          const norm = normalizeUrgensi(u);
+          if (norm === "tinggi") return 3;
+          if (norm === "sedang") return 2;
+          return 1;
+        };
+        const wA = getUrgWeight(a.urgensi);
+        const wB = getUrgWeight(b.urgensi);
+        return sortOrder === "asc" ? wA - wB : wB - wA;
+      }
+      if (sortCol === "status") {
+        const getStatWeight = (s?: string | null) => {
+          const norm = normalizeStatus(s);
+          if (norm === "selesai") return 3;
+          if (norm === "diproses") return 2;
+          return 1;
+        };
+        const wA = getStatWeight(a.status);
+        const wB = getStatWeight(b.status);
+        return sortOrder === "asc" ? wA - wB : wB - wA;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [disposisi, prosesFilter, searchTerm, filterDayFrom, filterDayTo, filterMonth, filterYear, sortCol, sortOrder]);
+
+  const pagedDisposisi = useMemo(() => {
+    return filteredDisposisi.slice(0, limit);
+  }, [filteredDisposisi, limit]);
+
+  const toggleSort = (col: "tgl" | "urgensi" | "status") => {
+    if (sortCol === col) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortCol(col);
+      setSortOrder("desc");
+    }
+  };
 
   const detailPreviewKind = useMemo(() => detectPreviewKind(detailItem?.file_path), [detailItem?.file_path]);
   const detailFileName = useMemo(() => getFileNameFromPath(detailItem?.file_path), [detailItem?.file_path]);
@@ -317,29 +420,105 @@ export default function SekretarisDisposisiPage() {
         </div>
       )}
 
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <label htmlFor="filter-proses" className="text-sm font-medium text-slate-600">
-            Filter Proses:
-          </label>
-          <select
-            id="filter-proses"
-            value={prosesFilter}
-            onChange={(event) => setProsesFilter(event.target.value as ProsesFilter)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <div className="mb-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <label htmlFor="filter-proses" className="text-sm font-medium text-slate-600">
+              Filter Proses:
+            </label>
+            <select
+              id="filter-proses"
+              value={prosesFilter}
+              onChange={(event) => setProsesFilter(event.target.value as ProsesFilter)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="semua">Semua</option>
+              <option value="belum_diproses">Belum Diproses</option>
+              <option value="sudah_diproses">Sudah Diproses</option>
+            </select>
+          </div>
+
+          <button
+            onClick={fetchDisposisi}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 transition-colors shadow-sm"
           >
-            <option value="semua">Semua</option>
-            <option value="belum_diproses">Belum Diproses</option>
-            <option value="sudah_diproses">Sudah Diproses</option>
-          </select>
+            Refresh
+          </button>
         </div>
 
-        <button
-          onClick={fetchDisposisi}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-        >
-          Refresh
-        </button>
+        {/* Filter Section */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+            <div className="md:col-span-4">
+              <input
+                type="text"
+                placeholder="Cari nomor surat, asal surat, atau perihal"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <select
+                value={filterDayFrom}
+                onChange={(e) => setFilterDayFrom(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
+              >
+                <option value="">Tanggal Mulai</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={String(d)}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <select
+                value={filterDayTo}
+                onChange={(e) => setFilterDayTo(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
+              >
+                <option value="">Tanggal Sampai</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={String(d)}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <select
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
+              >
+                <option value="">Pilih Bulan</option>
+                {[
+                  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+                ].map((m, i) => (
+                  <option key={i} value={String(i + 1)}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
+              >
+                <option value="">Pilih Tahun</option>
+                {years.map((y) => (
+                  <option key={y} value={String(y)}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -396,29 +575,55 @@ export default function SekretarisDisposisiPage() {
 
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Memuat data disposisi...</div>
-        ) : filteredDisposisi.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            {prosesFilter === "semua"
-              ? "Belum ada disposisi surat masuk dari Kepala Desa."
-              : "Tidak ada surat yang sesuai dengan filter proses ini."}
-          </div>
+          <div className="p-8 text-center text-gray-500 italic">Memuat data disposisi...</div>
+        ) : pagedDisposisi.length === 0 ? (
+          <div className="p-8 text-center text-gray-500 italic">Data tidak ditemukan.</div>
         ) : (
           <table className="w-full text-xs sm:text-sm table-auto border-collapse">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-2 py-3 text-left font-bold text-gray-700 w-10">No</th>
                 <th className="px-3 py-3 text-left font-bold text-gray-700 w-36">No Surat</th>
-                <th className="px-3 py-3 text-left font-bold text-gray-700 w-28">Tgl Disposisi</th>
+                <th 
+                  className="px-3 py-3 text-left font-bold text-gray-700 w-28 cursor-pointer hover:bg-gray-100 transition-colors group"
+                  onClick={() => toggleSort("tgl")}
+                >
+                  <div className="flex items-center gap-1">
+                    Tgl Disposisi
+                    <span className={`text-[10px] ${sortCol === "tgl" ? "text-blue-600" : "text-gray-300 group-hover:text-gray-400"}`}>
+                      {sortCol === "tgl" ? (sortOrder === "asc" ? "▲" : "▼") : "⇅"}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[200px]">Perihal</th>
-                <th className="px-3 py-3 text-left font-bold text-gray-700 w-20">Urgensi</th>
+                <th 
+                  className="px-3 py-3 text-left font-bold text-gray-700 w-20 cursor-pointer hover:bg-gray-100 transition-colors group"
+                  onClick={() => toggleSort("urgensi")}
+                >
+                  <div className="flex items-center gap-1">
+                    Urgensi
+                    <span className={`text-[10px] ${sortCol === "urgensi" ? "text-blue-600" : "text-gray-300 group-hover:text-gray-400"}`}>
+                      {sortCol === "urgensi" ? (sortOrder === "asc" ? "▲" : "▼") : "⇅"}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[120px]">Dari</th>
-                <th className="px-3 py-3 text-left font-bold text-gray-700 w-24">Status</th>
+                <th 
+                  className="px-3 py-3 text-left font-bold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 transition-colors group"
+                  onClick={() => toggleSort("status")}
+                >
+                  <div className="flex items-center gap-1">
+                    Status
+                    <span className={`text-[10px] ${sortCol === "status" ? "text-blue-600" : "text-gray-300 group-hover:text-gray-400"}`}>
+                      {sortCol === "status" ? (sortOrder === "asc" ? "▲" : "▼") : "⇅"}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-2 py-3 text-center font-bold text-gray-700 w-72">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredDisposisi.map((item, i) => {
+              {pagedDisposisi.map((item, i) => {
                 const normalized = normalizeStatus(item.status);
                 return (
                   <tr key={item.id} className="hover:bg-indigo-50/30 transition-colors">
