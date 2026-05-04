@@ -15,7 +15,7 @@ import {
   FiEyeOff,
 } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 
 export type InternalLoginVariant = "admin" | "sekretaris" | "kepala_desa" | "shared";
 
@@ -253,7 +253,7 @@ export default function InternalLoginPage({ variant = "shared" }: InternalLoginP
         </div>
       </div>
     </div>
-    <Footer />
+    <FooterWrapper />
   </>
   );
 }

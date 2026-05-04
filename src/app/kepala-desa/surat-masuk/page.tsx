@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { FiInbox, FiDownload, FiEye, FiSend, FiUserCheck } from "react-icons/fi";
+import { FiInbox, FiDownload, FiEye, FiInfo, FiSend, FiUserCheck } from "react-icons/fi";
 
 interface SuratMasukItem {
   id: number;
@@ -62,6 +62,16 @@ function getPenangananMeta(status: PenangananSurat) {
   return { label: "Sedang diproses", className: "status-chip-warning" };
 }
 
+function formatIsoDate(value: string): string {
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).replace(/\//g, "-");
+}
+
 export default function KepalaDesaSuratMasukPage() {
   const [suratMasuk, setSuratMasuk] = useState<SuratMasukItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,7 +121,7 @@ export default function KepalaDesaSuratMasukPage() {
           throw new Error(result?.error || "Gagal memuat data surat masuk");
         }
 
-        setSuratMasuk(result.data || []);
+        setSuratMasuk(Array.isArray(result?.data) ? result.data : []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Terjadi kesalahan saat memuat data");
       } finally {
@@ -147,25 +157,13 @@ export default function KepalaDesaSuratMasukPage() {
   }, [suratMasuk, selectedMonth, selectedYear, selectedDayFrom, selectedDayTo]);
 
   const filterDescription = useMemo(() => {
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    const parts: string[] = [];
-    if (selectedDayFrom && selectedDayTo) {
-      parts.push(`tanggal ${selectedDayFrom}\u2013${selectedDayTo}`);
-    } else if (selectedDayFrom) {
-      parts.push(`tanggal ${selectedDayFrom}`);
-    } else if (selectedDayTo) {
-      parts.push(`tanggal s/d ${selectedDayTo}`);
-    }
-    if (selectedMonth) parts.push(months[Number(selectedMonth) - 1] || selectedMonth);
-    if (selectedYear) parts.push(`tahun ${selectedYear}`);
-    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
-  }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
+    if (!selectedDayFrom && !selectedDayTo) return "";
+    const start = selectedDayFrom || selectedDayTo;
+    const end = selectedDayTo || selectedDayFrom;
+    return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${filteredSuratMasuk.length} data`;
+  }, [selectedDayFrom, selectedDayTo, filteredSuratMasuk.length]);
 
-  const isFilterActive =
-    selectedDayFrom !== "" ||
-    selectedDayTo !== "" ||
-    selectedMonth !== "" ||
-    selectedYear !== "";
+  const hasDateFilter = Boolean(selectedDayFrom || selectedDayTo);
 
   const openDisposisiDialog = (item: SuratMasukItem) => {
     setDisposisiTarget(item);
@@ -300,12 +298,10 @@ export default function KepalaDesaSuratMasukPage() {
             ))}
           </select>
         </div>
-
-        {isFilterActive && (
-          <div className="mb-4">
-            <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 border border-indigo-100">
-              Jumlah data dari {filterDescription} = {filteredSuratMasuk.length} data
-            </span>
+        {hasDateFilter && (
+          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900">
+            <FiInfo className="h-4 w-4 text-blue-700" />
+            <span>{filterDescription.replace(`${filteredSuratMasuk.length} data`, "")}<strong>{filteredSuratMasuk.length}</strong> data</span>
           </div>
         )}
 

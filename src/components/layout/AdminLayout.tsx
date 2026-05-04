@@ -30,7 +30,7 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
   '/admin/dashboard': {
     eyebrow: 'Portal Admin',
     title: 'Selamat datang, Administrator Sistem',
-    description: '',
+    description: 'Kelola seluruh data surat masuk, surat keluar, permohonan, serta pengguna sistem secara terpusat dan terstruktur.',
   },
   '/admin/surat-masuk': {
     eyebrow: 'Portal Admin',

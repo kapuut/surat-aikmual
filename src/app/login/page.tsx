@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { FiUser, FiLock, FiLogIn, FiEye, FiEyeOff } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 
 function PublicLoginContent() {
   const router = useRouter();
@@ -212,7 +212,7 @@ function PublicLoginContent() {
         </div>
       </div>
     </div>
-    <Footer />
+    <FooterWrapper />
   </>
   );
 }

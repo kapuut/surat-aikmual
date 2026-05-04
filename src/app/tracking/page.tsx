@@ -3,7 +3,7 @@
 import { useRequireAuth } from '@/lib/hooks';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiDownload, FiClock, FiEye, FiSearch, FiRefreshCw } from 'react-icons/fi';
+import { FiDownload, FiClock, FiEye, FiInfo, FiSearch, FiRefreshCw } from 'react-icons/fi';
 import { useMemo } from 'react';
 import SimpleLayout from '@/components/layout/SimpleLayout';
 import Card, { CardHeader, CardBody } from '@/components/ui/Card';
@@ -47,6 +47,17 @@ export default function TrackingPage() {
     if (!text) return '-';
     if (text.length <= 80) return text;
     return `${text.slice(0, 80)}...`;
+  };
+
+  const formatIsoDate = (value: string) => {
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return value;
+
+    return parsed.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).replace(/\//g, '-');
   };
 
   useEffect(() => {
@@ -133,20 +144,14 @@ export default function TrackingPage() {
     });
   }, [permohonan, searchTerm, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear]);
 
+  const hasDateFilter = Boolean(selectedDayFrom || selectedDayTo);
+
   const filterDescription = useMemo(() => {
-    const parts: string[] = [];
-    if (selectedDayFrom && selectedDayTo) parts.push(`tanggal ${selectedDayFrom}\u2013${selectedDayTo}`);
-    else if (selectedDayFrom) parts.push(`tanggal ${selectedDayFrom}`);
-    else if (selectedDayTo) parts.push(`tanggal s/d ${selectedDayTo}`);
-    
-    if (selectedMonth) {
-      const m = monthOptions.find(o => o.value === selectedMonth);
-      if (m) parts.push(m.label);
-    }
-    
-    if (selectedYear) parts.push(`tahun ${selectedYear}`);
-    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
-  }, [selectedDayFrom, selectedDayTo, selectedMonth, selectedYear]);
+    if (!selectedDayFrom && !selectedDayTo) return '';
+    const start = selectedDayFrom || selectedDayTo;
+    const end = selectedDayTo || selectedDayFrom;
+    return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${filteredPermohonan.length} data`;
+  }, [selectedDayFrom, selectedDayTo, filteredPermohonan.length]);
 
   const isFilterActive = searchTerm !== '' || selectedDayFrom !== '' || selectedDayTo !== '' || selectedMonth !== '' || selectedYear !== '';
 
@@ -246,11 +251,10 @@ export default function TrackingPage() {
             </div>
           </div>
 
-          {isFilterActive && (
-            <div>
-              <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 border border-indigo-100">
-                Jumlah data dari {filterDescription} = {filteredPermohonan.length} data
-              </span>
+          {hasDateFilter && (
+            <div className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900">
+              <FiInfo className="h-4 w-4 text-blue-700" />
+              <span>{filterDescription.replace(`${filteredPermohonan.length} data`, '')}<strong>{filteredPermohonan.length}</strong> data</span>
             </div>
           )}
         </div>
@@ -403,3 +407,4 @@ export default function TrackingPage() {
     </SimpleLayout>
   );
 }
+

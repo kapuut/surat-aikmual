@@ -25,37 +25,63 @@ function normalizeNumber(value: unknown, fallback = 0): number {
 
 function normalizeDayValue(value: string | null): number | null {
   if (!value) return null;
+  if (!/^\d{1,2}$/.test(value)) return null;
   const n = parseInt(value, 10);
   return !isNaN(n) && n >= 1 && n <= 31 ? n : null;
 }
 
+function normalizeIsoDate(value: string | null): string | null {
+  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : value;
+}
+
 function buildDateFilter(
   dateColumn: string,
-  year: number,
+  year: number | null,
   month: number,
   dayFrom: number | null,
-  dayTo: number | null
+  dayTo: number | null,
+  isoDateFrom: string | null,
+  isoDateTo: string | null
 ): { whereClause: string; params: unknown[] } {
-  const whereParts = [`YEAR(${dateColumn}) = ?`];
-  const params: unknown[] = [year];
+  const whereParts: string[] = [];
+  const params: unknown[] = [];
 
-  if (month > 0) {
-    whereParts.push(`MONTH(${dateColumn}) = ?`);
-    params.push(month);
-  }
+  if (isoDateFrom || isoDateTo) {
+    if (isoDateFrom) {
+      whereParts.push(`DATE(${dateColumn}) >= ?`);
+      params.push(isoDateFrom);
+    }
+    if (isoDateTo) {
+      whereParts.push(`DATE(${dateColumn}) <= ?`);
+      params.push(isoDateTo);
+    }
+  } else {
+    if (year !== null) {
+      whereParts.push(`YEAR(${dateColumn}) = ?`);
+      params.push(year);
+    }
 
-  if (dayFrom !== null) {
-    whereParts.push(`DAY(${dateColumn}) >= ?`);
-    params.push(dayFrom);
-  }
+    if (month > 0) {
+      whereParts.push(`MONTH(${dateColumn}) = ?`);
+      params.push(month);
+    }
 
-  if (dayTo !== null) {
-    whereParts.push(`DAY(${dateColumn}) <= ?`);
-    params.push(dayTo);
+    if (dayFrom !== null) {
+      whereParts.push(`DAY(${dateColumn}) >= ?`);
+      params.push(dayFrom);
+    }
+
+    if (dayTo !== null) {
+      whereParts.push(`DAY(${dateColumn}) <= ?`);
+      params.push(dayTo);
+    }
   }
 
   return {
-    whereClause: `WHERE ${whereParts.join(' AND ')}`,
+    whereClause: whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : '',
     params,
   };
 }
@@ -75,14 +101,20 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date();
-    const searchParams = request.nextUrl.searchParams;
-    const parsedYear = normalizeNumber(searchParams.get('year'), now.getFullYear());
+    const { nextUrl } = request;
+    const { searchParams } = nextUrl;
+    const rawYear = searchParams.get('year');
+    const parsedYear = normalizeNumber(rawYear, 0);
     const parsedMonth = normalizeNumber(searchParams.get('month'), 0);
-    const dateFrom = normalizeDayValue(searchParams.get('date_from'));
-    const dateTo = normalizeDayValue(searchParams.get('date_to'));
+    const dateFromParam = searchParams.get('date_from');
+    const dateToParam = searchParams.get('date_to');
+    const dateFrom = normalizeDayValue(dateFromParam);
+    const dateTo = normalizeDayValue(dateToParam);
+    const isoDateFrom = normalizeIsoDate(dateFromParam);
+    const isoDateTo = normalizeIsoDate(dateToParam);
     const sortRaw = String(searchParams.get('sort') || 'desc').toLowerCase();
 
-    const selectedYear = parsedYear >= 2000 && parsedYear <= 2100 ? parsedYear : now.getFullYear();
+    const selectedYear = rawYear ? (parsedYear >= 2000 && parsedYear <= 2100 ? parsedYear : null) : null;
     const selectedMonth = parsedMonth >= 1 && parsedMonth <= 12 ? parsedMonth : 0;
     const selectedSort = ['asc', 'desc', 'date_desc', 'date_asc'].includes(sortRaw) ? sortRaw : 'desc';
     const isDateSort = selectedSort === 'date_desc' || selectedSort === 'date_asc';
@@ -93,7 +125,15 @@ export async function GET(request: NextRequest) {
     let resolvedDateColumn: string | null = null;
 
     for (const candidate of DATE_COLUMN_CANDIDATES) {
-      const { whereClause, params } = buildDateFilter(candidate, selectedYear, selectedMonth, dateFrom, dateTo);
+      const { whereClause, params } = buildDateFilter(
+        candidate,
+        selectedYear,
+        selectedMonth,
+        dateFrom,
+        dateTo,
+        isoDateFrom,
+        isoDateTo
+      );
 
       try {
         const [result]: any = await db.execute(
@@ -131,7 +171,7 @@ export async function GET(request: NextRequest) {
       rows = Array.isArray(result) ? result : [];
     }
 
-    let availableYears: number[] = [selectedYear];
+    let availableYears: number[] = [now.getFullYear()];
     if (resolvedDateColumn) {
       try {
         const [yearRows]: any = await db.execute(
@@ -146,10 +186,10 @@ export async function GET(request: NextRequest) {
           .filter((year: number) => year > 0);
 
         if (availableYears.length === 0) {
-          availableYears = [selectedYear];
+          availableYears = [now.getFullYear()];
         }
       } catch (error) {
-        availableYears = [selectedYear];
+        availableYears = [now.getFullYear()];
       }
     }
 
@@ -165,8 +205,8 @@ export async function GET(request: NextRequest) {
       filters: {
         year: selectedYear,
         month: selectedMonth,
-        dateFrom,
-        dateTo,
+        dateFrom: isoDateFrom ?? dateFrom,
+        dateTo: isoDateTo ?? dateTo,
         sort: selectedSort,
       },
       availableYears,

@@ -1,31 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import { db } from '@/lib/db';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+const JWT_SECRET = process.env.JWT_SECRET || 'si-surat-secret-key-2024';
 
-interface JWTPayload {
-  userId: number;
-  username: string;
-  iat: number;
-  exp: number;
+interface AppJwtPayload extends JwtPayload {
+  userId?: number;
+  id?: number;
+  username?: string;
+  role?: string;
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    // Get and verify JWT token
-    const token = request.cookies.get('token')?.value;
+    // Keep backward compatibility but prioritize the active auth cookie.
+    const token = request.cookies.get('auth-token')?.value || request.cookies.get('token')?.value;
 
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let decoded: JWTPayload;
+    let decoded: AppJwtPayload;
     try {
-      const verified = await jwtVerify(token, JWT_SECRET);
-      decoded = verified.payload as unknown as JWTPayload;
+      decoded = jwt.verify(token, JWT_SECRET) as AppJwtPayload;
     } catch (error) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const userId = Number(decoded.userId ?? decoded.id);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });
     }
 
     // Get request body
@@ -46,7 +50,7 @@ export async function PUT(request: NextRequest) {
       WHERE id = ?
     `;
 
-    await db.execute(query, [nama, email, alamat || null, telepon || null, decoded.userId]);
+    await db.execute(query, [nama, email, alamat || null, telepon || null, userId]);
 
     // Fetch updated user data
     const userQuery = `
@@ -55,7 +59,7 @@ export async function PUT(request: NextRequest) {
       WHERE id = ?
     `;
 
-    const [userRows] = await db.execute(userQuery, [decoded.userId]);
+    const [userRows] = await db.execute(userQuery, [userId]);
     const userData = (userRows as any[])[0];
 
     return NextResponse.json({

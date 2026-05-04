@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiSend, FiHeart, FiCheckCircle, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 import { checkBusinessHours } from "@/lib/utils";
 
 export default function SuratKematianFormPage() {
@@ -620,7 +620,7 @@ export default function SuratKematianFormPage() {
           )}
         </form>
       </div>
-      <Footer />
+      <FooterWrapper />
     </>
   );
 }

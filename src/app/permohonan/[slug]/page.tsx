@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiCheckCircle, FiFileText } from "react-icons/fi";
 import { ALLOWED_SURAT_SLUGS, ALLOWED_SURAT_TYPES, normalizeSuratSlug } from "@/lib/surat-data";
 
@@ -41,6 +42,7 @@ const suratData: Record<string, {
 }>);
 
 export default function SuratDetailPage({ params }: SuratDetailProps) {
+  const router = useRouter();
   const suratSlug = normalizeSuratSlug(params.slug);
   const surat = suratSlug && ALLOWED_SURAT_SLUGS.has(suratSlug)
     ? suratData[suratSlug]
@@ -66,11 +68,14 @@ export default function SuratDetailPage({ params }: SuratDetailProps) {
   return (
     <main className="bg-gray-50 min-h-screen py-10">
       <div className="container mx-auto px-4 max-w-5xl">
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Link href="/" className="hover:text-blue-600 flex items-center gap-2">
-            <FiArrowLeft /> Kembali
-          </Link>
-        </div>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="mb-4 inline-flex cursor-pointer items-center gap-2 font-medium text-green-600 transition-colors duration-200 hover:text-green-700"
+        >
+          <FiArrowLeft className="h-4 w-4" />
+          <span>Kembali</span>
+        </button>
 
         <h1 className="text-4xl font-bold text-gray-900 mb-4">{surat.title}</h1>
         <p className="text-lg text-gray-600 mb-10">{surat.description}</p>

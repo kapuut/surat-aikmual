@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiSend, FiShield } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 import { checkBusinessHours } from "@/lib/utils";
 
 export default function SuratKepemilikanFormPage() {
@@ -214,7 +214,7 @@ export default function SuratKepemilikanFormPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Luas Tanah (mÂ²) *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Luas Tanah (m²) *</label>
                 <input type="number" name="luasTanah" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div className="md:col-span-2">
@@ -284,7 +284,7 @@ export default function SuratKepemilikanFormPage() {
         </form>
       </div>
     </div>
-    <Footer />
+    <FooterWrapper />
     </>
   );
 }

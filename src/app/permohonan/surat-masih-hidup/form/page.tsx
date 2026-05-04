@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiCheckCircle, FiHeart, FiSend, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 import { useRequireAuth } from "@/lib/hooks";
 import { checkBusinessHours } from "@/lib/utils";
 
@@ -417,7 +417,7 @@ export default function SuratMasihHidupFormPage() {
           </form>
         </div>
       </div>
-      <Footer />
+      <FooterWrapper />
     </>
   );
 }

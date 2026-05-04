@@ -246,6 +246,47 @@ export async function POST(request: Request) {
   }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const auth = await ensureAdminAuth();
+    if (!auth.ok) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const templateId = searchParams.get("id")?.trim() || "";
+
+    if (!templateId) {
+      return NextResponse.json(
+        { success: false, error: "ID template wajib diisi." },
+        { status: 400 }
+      );
+    }
+
+    await ensureDynamicTemplateTable();
+    const [result] = await db.execute(
+      `DELETE FROM dynamic_template_surat WHERE id = ?`,
+      [templateId]
+    );
+
+    const affected = (result as { affectedRows: number }).affectedRows;
+    if (affected === 0) {
+      return NextResponse.json(
+        { success: false, error: "Template tidak ditemukan." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true, message: "Template berhasil dihapus." });
+  } catch (error) {
+    console.error("Dynamic templates DELETE error:", error);
+    return NextResponse.json(
+      { success: false, error: "Gagal menghapus template." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(request: Request) {
   try {
     const auth = await ensureAdminAuth();

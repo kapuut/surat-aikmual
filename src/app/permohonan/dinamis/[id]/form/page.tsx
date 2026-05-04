@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiCheckCircle, FiFileText, FiSend, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 import { useRequireAuth } from "@/lib/hooks";
 import { checkBusinessHours } from "@/lib/utils";
 import { createInitialFormValues } from "@/lib/template-surat/render-template";
@@ -356,7 +356,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
         <div className="min-h-screen bg-gray-50 py-8 pt-20">
           <div className="mx-auto max-w-4xl px-4" />
         </div>
-        <Footer />
+        <FooterWrapper />
       </>
     );
   }
@@ -374,7 +374,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
             </Link>
           </div>
         </div>
-        <Footer />
+        <FooterWrapper />
       </>
     );
   }
@@ -620,7 +620,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
           </form>
         </div>
       </div>
-      <Footer />
+      <FooterWrapper />
     </>
   );
 }

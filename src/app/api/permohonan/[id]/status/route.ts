@@ -16,6 +16,7 @@ import { type JenisSurat, type SuratData } from '@/lib/surat-generator/types';
 import { renderTemplateWithValues } from '@/lib/template-surat/render-template';
 import { normalizeCustomTemplateHtml } from '@/lib/template-surat/official-layout';
 import { buildOfficialDynamicSystemValues } from '@/lib/template-surat/official-defaults';
+import { getKopSuratStyles, getKopSuratHtml } from '@/lib/kop-surat';
 
 export const runtime = 'nodejs';
 
@@ -545,22 +546,8 @@ function renderDynamicSuratDocument(
   renderedHtml: string,
   signatureOpts?: { signatureImageUrl?: string; qrCodeDataUrl?: string }
 ): string {
-  // Official KOP surat header — same as static surat types
-  const kopHtml = `
-    <div style="margin-bottom:0.7cm;">
-      <div style="display:grid;grid-template-columns:98px 1fr;column-gap:10px;align-items:center;">
-        <div style="width:98px;height:98px;display:flex;align-items:center;justify-content:center;">
-          <img src="/images/logo-loteng.png" alt="Logo Lombok Tengah" style="width:88px;height:88px;object-fit:contain;" />
-        </div>
-        <div style="text-align:center;padding-right:98px;font-family:'Times New Roman',serif;">
-          <div style="font-size:14pt;font-weight:bold;letter-spacing:0.03em;text-transform:uppercase;">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
-          <div style="font-size:14pt;font-weight:bold;text-transform:uppercase;">KECAMATAN PRAYA</div>
-          <div style="font-size:14pt;font-weight:bold;text-transform:uppercase;margin-bottom:1px;">DESA AIKMUAL</div>
-          <div style="font-size:9pt;border:1px solid #111;padding:2px 6px;display:inline-block;min-width:86%;white-space:nowrap;">Alamat : Jln raya Praya &ndash; Mantang KM 07 Aikmual Praya Phone 08175726709 / 08175790747 Kode Post 83500</div>
-        </div>
-      </div>
-      <div style="margin-top:4px;border-top:1px solid #000;border-bottom:2px solid #000;height:3px;"></div>
-    </div>`;
+  // Official KOP surat header — rendered via shared src/lib/kop-surat.ts
+  const kopHtml = getKopSuratHtml();
 
   // Replace the blank signature spacer with actual TTD images when signing
   let body = renderedHtml;
@@ -600,6 +587,7 @@ function renderDynamicSuratDocument(
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { margin: 0; background: #f1f5f9; padding: 16px; font-family: 'Bookman Old Style', 'Book Antiqua', serif; font-size: 12pt; line-height: 1.5; color: #000; }
       .paper { width: 21cm; min-height: 29.7cm; margin: 0 auto; background: #fff; padding: 1.5cm 1.5cm 1.5cm 1.5cm; box-shadow: 0 10px 25px rgba(15,23,42,0.12); }
+      ${getKopSuratStyles()}
       
       @page {
         size: A4;

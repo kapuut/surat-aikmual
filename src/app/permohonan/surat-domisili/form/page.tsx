@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiSend, FiHome, FiCheckCircle, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 import { checkBusinessHours } from "@/lib/utils";
 
 export default function SuratDomisiliFormPage() {
@@ -617,7 +617,7 @@ export default function SuratDomisiliFormPage() {
           </form>
         </div>
       </div>
-      <Footer />
+      <FooterWrapper />
     </>
   );
 }

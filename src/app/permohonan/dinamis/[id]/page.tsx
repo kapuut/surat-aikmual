@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiCheckCircle, FiFileText } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 import {
   buildOfficialDynamicRequirements,
   OFFICIAL_DYNAMIC_PROCEDURE,
@@ -32,6 +33,7 @@ interface DynamicSuratDetailPageProps {
 }
 
 export default function DynamicSuratDetailPage({ params }: DynamicSuratDetailPageProps) {
+  const router = useRouter();
   const [template, setTemplate] = useState<DynamicTemplate | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -92,7 +94,7 @@ export default function DynamicSuratDetailPage({ params }: DynamicSuratDetailPag
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-white pt-20">
           <div className="mx-auto max-w-4xl px-4 py-20" />
         </div>
-        <Footer />
+        <FooterWrapper />
       </>
     );
   }
@@ -113,7 +115,7 @@ export default function DynamicSuratDetailPage({ params }: DynamicSuratDetailPag
             </Link>
           </div>
         </div>
-        <Footer />
+        <FooterWrapper />
       </>
     );
   }
@@ -123,12 +125,14 @@ export default function DynamicSuratDetailPage({ params }: DynamicSuratDetailPag
       <Header />
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-white pt-20">
         <div className="mx-auto max-w-4xl px-4 py-12">
-          <Link
-            href="/permohonan"
-            className="mb-6 inline-flex items-center gap-2 text-sm text-green-600 hover:text-green-700"
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="mb-4 inline-flex cursor-pointer items-center gap-2 font-medium text-green-600 transition-colors duration-200 hover:text-green-700"
           >
-            <FiArrowLeft /> Kembali
-          </Link>
+            <FiArrowLeft className="h-4 w-4" />
+            <span>Kembali</span>
+          </button>
 
           <div className="mb-12 text-center">
             <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-500">
@@ -183,7 +187,7 @@ export default function DynamicSuratDetailPage({ params }: DynamicSuratDetailPag
           </div>
         </div>
       </div>
-      <Footer />
+      <FooterWrapper />
     </>
   );
 }

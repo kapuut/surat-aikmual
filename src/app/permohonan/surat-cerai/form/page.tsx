@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiSend, FiUsers, FiCheckCircle, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 import { checkBusinessHours } from "@/lib/utils";
 
 export default function SuratCeraiFormPage() {
@@ -503,7 +503,7 @@ export default function SuratCeraiFormPage() {
           </div>
         </form>
       </div>
-      <Footer />
+      <FooterWrapper />
     </>
   );
 }

@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/useAuth';
 import UserNavbar from '@/components/UserNavbar';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
+import FooterWrapper from '@/components/layout/FooterWrapper';
 import { useEffect, useMemo, useState } from 'react';
 import {
   FiFileText,
@@ -485,7 +485,7 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <Footer />
+      <FooterWrapper />
     </div>
   );
 }

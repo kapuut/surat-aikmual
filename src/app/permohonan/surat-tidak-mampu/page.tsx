@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiHeart, FiCheckCircle, FiClock, FiFileText } from "react-icons/fi";
 import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
@@ -21,24 +22,20 @@ description: item.desc,
 }));
 
 export default function SuratTidakMampuPage() {
+	const router = useRouter();
+
 	return (
 		<div className="min-h-screen bg-gray-50">
-			{/* Header */}
-			<header className="bg-white border-b">
-				<div className="max-w-7xl mx-auto px-4 py-4">
-					<div className="flex items-center gap-4">
-						<Link
-							href="/"
-							className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
-						>
-							<FiArrowLeft className="w-5 h-5" />
-							Kembali ke Beranda
-						</Link>
-					</div>
-				</div>
-			</header>
-
 			<div className="max-w-4xl mx-auto px-4 py-8">
+				<button
+					type="button"
+					onClick={() => router.back()}
+					className="mb-4 inline-flex cursor-pointer items-center gap-2 font-medium text-green-600 transition-colors duration-200 hover:text-green-700"
+				>
+					<FiArrowLeft className="h-4 w-4" />
+					<span>Kembali</span>
+				</button>
+
 				{/* Hero Section */}
 				<div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl text-white p-8 mb-8">
 					<div className="flex items-center gap-4 mb-4">

@@ -15,6 +15,7 @@ import type {
   TemplateFieldType,
   TemplateFormValues,
 } from "@/lib/template-surat/types";
+import { getKopSuratStyles, getKopSuratHtml } from "@/lib/kop-surat";
 
 type TemplateItem = {
   id: number;
@@ -90,7 +91,25 @@ const SECOND_PARTY_FIELD_PRESETS: FieldPreset[] = [
   { name: "alamat_pihak_2", label: "Alamat Pihak 2", type: "textarea", required: false },
 ];
 
+const SECOND_PARTY_FIELD_NAMES = new Set(SECOND_PARTY_FIELD_PRESETS.map((f) => f.name));
+
 const QUICK_PARAGRAPH_FIELD_NAMES = ["nama", "nik", "alamat", "tujuan", "keperluan"] as const;
+
+const SURAT_DESKRIPSI_MAP: Record<string, string> = {
+  "surat-domisili": "Surat keterangan tempat tinggal atau domisili warga",
+  "surat-masih-hidup": "Surat keterangan bahwa seseorang masih hidup",
+  "surat-kematian": "Surat resmi administrasi kematian",
+  "surat-cerai": "Surat keterangan status perceraian",
+  "surat-janda": "Surat keterangan status janda atau duda",
+  "surat-kehilangan": "Surat keterangan kehilangan barang atau dokumen",
+  "surat-penghasilan": "Surat keterangan penghasilan warga",
+  "surat-tidak-punya-rumah": "Surat keterangan tidak memiliki rumah",
+  "surat-usaha": "Surat keterangan kepemilikan usaha",
+};
+
+function generateDeskripsi(jenisSuratSlug: string): string {
+  return SURAT_DESKRIPSI_MAP[jenisSuratSlug] || "Surat resmi administrasi desa";
+}
 
 const DEFAULT_OPENING_PARAGRAPH = OFFICIAL_DYNAMIC_OPENING_PARAGRAPH;
 
@@ -134,6 +153,7 @@ type EditBlueprint = {
   body: string;
   closing: string;
   fields: FieldPreset[];
+  secondPartyFields?: FieldPreset[];
 };
 
 const BLUEPRINT_FIELDS = {
@@ -202,7 +222,7 @@ const DEFAULT_EDIT_BLUEPRINTS: Record<string, EditBlueprint> = {
   },
   "surat-cerai": {
     opening: DEFAULT_OPENING_PARAGRAPH,
-    body: "Bahwa yang namanya tersebut di atas memang benar warga kami dan telah bercerai pada tanggal {{tanggal_cerai}} dengan pasangan sebagai berikut:\n\nNama: {{nama_pihak_2}}\nNIK: {{nik_pihak_2}}\nTempat / Tanggal Lahir: {{tempat_tanggal_lahir_pihak_2}}\nAgama: {{agama_pihak_2}}\nPekerjaan: {{pekerjaan_pihak_2}}\nAlamat: {{alamat_pihak_2}}",
+    body: "Bahwa yang namanya tersebut di atas memang benar warga kami dan telah bercerai pada tanggal {{tanggal_cerai}} dengan pasangan sebagai berikut:",
     closing: DEFAULT_CLOSING_PARAGRAPH,
     fields: [
       BLUEPRINT_FIELDS.nama,
@@ -213,8 +233,8 @@ const DEFAULT_EDIT_BLUEPRINTS: Record<string, EditBlueprint> = {
       BLUEPRINT_FIELDS.pekerjaan,
       BLUEPRINT_FIELDS.alamat,
       { name: "tanggal_cerai", label: "Tanggal Cerai", type: "date", required: false },
-      ...SECOND_PARTY_FIELD_PRESETS,
     ],
+    secondPartyFields: SECOND_PARTY_FIELD_PRESETS,
   },
   "surat-janda": {
     opening: DEFAULT_OPENING_PARAGRAPH,
@@ -355,6 +375,7 @@ function buildSimpleTemplateHtml({
   bodyText,
   closingParagraph,
   identityFields,
+  secondPartyFields,
 }: {
   jenisSurat: string;
   formatMode: TemplateFormatMode;
@@ -362,6 +383,7 @@ function buildSimpleTemplateHtml({
   bodyText: string;
   closingParagraph: string;
   identityFields: Array<Pick<EditableTemplateField, "name" | "label" | "includeInIdentity">>;
+  secondPartyFields?: Array<Pick<EditableTemplateField, "name" | "label" | "includeInIdentity">>;
 }): string {
   const normalizedParagraphs = bodyText
     .split(/\n{2,}/)
@@ -399,9 +421,24 @@ function buildSimpleTemplateHtml({
     ? `<table style="width: 100%; border-collapse: collapse; margin: 0.15cm 0 0.35cm 1.1cm; font-size: 12pt;">${identityRows}</table>`
     : "";
 
+  const secondPartyRows = (secondPartyFields ?? [])
+    .filter((field) => field.name.trim() && field.label.trim() && field.includeInIdentity)
+    .map((field, index) => {
+      const rawLabel = field.label.trim().replace(/\s*Pihak\s*2\s*/gi, "").trim() || field.label.trim();
+      const cleanLabel = escapeSimpleHtml(rawLabel);
+      const safeName = field.name.trim();
+      const num = index + 1;
+      return `<tr><td style="width: 3.8cm; white-space: nowrap; vertical-align: top;">${num}. ${cleanLabel}</td><td style="width: 0.35cm; text-align: center; vertical-align: top;">:</td><td style="vertical-align: top;">{{${safeName}}}</td></tr>`;
+    })
+    .join("\n");
+
+  const secondPartyTableHtml = secondPartyRows
+    ? `<table style="width: 100%; border-collapse: collapse; margin: 0.15cm 0 0.35cm 1.1cm; font-size: 12pt;">${secondPartyRows}</table>`
+    : "";
+
   const bodySectionHtml =
     formatMode === "dengan_tabel"
-      ? `${openingHtml}${identityTableHtml}${normalizedParagraphs}`
+      ? `${openingHtml}${identityTableHtml}${normalizedParagraphs}${secondPartyTableHtml}`
       : `${openingHtml}${normalizedParagraphs}`;
 
   return `
@@ -528,6 +565,59 @@ const SYSTEM_TOKEN_LABELS: Record<string, string> = {
   nama_kepala_desa: "Nama Kepala Desa",
 };
 
+function buildPreviewSuratSrcdoc({
+  jenisSurat,
+  openingParagraph,
+  bodyText,
+  closingParagraph,
+  identityFields,
+  secondPartyFields,
+}: {
+  jenisSurat: string;
+  openingParagraph: string;
+  bodyText: string;
+  closingParagraph: string;
+  identityFields: EditableTemplateField[];
+  secondPartyFields?: EditableTemplateField[];
+}): string {
+  const normalized = identityFields
+    .map((f) => ({ ...f, name: f.name.trim(), label: f.label.trim() }))
+    .filter((f) => f.name && f.label);
+
+  const normalizedSecondParty = (secondPartyFields ?? [])
+    .map((f) => ({ ...f, name: f.name.trim(), label: f.label.trim() }))
+    .filter((f) => f.name && f.label);
+
+  const bodyHtml = buildSimpleTemplateHtml({
+    jenisSurat,
+    formatMode: "dengan_tabel",
+    openingParagraph,
+    bodyText,
+    closingParagraph,
+    identityFields: normalized,
+    secondPartyFields: normalizedSecondParty.length > 0 ? normalizedSecondParty : undefined,
+  });
+
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f1f5f9; padding: 16px; font-family: 'Bookman Old Style', 'Book Antiqua', serif; font-size: 12pt; line-height: 1.5; color: #000; }
+    .page { width: 21cm; min-height: 29.7cm; margin: 0 auto; background: #fff; padding: 1.5cm 2cm; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+    ${getKopSuratStyles()}
+  </style>
+</head>
+<body>
+  <div class="page">
+    ${getKopSuratHtml()}
+    ${bodyHtml ?? "<p style=\"color:#999;text-align:center;margin-top:40px\">Isi surat belum diisi.</p>"}
+  </div>
+</body>
+</html>`;
+}
+
 export default function TemplateSuratPage() {
   const initialTemplateId = DYNAMIC_SURAT_TEMPLATES[0]?.id ?? "";
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
@@ -538,9 +628,13 @@ export default function TemplateSuratPage() {
   const [dynamicError, setDynamicError] = useState("");
   const [selectedDynamicTemplateId, setSelectedDynamicTemplateId] = useState<string>("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editModalTab, setEditModalTab] = useState<"preview" | "edit">("preview");
+  const [editModalTab, setEditModalTab] = useState<"preview" | "edit" | "surat-preview">("preview");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editingFields, setEditingFields] = useState<EditableTemplateField[]>([]);
+  const [hasSecondParty, setHasSecondParty] = useState(false);
+  const [editingSecondPartyFields, setEditingSecondPartyFields] = useState<EditableTemplateField[]>(
+    SECOND_PARTY_FIELD_PRESETS.map(toEditableFieldFromPreset)
+  );
   const [editingParagraphs, setEditingParagraphs] = useState({
     opening: DEFAULT_OPENING_PARAGRAPH,
     body: "",
@@ -555,7 +649,6 @@ export default function TemplateSuratPage() {
   const [newDynamicTemplate, setNewDynamicTemplate] = useState({
     nama: "",
     jenisSurat: "",
-    deskripsi: "",
   });
   const [openingParagraph, setOpeningParagraph] = useState(DEFAULT_OPENING_PARAGRAPH);
   const [simpleTemplateText, setSimpleTemplateText] = useState("");
@@ -582,6 +675,18 @@ export default function TemplateSuratPage() {
     if (!selectedDynamicTemplateId) return undefined;
     return dynamicTemplateOptions.find((item) => item.id === selectedDynamicTemplateId);
   }, [dynamicTemplateOptions, selectedDynamicTemplateId]);
+
+  const previewSuratSrcdoc = useMemo(() => {
+    if (!selectedDynamicTemplate) return "";
+    return buildPreviewSuratSrcdoc({
+      jenisSurat: selectedDynamicTemplate.jenisSurat,
+      openingParagraph: editingParagraphs.opening,
+      bodyText: editingParagraphs.body,
+      closingParagraph: editingParagraphs.closing,
+      identityFields: editingFields,
+      secondPartyFields: hasSecondParty ? editingSecondPartyFields : undefined,
+    });
+  }, [selectedDynamicTemplate, editingParagraphs, editingFields, hasSecondParty, editingSecondPartyFields]);
 
   const availablePlaceholderTokens = useMemo(() => {
     return newDynamicFields
@@ -621,7 +726,10 @@ export default function TemplateSuratPage() {
   }, [availablePlaceholderTokens]);
 
   const editAvailableTokens = useMemo(() => {
-    const dynamicTokens = editingFields
+    const dynamicTokens = [
+      ...editingFields,
+      ...(hasSecondParty ? editingSecondPartyFields : []),
+    ]
       .map((field) => ({
         name: field.name.trim(),
         label: field.label.trim() || field.name.trim(),
@@ -911,15 +1019,17 @@ export default function TemplateSuratPage() {
 
     const nama = newDynamicTemplate.nama.trim();
     const jenisSurat = newDynamicTemplate.jenisSurat.trim();
-    const deskripsi = newDynamicTemplate.deskripsi.trim();
+    const deskripsi = generateDeskripsi(
+      jenisSurat.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || jenisSurat
+    );
 
     if (!simpleTemplateText.trim()) {
       setDynamicError("Isi paragraf surat wajib diisi pada Mode Mudah.");
       return;
     }
 
-    if (!nama || !jenisSurat || !deskripsi) {
-      setDynamicError("Nama surat, jenis surat, deskripsi, dan isi template wajib diisi.");
+    if (!nama || !jenisSurat) {
+      setDynamicError("Nama surat dan jenis surat wajib diisi.");
       return;
     }
 
@@ -1034,7 +1144,7 @@ export default function TemplateSuratPage() {
       }
 
       setDynamicMessage("Jenis surat dinamis berhasil ditambahkan.");
-      setNewDynamicTemplate({ nama: "", jenisSurat: "", deskripsi: "" });
+      setNewDynamicTemplate({ nama: "", jenisSurat: "" });
       setOpeningParagraph(DEFAULT_OPENING_PARAGRAPH);
       setSimpleTemplateText("");
       setClosingParagraph(DEFAULT_CLOSING_PARAGRAPH);
@@ -1070,6 +1180,26 @@ export default function TemplateSuratPage() {
     }
   };
 
+  const handleDeleteDynamicTemplate = async (templateId: string) => {
+    if (!window.confirm("Apakah Anda yakin ingin menghapus template ini? Tindakan ini tidak dapat dibatalkan.")) return;
+    setDynamicError("");
+    setDynamicMessage("");
+    try {
+      const response = await fetch(`/api/admin/dynamic-templates?id=${encodeURIComponent(templateId)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Gagal menghapus template");
+      }
+      setDynamicMessage(data.message || "Template berhasil dihapus.");
+      await fetchDynamicTemplates();
+    } catch (err) {
+      setDynamicError(err instanceof Error ? err.message : "Gagal menghapus template");
+    }
+  };
+
   const handleEditTemplate = (templateId: string) => {
     const template = dynamicTemplateOptions.find((t) => t.id === templateId);
     if (!template) return;
@@ -1078,27 +1208,48 @@ export default function TemplateSuratPage() {
 
     const blueprint = DEFAULT_EDIT_BLUEPRINTS[templateId];
     if (blueprint) {
-      setEditingFields(blueprint.fields.map((field) => toEditableFieldFromPreset(field)));
+      const mainFields = blueprint.fields.filter((f) => !SECOND_PARTY_FIELD_NAMES.has(f.name));
+      const hasPihak2 = !!blueprint.secondPartyFields?.length ||
+        blueprint.fields.some((f) => SECOND_PARTY_FIELD_NAMES.has(f.name));
+
+      setEditingFields(mainFields.map((field) => toEditableFieldFromPreset(field)));
+      setHasSecondParty(hasPihak2);
+      setEditingSecondPartyFields(
+        (blueprint.secondPartyFields ?? SECOND_PARTY_FIELD_PRESETS).map(toEditableFieldFromPreset)
+      );
       setEditingParagraphs({
         opening: blueprint.opening,
         body: blueprint.body,
         closing: blueprint.closing,
       });
     } else {
-      setEditingFields(
-        template.fields.map((f) => ({
-          name: f.name,
-          label: f.label,
-          type: f.type,
-          required: f.required ?? true,
-          placeholder: f.placeholder ?? "",
-          optionsText: f.options?.map((o) => `${o.label}:${o.value}`).join(", ") ?? "",
-          includeInIdentity: true,
-        }))
+      const allFields = template.fields.map((f) => ({
+        name: f.name,
+        label: f.label,
+        type: f.type,
+        required: f.required ?? true,
+        placeholder: f.placeholder ?? "",
+        optionsText: f.options?.map((o) => `${o.label}:${o.value}`).join(", ") ?? "",
+        includeInIdentity: true,
+      }));
+
+      const mainFields = allFields.filter((f) => !SECOND_PARTY_FIELD_NAMES.has(f.name));
+      const secondFields = allFields.filter((f) => SECOND_PARTY_FIELD_NAMES.has(f.name));
+
+      setEditingFields(mainFields);
+      setHasSecondParty(secondFields.length > 0);
+      setEditingSecondPartyFields(
+        secondFields.length > 0
+          ? secondFields
+          : SECOND_PARTY_FIELD_PRESETS.map(toEditableFieldFromPreset)
       );
 
       const parsedParagraphs = extractParagraphsFromTemplateHtml(template.htmlTemplate || "");
-      setEditingParagraphs(parsedParagraphs);
+      // Remove any old manually-typed pihak_2 placeholder lines from body
+      const cleanBody = parsedParagraphs.body
+        .replace(/\n?(Nama|NIK|Tempat \/ Tanggal Lahir|Agama|Pekerjaan|Alamat|Status)[^\n]*\{\{[a-z_]+_pihak_2[^}]*\}\}/gi, "")
+        .trim();
+      setEditingParagraphs({ ...parsedParagraphs, body: cleanBody });
     }
 
     setActiveEditParagraphTarget("body");
@@ -1260,30 +1411,6 @@ export default function TemplateSuratPage() {
     setEditingFields((prev) => [...prev, { ...EMPTY_FIELD }]);
   };
 
-  const addSecondPartyEditFields = () => {
-    setEditingFields((prev) => {
-      const existingNames = new Set(prev.map((field) => field.name.trim()));
-      const additional = SECOND_PARTY_FIELD_PRESETS
-        .filter((preset) => !existingNames.has(preset.name))
-        .map((preset) => ({
-          name: preset.name,
-          label: preset.label,
-          type: preset.type,
-          required: preset.required ?? false,
-          placeholder: preset.placeholder ?? "",
-          optionsText: preset.optionsText ?? "",
-          includeInIdentity: true,
-        } satisfies EditableTemplateField));
-
-      if (additional.length === 0) return prev;
-      if (prev.length === 1 && !prev[0].name.trim() && !prev[0].label.trim()) {
-        return additional;
-      }
-
-      return [...prev, ...additional];
-    });
-  };
-
   const moveEditField = (index: number, direction: "up" | "down") => {
     setEditingFields((prev) => {
       const targetIndex = direction === "up" ? index - 1 : index + 1;
@@ -1304,6 +1431,33 @@ export default function TemplateSuratPage() {
     });
   };
 
+  const updateSecondPartyField = (index: number, updates: Partial<EditableTemplateField>) => {
+    setEditingSecondPartyFields((prev) =>
+      prev.map((field, idx) => (idx === index ? { ...field, ...updates } : field))
+    );
+  };
+
+  const moveSecondPartyField = (index: number, direction: "up" | "down") => {
+    setEditingSecondPartyFields((prev) => {
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
+  };
+
+  const removeSecondPartyField = (index: number) => {
+    setEditingSecondPartyFields((prev) => {
+      const nextFields = prev.filter((_, idx) => idx !== index);
+      return nextFields.length > 0 ? nextFields : [{ ...EMPTY_FIELD }];
+    });
+  };
+
+  const addSecondPartyField = () => {
+    setEditingSecondPartyFields((prev) => [...prev, { ...EMPTY_FIELD }]);
+  };
+
   const handleSaveEditedTemplate = async () => {
     if (!selectedDynamicTemplate) return;
 
@@ -1322,7 +1476,19 @@ export default function TemplateSuratPage() {
       return;
     }
 
-    const payloadFields: TemplateField[] = normalizedFields.map((field) => {
+    const normalizedSecondPartyFields = hasSecondParty
+      ? editingSecondPartyFields
+          .map((field) => ({
+            ...field,
+            name: field.name.trim(),
+            label: field.label.trim(),
+            placeholder: field.placeholder.trim(),
+            optionsText: field.optionsText.trim(),
+          }))
+          .filter((field) => field.name && field.label)
+      : [];
+
+    const toPayloadField = (field: typeof normalizedFields[number]): TemplateField => {
       const options =
         field.type === "select"
           ? field.optionsText
@@ -1348,7 +1514,12 @@ export default function TemplateSuratPage() {
         placeholder: field.placeholder || undefined,
         options: options && options.length > 0 ? options : undefined,
       };
-    });
+    };
+
+    const payloadFields: TemplateField[] = [
+      ...normalizedFields.map(toPayloadField),
+      ...normalizedSecondPartyFields.map(toPayloadField),
+    ];
 
     const hasSelectWithoutOptions = payloadFields.some(
       (field) => field.type === "select" && (!field.options || field.options.length === 0)
@@ -1367,6 +1538,7 @@ export default function TemplateSuratPage() {
     const allowedTokens = new Set([
       ...SYSTEM_PLACEHOLDERS,
       ...normalizedFields.map((field) => field.name),
+      ...normalizedSecondPartyFields.map((field) => field.name),
     ]);
     const usedTokens = [
       ...extractTemplatePlaceholders(editingParagraphs.opening),
@@ -1389,6 +1561,7 @@ export default function TemplateSuratPage() {
       bodyText: editingParagraphs.body,
       closingParagraph: editingParagraphs.closing,
       identityFields: normalizedFields,
+      secondPartyFields: normalizedSecondPartyFields.length > 0 ? normalizedSecondPartyFields : undefined,
     });
 
     if (!generatedHtmlTemplate) {
@@ -1447,6 +1620,7 @@ export default function TemplateSuratPage() {
   }, [templates]);
 
   const placeholderTemplateCards = useMemo(() => {
+    const customIds = new Set(customDynamicTemplates.map((t) => t.id));
     return dynamicTemplateOptions.map((template) => {
       const slugKey = String(template.id || "").trim().toLowerCase();
       const titleKey = String(template.jenisSurat || "").trim().toLowerCase();
@@ -1455,9 +1629,10 @@ export default function TemplateSuratPage() {
       return {
         template,
         uploaded,
+        isCustom: customIds.has(template.id),
       };
     });
-  }, [dynamicTemplateOptions, uploadedTemplateByJenis]);
+  }, [dynamicTemplateOptions, uploadedTemplateByJenis, customDynamicTemplates]);
 
   return (
     <section>
@@ -1503,20 +1678,6 @@ export default function TemplateSuratPage() {
                   setNewDynamicTemplate((prev) => ({ ...prev, jenisSurat: event.target.value }))
                 }
                 placeholder="Contoh: Surat Keterangan Domisili Pendatang"
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                required
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-gray-700">Deskripsi</label>
-              <textarea
-                value={newDynamicTemplate.deskripsi}
-                onChange={(event) =>
-                  setNewDynamicTemplate((prev) => ({ ...prev, deskripsi: event.target.value }))
-                }
-                rows={2}
-                placeholder="Contoh: Template untuk surat domisili pendatang sementara."
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 required
               />
@@ -1682,11 +1843,14 @@ export default function TemplateSuratPage() {
                   onClick={addSecondPartyPresetFields}
                   className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs text-blue-700 hover:bg-blue-100"
                 >
-                  + Paket Data Pihak 2 (Cerai/Penghasilan)
+                  + Tambah Data Pihak 2
                 </button>
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                Jika surat butuh dua orang, klik paket Pihak 2 lalu gunakan token seperti {'{{nama_pihak_2}}'}, {'{{nik_pihak_2}}'} di paragraf isi.
+                Gunakan fitur ini jika surat melibatkan lebih dari satu orang (misalnya pasangan, ahli waris, atau pihak terkait lainnya). Data akan otomatis dimasukkan ke dalam surat.
+              </p>
+              <p className="mt-1 text-xs text-gray-400">
+                Contoh: surat cerai, surat kematian (ahli waris), surat pernyataan bersama, dll.
               </p>
             </div>
 
@@ -1848,7 +2012,7 @@ export default function TemplateSuratPage() {
           <div className="text-center text-gray-500 py-8">Memuat template...</div>
         ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {placeholderTemplateCards.map(({ template, uploaded }) => (
+          {placeholderTemplateCards.map(({ template, isCustom }) => (
             <div key={template.id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -1856,38 +2020,26 @@ export default function TemplateSuratPage() {
                     <span className="text-sm font-bold text-blue-700">TMPL</span>
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    uploaded?.status === 'aktif' || !uploaded
-                      ? 'bg-green-100 text-green-800' 
+                    isCustom
+                      ? 'bg-green-100 text-green-800'
                       : 'bg-yellow-100 text-yellow-800'
                   }`}>
-                    {uploaded ? (uploaded.status === 'aktif' ? 'Aktif' : 'Nonaktif') : 'Placeholder'}
+                    {isCustom ? 'Aktif' : 'Default'}
                   </span>
                 </div>
                 
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                <h3 className="text-lg font-semibold text-gray-800 mb-1">
                   {template.nama}
                 </h3>
+
+                <p className="text-sm text-gray-500 mb-3 line-clamp-2">
+                  {template.deskripsi || generateDeskripsi(template.id)}
+                </p>
                 
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Jenis Surat:</span>
-                    <span className="font-medium">{template.id}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">File:</span>
-                    {uploaded ? (
-                      <a href={uploaded.file_path} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{uploaded.file_name}</a>
-                    ) : (
-                      <span className="font-medium text-gray-500">Belum upload file</span>
-                    )}
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Terakhir diubah:</span>
-                    <span className="font-medium">
-                      {uploaded
-                        ? new Date(uploaded.updated_at).toLocaleDateString('id-ID')
-                        : '-'}
-                    </span>
+                    <span className="font-medium">{template.jenisSurat || template.id}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Total Field:</span>
@@ -1904,16 +2056,17 @@ export default function TemplateSuratPage() {
                     Edit
                   </button>
                   <a
-                    href={uploaded ? `/api/admin/templates/${uploaded.id}/preview` : `/api/admin/dynamic-templates/preview/${encodeURIComponent(template.id)}`}
+                    href={`/api/admin/dynamic-templates/preview/${encodeURIComponent(template.id)}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 rounded-lg bg-blue-50 px-3 py-2 text-center text-sm text-blue-600 hover:bg-blue-100"
                   >
                     Preview
                   </a>
-                  {uploaded && (
+                  {isCustom && (
                     <button
-                      onClick={() => handleDelete(uploaded.id)}
+                      type="button"
+                      onClick={() => handleDeleteDynamicTemplate(template.id)}
                       className="bg-red-50 text-red-600 px-3 py-2 rounded-lg text-sm hover:bg-red-100"
                     >
                       Hapus
@@ -1986,7 +2139,35 @@ export default function TemplateSuratPage() {
                   </div>
                 )}
 
-                {/* Preview Tab */}
+                {/* Preview Surat Tab */}
+                {editModalTab === "surat-preview" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-slate-600">
+                        Tampilan surat seperti dokumen asli. Placeholder seperti{" "}
+                        <code className="rounded bg-gray-100 px-1 py-0.5 text-xs font-mono">{"{{nama}}"}</code>{" "}
+                        akan terganti data nyata saat dicetak.
+                      </p>
+                      <a
+                        href={`/api/admin/dynamic-templates/preview/${encodeURIComponent(selectedDynamicTemplate.id)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-4 shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                      >
+                        Preview PDF
+                      </a>
+                    </div>
+                    <iframe
+                      srcDoc={previewSuratSrcdoc}
+                      className="w-full rounded-lg border border-gray-200 bg-white"
+                      style={{ height: "72vh" }}
+                      title="Preview Surat"
+                      sandbox="allow-same-origin"
+                    />
+                  </div>
+                )}
+
+                {/* Preview Form Tab */}
                 {editModalTab === "preview" && (
                   <div className="space-y-4">
                     <div className="rounded-lg border border-gray-200 bg-white p-4">
@@ -2159,9 +2340,9 @@ export default function TemplateSuratPage() {
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50/30 p-4">
                       <div className="mb-3 flex items-center justify-between">
                         <div>
-                          <h4 className="font-semibold text-slate-900">Data Warga (Field Isian)</h4>
+                          <h4 className="font-semibold text-slate-900">Data Pihak 1 (Pemohon)</h4>
                           <p className="mt-1 text-xs text-slate-700">
-                            Field yang akan ditampilkan dalam tabel data warga pada surat.
+                            Field yang akan ditampilkan dalam tabel data pemohon pada surat.
                           </p>
                         </div>
                         <button
@@ -2203,17 +2384,7 @@ export default function TemplateSuratPage() {
                               + {preset.label}
                             </button>
                           ))}
-                          <button
-                            type="button"
-                            onClick={addSecondPartyEditFields}
-                            className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs text-blue-700 hover:bg-blue-100"
-                          >
-                            + Paket Data Pihak 2 (Cerai/Penghasilan)
-                          </button>
                         </div>
-                        <p className="mt-2 text-xs text-slate-600">
-                          Untuk surat yang butuh dua data orang, tambahkan paket Pihak 2 lalu masukkan token pihak kedua ke paragraf.
-                        </p>
                       </div>
 
                       {/* Field List */}
@@ -2338,6 +2509,132 @@ export default function TemplateSuratPage() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Toggle: Second Party */}
+                    <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-4">
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={hasSecondParty}
+                          onChange={(e) => setHasSecondParty(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                        />
+                        <div>
+                          <p className="font-semibold text-slate-900">Surat ini melibatkan lebih dari satu orang (Data Pihak 2)</p>
+                          <p className="mt-0.5 text-xs text-slate-600">
+                            Aktifkan jika surat melibatkan pihak lain seperti pasangan, ahli waris, atau pihak terkait.
+                            Tabel data akan ditambahkan otomatis — tidak perlu mengetik placeholder secara manual.
+                          </p>
+                          <p className="mt-1 text-xs text-slate-400">Contoh: surat cerai, surat kematian (ahli waris), surat pernyataan bersama, dll.</p>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Data Pihak 2 Section */}
+                    {hasSecondParty && (
+                      <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-slate-900">Data Pihak 2 (Pasangan / Wali)</h4>
+                            <p className="mt-1 text-xs text-slate-600">
+                              Field di bawah ini akan dirender sebagai tabel terpisah di bawah paragraf isi surat.
+                              Label ditampilkan tanpa kata &ldquo;Pihak 2&rdquo; di dalam surat.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={addSecondPartyField}
+                            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                          >
+                            + Tambah Field
+                          </button>
+                        </div>
+
+                        {/* Pihak 2 field list */}
+                        <div className="space-y-3">
+                          {editingSecondPartyFields.map((field, index) => (
+                            <div key={index} className="rounded-lg border border-indigo-100 bg-white p-4">
+                              <div className="flex items-start gap-3">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                                  {index + 1}
+                                </div>
+                                <div className="flex-1 space-y-3">
+                                  <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                                    <div className="md:col-span-5">
+                                      <label className="mb-1 block text-xs font-medium text-slate-900">
+                                        Nama Isian <span className="text-red-500">*</span>
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={field.label}
+                                        onChange={(e) => {
+                                          const nextLabel = e.target.value;
+                                          const autoName = normalizeFieldName(nextLabel);
+                                          updateSecondPartyField(index, { label: nextLabel, name: autoName });
+                                        }}
+                                        placeholder="Contoh: Nama Lengkap, NIK Pihak 2"
+                                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                      />
+                                    </div>
+                                    <div className="md:col-span-3">
+                                      <label className="mb-1 block text-xs font-medium text-slate-900">Jenis Input</label>
+                                      <select
+                                        value={field.type}
+                                        onChange={(e) => updateSecondPartyField(index, { type: e.target.value as TemplateFieldType })}
+                                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                      >
+                                        <option value="text">Teks Pendek</option>
+                                        <option value="number">Angka</option>
+                                        <option value="date">Tanggal</option>
+                                        <option value="textarea">Teks Panjang</option>
+                                        <option value="select">Pilihan</option>
+                                      </select>
+                                    </div>
+                                    <div className="flex items-end md:col-span-4">
+                                      <div className="grid w-full grid-cols-3 gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => moveSecondPartyField(index, "up")}
+                                          disabled={index === 0}
+                                          className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          Naik
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => moveSecondPartyField(index, "down")}
+                                          disabled={index === editingSecondPartyFields.length - 1}
+                                          className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          Turun
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeSecondPartyField(index)}
+                                          className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-2 text-xs font-medium text-rose-600 hover:bg-rose-100"
+                                        >
+                                          Hapus
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-xs font-medium text-slate-700">Contoh Isian (Opsional)</label>
+                                    <input
+                                      type="text"
+                                      value={field.placeholder}
+                                      onChange={(e) => updateSecondPartyField(index, { placeholder: e.target.value })}
+                                      placeholder="Contoh teks yang muncul di form"
+                                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Save Button */}
                     <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">

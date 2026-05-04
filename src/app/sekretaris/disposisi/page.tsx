@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import PopupDatePicker from "@/components/shared/PopupDatePicker";
 import {
   FiCheck,
   FiClock,
   FiDownload,
   FiEye,
+  FiInfo,
+  FiRotateCcw,
+  FiSearch,
   FiTrash2,
   FiX,
 } from "react-icons/fi";
@@ -127,6 +131,19 @@ function urgensiLabel(value?: string | null): string {
   return urgensi.charAt(0).toUpperCase() + urgensi.slice(1);
 }
 
+function formatIsoDate(value: string) {
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).replace(/\//g, "-");
+}
+
 export default function SekretarisDisposisiPage() {
   const [disposisi, setDisposisi] = useState<DisposisiRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,10 +156,10 @@ export default function SekretarisDisposisiPage() {
   const [prosesFilter, setProsesFilter] = useState<ProsesFilter>("semua");
   const [searchTerm, setSearchTerm] = useState("");
   const [limit, setLimit] = useState(10);
-  const [filterDayFrom, setFilterDayFrom] = useState("");
-  const [filterDayTo, setFilterDayTo] = useState("");
-  const [filterMonth, setFilterMonth] = useState("");
-  const [filterYear, setFilterYear] = useState("");
+  const [selectedDayFrom, setSelectedDayFrom] = useState("");
+  const [selectedDayTo, setSelectedDayTo] = useState("");
+  const [draftDayFrom, setDraftDayFrom] = useState("");
+  const [draftDayTo, setDraftDayTo] = useState("");
   const [sortCol, setSortCol] = useState<"tgl" | "urgensi" | "status">("tgl");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -293,18 +310,6 @@ export default function SekretarisDisposisiPage() {
     [disposisi]
   );
 
-  const years = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const values = new Set<number>([currentYear]);
-    disposisi.forEach((item) => {
-      if (item.disposed_at) {
-        const d = new Date(item.disposed_at);
-        if (!isNaN(d.getTime())) values.add(d.getFullYear());
-      }
-    });
-    return Array.from(values).sort((a, b) => b - a);
-  }, [disposisi]);
-
   const filteredDisposisi = useMemo(() => {
     let result = [...disposisi];
 
@@ -330,28 +335,22 @@ export default function SekretarisDisposisiPage() {
     }
 
     // Date Filters
-    if (filterDayFrom) {
+    const dayMin = selectedDayFrom && selectedDayTo
+      ? (selectedDayFrom <= selectedDayTo ? selectedDayFrom : selectedDayTo)
+      : selectedDayFrom;
+    const dayMax = selectedDayFrom && selectedDayTo
+      ? (selectedDayFrom <= selectedDayTo ? selectedDayTo : selectedDayFrom)
+      : selectedDayTo;
+    if (dayMin || dayMax) {
       result = result.filter((item) => {
         if (!item.disposed_at) return false;
-        return new Date(item.disposed_at).getDate() >= parseInt(filterDayFrom);
-      });
-    }
-    if (filterDayTo) {
-      result = result.filter((item) => {
-        if (!item.disposed_at) return false;
-        return new Date(item.disposed_at).getDate() <= parseInt(filterDayTo);
-      });
-    }
-    if (filterMonth) {
-      result = result.filter((item) => {
-        if (!item.disposed_at) return false;
-        return new Date(item.disposed_at).getMonth() + 1 === parseInt(filterMonth);
-      });
-    }
-    if (filterYear) {
-      result = result.filter((item) => {
-        if (!item.disposed_at) return false;
-        return new Date(item.disposed_at).getFullYear() === parseInt(filterYear);
+        const disposedAt = new Date(item.disposed_at);
+        if (Number.isNaN(disposedAt.getTime())) return false;
+        const disposedAtValue = disposedAt.toISOString().slice(0, 10);
+
+        const matchFrom = !dayMin || disposedAtValue >= dayMin;
+        const matchTo = !dayMax || disposedAtValue <= dayMax;
+        return matchFrom && matchTo;
       });
     }
 
@@ -388,7 +387,33 @@ export default function SekretarisDisposisiPage() {
     });
 
     return result;
-  }, [disposisi, prosesFilter, searchTerm, filterDayFrom, filterDayTo, filterMonth, filterYear, sortCol, sortOrder]);
+  }, [disposisi, prosesFilter, searchTerm, selectedDayFrom, selectedDayTo, sortCol, sortOrder]);
+
+  const hasDateFilter = Boolean(selectedDayFrom || selectedDayTo);
+  const filterDescription = useMemo(() => {
+    if (!selectedDayFrom && !selectedDayTo) return "";
+    const start = selectedDayFrom || selectedDayTo;
+    const end = selectedDayTo || selectedDayFrom;
+    return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${filteredDisposisi.length} data`;
+  }, [selectedDayFrom, selectedDayTo, filteredDisposisi.length]);
+
+  const applyDateFilters = () => {
+    if (draftDayFrom && draftDayTo && draftDayFrom > draftDayTo) {
+      setSelectedDayFrom(draftDayTo);
+      setSelectedDayTo(draftDayFrom);
+      return;
+    }
+
+    setSelectedDayFrom(draftDayFrom);
+    setSelectedDayTo(draftDayTo);
+  };
+
+  const resetDateFilters = () => {
+    setDraftDayFrom("");
+    setDraftDayTo("");
+    setSelectedDayFrom("");
+    setSelectedDayTo("");
+  };
 
   const pagedDisposisi = useMemo(() => {
     return filteredDisposisi.slice(0, limit);
@@ -448,77 +473,61 @@ export default function SekretarisDisposisiPage() {
 
         {/* Filter Section */}
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-            <div className="md:col-span-4">
+          <div className="mb-3">
+            <div className="relative w-full md:max-w-md">
+              <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Cari nomor surat, asal surat, atau perihal"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div className="md:col-span-2">
-              <select
-                value={filterDayFrom}
-                onChange={(e) => setFilterDayFrom(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
+          </div>
+
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={applyDateFilters}
+                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
               >
-                <option value="">Tanggal Mulai</option>
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                  <option key={d} value={String(d)}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <select
-                value={filterDayTo}
-                onChange={(e) => setFilterDayTo(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
+                Terapkan Filter
+              </button>
+              <button
+                type="button"
+                onClick={resetDateFilters}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
               >
-                <option value="">Tanggal Sampai</option>
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                  <option key={d} value={String(d)}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <select
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
-              >
-                <option value="">Pilih Bulan</option>
-                {[
-                  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-                  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-                ].map((m, i) => (
-                  <option key={i} value={String(i + 1)}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <select
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
-              >
-                <option value="">Pilih Tahun</option>
-                {years.map((y) => (
-                  <option key={y} value={String(y)}>
-                    {y}
-                  </option>
-                ))}
-              </select>
+                <FiRotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </button>
             </div>
           </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <PopupDatePicker
+              label="Tanggal Dari"
+              value={draftDayFrom}
+              max={draftDayTo || undefined}
+              onChange={setDraftDayFrom}
+            />
+            <PopupDatePicker
+              label="Tanggal Sampai"
+              value={draftDayTo}
+              min={draftDayFrom || undefined}
+              onChange={setDraftDayTo}
+            />
+          </div>
         </div>
+
+        {hasDateFilter && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900">
+            <FiInfo className="h-4 w-4 text-blue-700" />
+            <span>{filterDescription.replace(`${filteredDisposisi.length} data`, "")}<strong>{filteredDisposisi.length}</strong> data</span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

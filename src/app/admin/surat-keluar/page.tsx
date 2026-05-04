@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { FiSearch } from "react-icons/fi";
+import PopupDatePicker from "@/components/shared/PopupDatePicker";
+import { FiInfo, FiRotateCcw, FiSearch } from "react-icons/fi";
 import * as XLSX from "xlsx";
 
 interface SuratKeluarItem {
@@ -44,35 +45,6 @@ function getReferenceId(item: SuratKeluarItem): number {
   return item.id;
 }
 
-
-const MONTH_OPTIONS = [
-  { value: "1", label: "Januari" },
-  { value: "2", label: "Februari" },
-  { value: "3", label: "Maret" },
-  { value: "4", label: "April" },
-  { value: "5", label: "Mei" },
-  { value: "6", label: "Juni" },
-  { value: "7", label: "Juli" },
-  { value: "8", label: "Agustus" },
-  { value: "9", label: "September" },
-  { value: "10", label: "Oktober" },
-  { value: "11", label: "November" },
-  { value: "12", label: "Desember" },
-] as const;
-
-const MONTH_LABELS = MONTH_OPTIONS.reduce<Record<string, string>>((acc, month) => {
-  acc[month.value] = month.label;
-  return acc;
-}, {});
-
-function buildYearOptions() {
-  const startYear = 2016;
-  const currentYear = new Date().getFullYear();
-  const endYear = Math.max(currentYear, startYear);
-
-  return Array.from({ length: endYear - startYear + 1 }, (_, index) => String(endYear - index));
-}
-
 function parseValidDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -80,6 +52,19 @@ function parseValidDate(value: string) {
   }
 
   return date;
+}
+
+function formatIsoDate(value: string) {
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).replace(/\//g, "-");
 }
 
 function getExportDateLabel() {
@@ -105,46 +90,11 @@ export default function SuratKeluarPage() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedYear, setSelectedYear] = useState("");
   const [selectedDayFrom, setSelectedDayFrom] = useState("");
   const [selectedDayTo, setSelectedDayTo] = useState("");
+  const [draftDayFrom, setDraftDayFrom] = useState("");
+  const [draftDayTo, setDraftDayTo] = useState("");
   const [selectedSourceType, setSelectedSourceType] = useState<"semua" | "manual" | "permohonan">("semua");
-
-  const yearOptions = buildYearOptions();
-
-  const availableDays = useMemo(() => {
-    if (selectedMonth === "") {
-      return Array.from({ length: 31 }, (_, index) => index + 1);
-    }
-
-    const month = Number(selectedMonth);
-    const fallbackYear = new Date().getFullYear();
-    const year = selectedYear === "" ? fallbackYear : Number(selectedYear);
-
-    if (!Number.isFinite(month) || month < 1 || month > 12) {
-      return Array.from({ length: 31 }, (_, index) => index + 1);
-    }
-
-    const daysInMonth = new Date(year, month, 0).getDate();
-    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
-  }, [selectedMonth, selectedYear]);
-
-  useEffect(() => {
-    if (selectedDayFrom !== "") {
-      const selectedDayFromNumber = Number(selectedDayFrom);
-      if (!availableDays.includes(selectedDayFromNumber)) {
-        setSelectedDayFrom("");
-      }
-    }
-
-    if (selectedDayTo !== "") {
-      const selectedDayToNumber = Number(selectedDayTo);
-      if (!availableDays.includes(selectedDayToNumber)) {
-        setSelectedDayTo("");
-      }
-    }
-  }, [availableDays, selectedDayFrom, selectedDayTo]);
 
   const fetchSuratKeluar = async () => {
     try {
@@ -226,62 +176,46 @@ export default function SuratKeluarPage() {
       .some((value) => String(value).toLowerCase().includes(normalizedSearchTerm));
 
     const tanggalSurat = parseValidDate(item.tanggal_surat);
-    const day = tanggalSurat?.getDate() ?? null;
-    const parsedDayFrom = selectedDayFrom === "" ? null : Number(selectedDayFrom);
-    const parsedDayTo = selectedDayTo === "" ? null : Number(selectedDayTo);
-    const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
-    const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
-    const dayFromMatch = dayMin === null || (day !== null && day >= dayMin);
-    const dayToMatch = dayMax === null || (day !== null && day <= dayMax);
-    const monthMatch = !selectedMonth || (!!tanggalSurat && String(tanggalSurat.getMonth() + 1) === selectedMonth);
-    const yearMatch = !selectedYear || (!!tanggalSurat && String(tanggalSurat.getFullYear()) === selectedYear);
+    const tanggalSuratValue = tanggalSurat ? tanggalSurat.toISOString().slice(0, 10) : "";
+    const dayMin = selectedDayFrom && selectedDayTo ? (selectedDayFrom <= selectedDayTo ? selectedDayFrom : selectedDayTo) : selectedDayFrom;
+    const dayMax = selectedDayFrom && selectedDayTo ? (selectedDayFrom <= selectedDayTo ? selectedDayTo : selectedDayFrom) : selectedDayTo;
+    const dayFromMatch = !dayMin || (tanggalSuratValue !== "" && tanggalSuratValue >= dayMin);
+    const dayToMatch = !dayMax || (tanggalSuratValue !== "" && tanggalSuratValue <= dayMax);
     const sourceType = resolveSourceType(item);
     const sourceFilter = normalizeSourceFilter(selectedSourceType);
     const sourceMatch = sourceFilter === "semua" || sourceType === sourceFilter;
 
-    return searchMatch && dayFromMatch && dayToMatch && monthMatch && yearMatch && sourceMatch;
+    return searchMatch && dayFromMatch && dayToMatch && sourceMatch;
   });
 
-  const hasFilter = Boolean(normalizedSearchTerm || selectedMonth || selectedYear || selectedDayFrom || selectedDayTo || selectedSourceType !== "semua");
+  const hasFilter = Boolean(normalizedSearchTerm || selectedDayFrom || selectedDayTo || selectedSourceType !== "semua");
 
   const filterSummaryText = useMemo(() => {
-    const monthLabel = selectedMonth ? (MONTH_LABELS[selectedMonth] || `Bulan ${selectedMonth}`) : "semua bulan";
-    const yearLabel = selectedYear || "semua tahun";
+    if (!selectedDayFrom && !selectedDayTo) return "";
+    const start = selectedDayFrom || selectedDayTo;
+    const end = selectedDayTo || selectedDayFrom;
+    return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${filteredSuratKeluar.length} data`;
+  }, [filteredSuratKeluar.length, selectedDayFrom, selectedDayTo, selectedSourceType]);
 
-    let dayLabel = "semua tanggal";
-    if (selectedDayFrom && selectedDayTo) {
-      const from = Number(selectedDayFrom);
-      const to = Number(selectedDayTo);
-      const min = Number.isFinite(from) && Number.isFinite(to) ? Math.min(from, to) : selectedDayFrom;
-      const max = Number.isFinite(from) && Number.isFinite(to) ? Math.max(from, to) : selectedDayTo;
-      dayLabel = `tanggal ${min} sampai ${max}`;
-    } else if (selectedDayFrom) {
-      dayLabel = `tanggal mulai ${selectedDayFrom}`;
-    } else if (selectedDayTo) {
-      dayLabel = `tanggal sampai ${selectedDayTo}`;
+  const hasDateFilter = Boolean(selectedDayFrom || selectedDayTo);
+
+  const applyDateFilters = () => {
+    if (draftDayFrom && draftDayTo && draftDayFrom > draftDayTo) {
+      setSelectedDayFrom(draftDayTo);
+      setSelectedDayTo(draftDayFrom);
+      return;
     }
 
-    const sourceLabel =
-      selectedSourceType === "manual"
-        ? "input manual"
-        : selectedSourceType === "permohonan"
-        ? "dari permohonan"
-        : "semua sumber";
+    setSelectedDayFrom(draftDayFrom);
+    setSelectedDayTo(draftDayTo);
+  };
 
-    const parts: string[] = [];
-    if (selectedDayFrom && selectedDayTo) {
-      parts.push(`tanggal ${Math.min(Number(selectedDayFrom), Number(selectedDayTo))}\u2013${Math.max(Number(selectedDayFrom), Number(selectedDayTo))}`);
-    } else if (selectedDayFrom) {
-      parts.push(`tanggal ${selectedDayFrom}`);
-    } else if (selectedDayTo) {
-      parts.push(`tanggal s/d ${selectedDayTo}`);
-    }
-    if (selectedMonth) parts.push(monthLabel);
-    if (selectedYear) parts.push(`tahun ${selectedYear}`);
-    if (selectedSourceType !== "" && selectedSourceType !== "semua") parts.push(sourceLabel);
-    const desc = parts.length > 0 ? parts.join(' ') : 'semua waktu';
-    return `Jumlah data dari ${desc} = ${filteredSuratKeluar.length} data`;
-  }, [filteredSuratKeluar.length, selectedDayFrom, selectedDayTo, selectedMonth, selectedSourceType, selectedYear]);
+  const resetDateFilters = () => {
+    setDraftDayFrom("");
+    setDraftDayTo("");
+    setSelectedDayFrom("");
+    setSelectedDayTo("");
+  };
 
   const handleExportExcel = () => {
     const exportRows = filteredSuratKeluar.map((item, index) => ({
@@ -365,46 +299,6 @@ export default function SuratKeluarPage() {
 
             <div className="flex items-center gap-2">
               <select
-                value={selectedDayFrom}
-                onChange={(event) => setSelectedDayFrom(event.target.value)}
-                className="h-10 w-[126px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Tanggal Dari</option>
-                {availableDays.map((day) => (
-                  <option key={day} value={String(day)}>{day}</option>
-                ))}
-              </select>
-              <select
-                value={selectedDayTo}
-                onChange={(event) => setSelectedDayTo(event.target.value)}
-                className="h-10 w-[126px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Tanggal Sampai</option>
-                {availableDays.map((day) => (
-                  <option key={day} value={String(day)}>{day}</option>
-                ))}
-              </select>
-              <select
-                value={selectedMonth}
-                onChange={(event) => setSelectedMonth(event.target.value)}
-                className="h-10 w-[116px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Pilih Bulan</option>
-                {MONTH_OPTIONS.map((month) => (
-                  <option key={month.value} value={month.value}>{month.label}</option>
-                ))}
-              </select>
-              <select
-                value={selectedYear}
-                onChange={(event) => setSelectedYear(event.target.value)}
-                className="h-10 w-[104px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Pilih Tahun</option>
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-              <select
                 value={selectedSourceType}
                 onChange={(event) => setSelectedSourceType(normalizeSourceFilter(event.target.value))}
                 className="h-10 w-[148px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -434,10 +328,48 @@ export default function SuratKeluarPage() {
         </div>
         </div>
 
-        {hasFilter && (
-          <p className="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-base font-bold text-blue-900">
-            {filterSummaryText}
-          </p>
+        <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={applyDateFilters}
+                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
+              >
+                Terapkan Filter
+              </button>
+              <button
+                type="button"
+                onClick={resetDateFilters}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+              >
+                <FiRotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <PopupDatePicker
+              label="Tanggal Dari"
+              value={draftDayFrom}
+              max={draftDayTo || undefined}
+              onChange={setDraftDayFrom}
+            />
+            <PopupDatePicker
+              label="Tanggal Sampai"
+              value={draftDayTo}
+              min={draftDayFrom || undefined}
+              onChange={setDraftDayTo}
+            />
+          </div>
+        </div>
+
+        {hasDateFilter && (
+          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900">
+            <FiInfo className="h-4 w-4 text-blue-700" />
+            <span>{filterSummaryText.replace(`${filteredSuratKeluar.length} data`, "")}<strong>{filteredSuratKeluar.length}</strong> data</span>
+          </div>
         )}
 
         {/* Table */}

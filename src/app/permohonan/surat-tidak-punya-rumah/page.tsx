@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
-import { FiHome, FiFileText, FiCheckCircle } from "react-icons/fi";
+import { FiHome, FiFileText, FiCheckCircle, FiArrowLeft } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
 export default function SuratTidakPunyaRumahInfoPage() {
@@ -22,6 +22,15 @@ export default function SuratTidakPunyaRumahInfoPage() {
       <Header />
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-white pt-20">
         <div className="max-w-4xl mx-auto px-4 py-12">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="mb-4 inline-flex cursor-pointer items-center gap-2 font-medium text-green-600 transition-colors duration-200 hover:text-green-700"
+          >
+            <FiArrowLeft className="h-4 w-4" />
+            <span>Kembali</span>
+          </button>
+
           {/* Hero Section */}
           <div className="text-center mb-12">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-yellow-500 rounded-full mb-6">
@@ -90,7 +99,7 @@ export default function SuratTidakPunyaRumahInfoPage() {
           </div>
         </div>
       </div>
-      <Footer />
+      <FooterWrapper />
     </>
   );
 }

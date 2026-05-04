@@ -1,5 +1,6 @@
 import { SuratData, SURAT_TYPES } from './types';
 import { formatTanggalSurat, generateNomorSurat } from './nomor-surat';
+import { getKopSuratStyles, getKopSuratHtml } from '@/lib/kop-surat';
 
 interface SuratTemplateOptions {
   editable?: boolean;
@@ -536,78 +537,7 @@ export function generateSuratTemplate(
       background: #fbbf24;
     }
     
-    /* Kop Surat */
-    .kop-surat {
-      margin-bottom: 0.4cm;
-      position: relative;
-      padding-bottom: 0.1cm;
-    }
-
-    .kop-row {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .logo-wrap {
-      width: 100px;
-      height: 100px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .logo-wrap img {
-      width: 85px;
-      height: 85px;
-      object-fit: contain;
-    }
-
-    .kop-text {
-      flex: 1;
-      text-align: center;
-      padding-right: 100px; /* Offset the logo width to center text properly */
-    }
-
-    .kop-text .kabupaten {
-      font-size: 14pt;
-      font-weight: bold;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
-      font-family: 'Times New Roman', Times, serif;
-    }
-
-    .kop-text .kecamatan {
-      font-size: 14pt;
-      font-weight: bold;
-      text-transform: uppercase;
-      font-family: 'Times New Roman', Times, serif;
-    }
-
-    .kop-text .desa {
-      font-size: 16pt;
-      font-weight: bold;
-      text-transform: uppercase;
-      margin-bottom: 2px;
-      font-family: 'Times New Roman', Times, serif;
-    }
-
-    .kop-text .alamat {
-      font-size: 9pt;
-      border: 1px solid #000;
-      padding: 3px 10px;
-      display: inline-block;
-      margin-top: 4px;
-      font-style: italic;
-      font-family: Arial, sans-serif;
-    }
-
-    .kop-divider {
-      margin-top: 2px;
-      border-top: 3px solid #000;
-      height: 0;
-    }
+    ${getKopSuratStyles()}
     
     /* Judul Surat */
     .judul-surat {
@@ -654,8 +584,8 @@ export function generateSuratTemplate(
     }
     
     .isi-surat .label {
-      width: 4.5cm;
-      white-space: normal; /* Allow wrap for long labels */
+      width: 5.5cm;
+      white-space: nowrap;
     }
 
     .isi-surat .colon {
@@ -861,7 +791,8 @@ export function generateSuratTemplate(
       }
 
       .isi-surat .label {
-        width: 3.2cm;
+        width: auto;
+        min-width: 0;
       }
     }
   </style>
@@ -870,20 +801,7 @@ export function generateSuratTemplate(
   ${toolbarHtml}
   <div class="page" id="suratContent" ${editable ? 'contenteditable="true"' : ''}>
     <!-- KOP SURAT -->
-    <div class="kop-surat">
-      <div class="kop-row">
-        <div class="logo-wrap">
-          <img src="${escapeHtml(logoUrl)}" alt="Logo Lombok Tengah" crossorigin="anonymous" />
-        </div>
-        <div class="kop-text">
-          <div class="kabupaten">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
-          <div class="kecamatan">KECAMATAN PRAYA</div>
-          <div class="desa">DESA AIKMUAL</div>
-          <div class="alamat">Alamat : Jln raya Praya – Mantang KM 07 Aikmual Praya Phone 08175726709 / 08175790747 Kode Post 83500</div>
-        </div>
-      </div>
-      <div class="kop-divider"></div>
-    </div>
+    ${getKopSuratHtml(escapeHtml(logoUrl), { crossOrigin: true })}
 
     <!-- JUDUL SURAT -->
     <div class="judul-surat">${escapeHtml(suratType.judul)}</div>

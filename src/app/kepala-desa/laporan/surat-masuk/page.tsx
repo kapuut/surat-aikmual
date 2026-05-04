@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
-import { FiCalendar, FiCheckCircle, FiDownload, FiInbox, FiRefreshCw, FiSend, FiUserCheck, FiEye } from "react-icons/fi";
+import PopupDatePicker from "@/components/shared/PopupDatePicker";
+import { FiCalendar, FiCheckCircle, FiDownload, FiEye, FiInbox, FiInfo, FiRefreshCw, FiRotateCcw, FiSend, FiUserCheck } from "react-icons/fi";
 
 interface SuratMasukItem {
   id: number;
@@ -30,7 +31,6 @@ interface SuratMasukItem {
 const FIXED_TUJUAN_ROLE = "sekretaris";
 const FIXED_TUJUAN_LABEL = "Sekretaris Desa";
 type DisposisiUrgensi = "rendah" | "sedang" | "tinggi";
-type StatusFilter = "semua" | "belum" | "sudah";
 
 type PenangananSurat = "baru" | "diproses" | "selesai";
 
@@ -205,12 +205,10 @@ export default function KepalaDesaLaporanSuratMasukPage() {
   const [confirmTarget, setConfirmTarget] = useState<SuratMasukItem | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedDayFrom, setSelectedDayFrom] = useState("");
   const [selectedDayTo, setSelectedDayTo] = useState("");
-  const [selectedYear, setSelectedYear] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("semua");
-  const [sortBy, setSortBy] = useState<"urgensi-tinggi" | "urgensi-sedang" | "urgensi-rendah">("urgensi-tinggi");
+  const [draftDayFrom, setDraftDayFrom] = useState("");
+  const [draftDayTo, setDraftDayTo] = useState("");
 
   const fetchData = async () => {
     try {
@@ -235,48 +233,6 @@ export default function KepalaDesaLaporanSuratMasukPage() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  const availableYears = useMemo(() => {
-    const years = data
-      .map((item) => parseDate(item.tanggal_terima || item.tanggal_surat)?.getFullYear() ?? null)
-      .filter((year): year is number => year !== null)
-      .filter((year) => Number.isFinite(year));
-
-    return Array.from(new Set(years)).sort((a, b) => b - a);
-  }, [data]);
-
-  const availableDays = useMemo(() => {
-    if (selectedMonth === "") {
-      return Array.from({ length: 31 }, (_, index) => index + 1);
-    }
-
-    const month = Number(selectedMonth);
-    const fallbackYear = new Date().getFullYear();
-    const year = selectedYear === "" ? fallbackYear : Number(selectedYear);
-
-    if (!Number.isFinite(month) || month < 1 || month > 12) {
-      return Array.from({ length: 31 }, (_, index) => index + 1);
-    }
-
-    const daysInMonth = new Date(year, month, 0).getDate();
-    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
-  }, [selectedMonth, selectedYear]);
-
-  useEffect(() => {
-    if (selectedDayFrom !== "") {
-      const selectedDayFromNumber = Number(selectedDayFrom);
-      if (!availableDays.includes(selectedDayFromNumber)) {
-        setSelectedDayFrom("");
-      }
-    }
-
-    if (selectedDayTo !== "") {
-      const selectedDayToNumber = Number(selectedDayTo);
-      if (!availableDays.includes(selectedDayToNumber)) {
-        setSelectedDayTo("");
-      }
-    }
-  }, [availableDays, selectedDayFrom, selectedDayTo]);
 
   const openDisposisiDialog = (item: SuratMasukItem) => {
     setDisposisiTarget(item);
@@ -422,50 +378,18 @@ export default function KepalaDesaLaporanSuratMasukPage() {
       const matchesSearch = !searchTerm.trim() || searchPool.includes(searchTerm.trim().toLowerCase());
 
       const dateSource = parseDate(item.tanggal_terima || item.tanggal_surat);
-      const day = dateSource ? dateSource.getDate() : null;
-      const month = dateSource ? dateSource.getMonth() + 1 : null;
-      const year = dateSource ? dateSource.getFullYear() : null;
-      const parsedDayFrom = selectedDayFrom === "" ? null : Number(selectedDayFrom);
-      const parsedDayTo = selectedDayTo === "" ? null : Number(selectedDayTo);
-      const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
-      const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
-      const matchesDayFrom = dayMin === null || (day !== null && day >= dayMin);
-      const matchesDayTo = dayMax === null || (day !== null && day <= dayMax);
-      const matchesMonth = selectedMonth === "" || month === Number(selectedMonth);
-      const matchesYear = selectedYear === "" || year === Number(selectedYear);
+      const itemDateValue = dateSource ? dateSource.toISOString().slice(0, 10) : "";
+      const dayMin = selectedDayFrom && selectedDayTo ? (selectedDayFrom <= selectedDayTo ? selectedDayFrom : selectedDayTo) : selectedDayFrom;
+      const dayMax = selectedDayFrom && selectedDayTo ? (selectedDayFrom <= selectedDayTo ? selectedDayTo : selectedDayFrom) : selectedDayTo;
+      const matchesDayFrom = !dayMin || (itemDateValue !== "" && itemDateValue >= dayMin);
+      const matchesDayTo = !dayMax || (itemDateValue !== "" && itemDateValue <= dayMax);
 
-      const penanganan = getPenangananStatus(item);
-      const matchesStatus =
-        statusFilter === "semua"
-          ? true
-          : statusFilter === "belum"
-            ? penanganan === "baru"
-            : penanganan === "diproses" || penanganan === "selesai";
-
-      return matchesSearch && matchesDayFrom && matchesDayTo && matchesMonth && matchesYear && matchesStatus;
+      return matchesSearch && matchesDayFrom && matchesDayTo;
     });
-  }, [data, searchTerm, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear, statusFilter]);
+  }, [data, searchTerm, selectedDayFrom, selectedDayTo]);
 
   const sortedData = useMemo(() => {
     const rows = [...filteredData];
-
-    const getUrgensiWeight = (rank: number): number => {
-      if (sortBy === "urgensi-tinggi") {
-        if (rank === 3) return 0;
-        if (rank === 2) return 1;
-        return 2;
-      }
-
-      if (sortBy === "urgensi-sedang") {
-        if (rank === 2) return 0;
-        if (rank === 3) return 1;
-        return 2;
-      }
-
-      if (rank === 1) return 0;
-      if (rank === 2) return 1;
-      return 2;
-    };
 
     rows.sort((a, b) => {
       const statusA = getPenangananStatus(a);
@@ -495,19 +419,47 @@ export default function KepalaDesaLaporanSuratMasukPage() {
     });
 
     return rows;
-  }, [filteredData, sortBy]);
+  }, [filteredData]);
+
+  const formatIsoDate = (value: string) => {
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).replace(/\//g, "-");
+  };
+
+  const hasDateFilter = Boolean(selectedDayFrom || selectedDayTo);
+  const filterDescription = useMemo(() => {
+    if (!selectedDayFrom && !selectedDayTo) return "";
+    const start = selectedDayFrom || selectedDayTo;
+    const end = selectedDayTo || selectedDayFrom;
+    return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${sortedData.length} data`;
+  }, [selectedDayFrom, selectedDayTo, sortedData.length]);
+
+  const applyDateFilters = () => {
+    if (draftDayFrom && draftDayTo && draftDayFrom > draftDayTo) {
+      setSelectedDayFrom(draftDayTo);
+      setSelectedDayTo(draftDayFrom);
+      return;
+    }
+
+    setSelectedDayFrom(draftDayFrom);
+    setSelectedDayTo(draftDayTo);
+  };
+
+  const resetDateFilters = () => {
+    setDraftDayFrom("");
+    setDraftDayTo("");
+    setSelectedDayFrom("");
+    setSelectedDayTo("");
+  };
 
   const totalSuratMasuk = data.length;
   const totalFiltered = sortedData.length;
-  const totalBaruMasuk = data.filter((item) => getPenangananStatus(item) === "baru").length;
-  const totalDiproses = data.filter((item) => getPenangananStatus(item) === "diproses").length;
   const totalSelesai = data.filter((item) => getPenangananStatus(item) === "selesai").length;
-  const bulanIniCount = data.filter((item) => {
-    const parsed = parseDate(item.tanggal_terima || item.tanggal_surat);
-    if (!parsed) return false;
-    const now = new Date();
-    return parsed.getMonth() === now.getMonth() && parsed.getFullYear() === now.getFullYear();
-  }).length;
   const handleExportExcel = () => {
     const exportRows = sortedData.map((item, index) => ({
       No: index + 1,
@@ -573,120 +525,60 @@ export default function KepalaDesaLaporanSuratMasukPage() {
 
   return (
     <section>
-      <p className="mb-3 text-sm text-gray-600">
-        Ringkasan surat masuk berdasarkan filter periode, pencarian, sorting, dan rentang tanggal dari-sampai.
-      </p>
-
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
-          <div className="md:col-span-2">
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">Pencarian</label>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 sm:p-6 mb-6">
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div className="mb-3">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Cari nomor surat, asal surat, perihal, atau urgensi..."
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">Tanggal Dari</label>
-            <select
-              value={selectedDayFrom}
-              onChange={(e) => setSelectedDayFrom(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Tanggal Dari</option>
-              {availableDays.map((day) => (
-                <option key={day} value={String(day)}>
-                  {day}
-                </option>
-              ))}
-            </select>
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={applyDateFilters}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+              >
+                Terapkan Filter
+              </button>
+              <button
+                type="button"
+                onClick={resetDateFilters}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+              >
+                <FiRotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </button>
+            </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">Tanggal Sampai</label>
-            <select
-              value={selectedDayTo}
-              onChange={(e) => setSelectedDayTo(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Tanggal Sampai</option>
-              {availableDays.map((day) => (
-                <option key={day} value={String(day)}>
-                  {day}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">Bulan</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua Bulan</option>
-              <option value="1">Januari</option>
-              <option value="2">Februari</option>
-              <option value="3">Maret</option>
-              <option value="4">April</option>
-              <option value="5">Mei</option>
-              <option value="6">Juni</option>
-              <option value="7">Juli</option>
-              <option value="8">Agustus</option>
-              <option value="9">September</option>
-              <option value="10">Oktober</option>
-              <option value="11">November</option>
-              <option value="12">Desember</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">Tahun</label>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua Tahun</option>
-              {availableYears.map((year) => (
-                <option key={year} value={String(year)}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">Sorting</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="urgensi-tinggi">Urgensi Tinggi</option>
-              <option value="urgensi-sedang">Urgensi Sedang</option>
-              <option value="urgensi-rendah">Urgensi Rendah</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700">Status Penanganan</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="semua">Semua</option>
-              <option value="belum">Belum ditangani</option>
-              <option value="sudah">Sudah ditangani</option>
-            </select>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <PopupDatePicker
+              label="Tanggal Dari"
+              value={draftDayFrom}
+              max={draftDayTo || undefined}
+              onChange={setDraftDayFrom}
+            />
+            <PopupDatePicker
+              label="Tanggal Sampai"
+              value={draftDayTo}
+              min={draftDayFrom || undefined}
+              onChange={setDraftDayTo}
+            />
           </div>
         </div>
+
+        {hasDateFilter && (
+          <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900">
+            <FiInfo className="h-4 w-4 text-blue-700" />
+            <span>{filterDescription.replace(`${sortedData.length} data`, "")}<strong>{sortedData.length}</strong> data</span>
+          </div>
+        )}
       </div>
 
       {feedback && (
@@ -724,30 +616,14 @@ export default function KepalaDesaLaporanSuratMasukPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <p className="text-xs text-gray-500">Total Surat Masuk</p>
           <p className="text-xl font-bold text-blue-700">{totalSuratMasuk}</p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <p className="text-xs text-gray-500">Data Ditampilkan</p>
-          <p className="text-xl font-bold text-emerald-700">{totalFiltered}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <p className="text-xs text-gray-500">Bulan Ini</p>
-          <p className="text-xl font-bold text-purple-700">{bulanIniCount}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <p className="text-xs text-gray-500">Baru Masuk</p>
-          <p className="text-xl font-bold text-blue-700">{totalBaruMasuk}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <p className="text-xs text-gray-500">Selesai Ditangani</p>
           <p className="text-xl font-bold text-emerald-700">{totalSelesai}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <p className="text-xs text-gray-500">Sedang Diproses</p>
-          <p className="text-xl font-bold text-amber-700">{totalDiproses}</p>
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FiUser, FiMail, FiLock, FiMapPin, FiPhone, FiEye, FiEyeOff, FiUserPlus, FiUpload } from "react-icons/fi";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import FooterWrapper from "@/components/layout/FooterWrapper";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -514,7 +514,7 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
-      <Footer />
+      <FooterWrapper />
 
       {conflictModal && (
         <div

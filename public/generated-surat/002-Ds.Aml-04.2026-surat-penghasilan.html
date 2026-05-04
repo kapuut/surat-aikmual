@@ -33,11 +33,12 @@
       min-height: 29.7cm;
       height: auto;
       margin: 0 auto;
-      padding: 1.2cm 1.3cm 1.2cm 1.3cm;
+      padding: 1.5cm 1.5cm 1.5cm 1.5cm;
       font-size: 12pt;
       line-height: 1.5;
       background: white;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      position: relative;
     }
 
     .editor-toolbar {
@@ -83,72 +84,75 @@
     
     /* Kop Surat */
     .kop-surat {
-      margin-bottom: 0.7cm;
+      margin-bottom: 0.4cm;
       position: relative;
-      padding-bottom: 0.15cm;
+      padding-bottom: 0.1cm;
     }
 
     .kop-row {
-      display: grid;
-      grid-template-columns: 98px 1fr;
-      column-gap: 10px;
+      display: flex;
       align-items: center;
+      gap: 20px;
     }
 
     .logo-wrap {
-      width: 98px;
-      height: 98px;
+      width: 100px;
+      height: 100px;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
     }
 
     .logo-wrap img {
-      width: 88px;
-      height: 88px;
+      width: 85px;
+      height: 85px;
       object-fit: contain;
     }
 
     .kop-text {
+      flex: 1;
       text-align: center;
-      padding-right: 98px;
-      font-family: 'Times New Roman', serif;
+      padding-right: 100px; /* Offset the logo width to center text properly */
     }
 
     .kop-text .kabupaten {
       font-size: 14pt;
       font-weight: bold;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.02em;
       text-transform: uppercase;
+      font-family: 'Times New Roman', Times, serif;
     }
 
     .kop-text .kecamatan {
       font-size: 14pt;
       font-weight: bold;
       text-transform: uppercase;
+      font-family: 'Times New Roman', Times, serif;
     }
 
     .kop-text .desa {
-      font-size: 14pt;
+      font-size: 16pt;
       font-weight: bold;
       text-transform: uppercase;
-      margin-bottom: 1px;
+      margin-bottom: 2px;
+      font-family: 'Times New Roman', Times, serif;
     }
 
     .kop-text .alamat {
       font-size: 9pt;
-      border: 1px solid #111;
-      padding: 2px 6px;
+      border: 1px solid #000;
+      padding: 3px 10px;
       display: inline-block;
-      min-width: 86%;
-      white-space: nowrap;
+      margin-top: 4px;
+      font-style: italic;
+      font-family: Arial, sans-serif;
     }
 
     .kop-divider {
-      margin-top: 4px;
-      border-top: 1px solid #000;
-      border-bottom: 2px solid #000;
-      height: 3px;
+      margin-top: 2px;
+      border-top: 3px solid #000;
+      height: 0;
     }
     
     /* Judul Surat */
@@ -185,32 +189,35 @@
     .isi-surat table {
       width: 100%;
       border-collapse: collapse;
-      margin: 0.15cm 0 0.35cm 1.1cm;
+      margin: 0.2cm 0 0.4cm 1.2cm;
       font-size: 12pt;
     }
     
     .isi-surat td {
-      padding: 0.03cm 0;
+      padding: 0.05cm 0;
       border: none;
       vertical-align: top;
     }
     
     .isi-surat .label {
-      width: 3.8cm;
-      white-space: nowrap;
+      width: 4.5cm;
+      white-space: normal; /* Allow wrap for long labels */
     }
 
     .isi-surat .colon {
-      width: 0.35cm;
-      text-align: center;
+      width: 0.5cm;
+      text-align: left;
+      padding-left: 5px;
     }
 
     .isi-surat .nilai {
       font-weight: 400;
+      text-align: left;
     }
 
     .isi-surat .nilai-bold {
       font-weight: 700;
+      text-transform: uppercase;
     }
     
     /* Penutup */
@@ -310,54 +317,97 @@
     /* Print Styles */
     @page {
       size: A4;
-      margin: 0.9cm;
+      margin: 0 !important;
     }
     
     @media print {
-      body {
+      /* Hide browser headers/footers by removing title and forcing margin 0 */
+      @page { margin: 0 !important; }
+      html, body {
         background: #fff;
-        padding: 0;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
 
       .page {
-        width: 100%;
-        min-height: auto;
-        height: auto;
-        box-shadow: none;
-        margin: 0;
-        padding: 0;
+        width: 21cm !important;
+        min-height: 29.7cm !important; /* Back to full A4 for print */
+        height: auto !important;
+        box-shadow: none !important;
+        margin: 0 auto !important;
+        padding: 1.5cm 1.5cm 1.5cm 1.5cm !important; /* Document margins handled here */
+        border: none !important;
+        page-break-after: always;
       }
 
-      .editable-region[contenteditable="true"] {
-        outline: none;
-      }
-
+      .editor-toolbar,
       .no-print {
         display: none !important;
       }
     }
+    
+    <script>
+      (function() {
+        var originalTitle = document.title;
+        window.onbeforeprint = function() {
+          document.title = "";
+        };
+        window.onafterprint = function() {
+          document.title = originalTitle;
+        };
+      })();
+    </script>
 
     @media (max-width: 900px) {
       body {
-        padding: 8px;
+        padding: 10px;
+        background-color: #f3f4f6;
       }
 
-      .editor-toolbar,
       .page {
         width: 100%;
-      }
-
-      .page {
-        height: auto;
-        min-height: 29.7cm;
+        padding: 0.8cm;
+        font-size: 11pt; /* Slightly smaller for mobile preview */
       }
 
       .kop-row {
-        grid-template-columns: 72px 1fr;
+        gap: 10px;
+      }
+
+      .logo-wrap {
+        width: 60px;
+        height: 60px;
+      }
+
+      .logo-wrap img {
+        width: 50px;
+        height: 50px;
       }
 
       .kop-text {
         padding-right: 0;
+      }
+
+      .kop-text .kabupaten,
+      .kop-text .kecamatan,
+      .kop-text .desa {
+        font-size: 11pt;
+      }
+
+      .kop-text .alamat {
+        font-size: 7pt;
+        white-space: normal;
+        min-width: 0;
+      }
+
+      .isi-surat table {
+        margin-left: 0.2cm;
+      }
+
+      .isi-surat .label {
+        width: 3.2cm;
       }
     }
   </style>
@@ -369,7 +419,7 @@
     <div class="kop-surat">
       <div class="kop-row">
         <div class="logo-wrap">
-          <img src="/images/logo-loteng.png" alt="Logo Lombok Tengah" />
+          <img src="/images/logo-loteng.png" alt="Logo Lombok Tengah" crossorigin="anonymous" />
         </div>
         <div class="kop-text">
           <div class="kabupaten">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
@@ -392,15 +442,15 @@
       <p>Yang bertanda tangan di bawah ini Kepala Desa Aikmual Kecamatan Praya Kabupaten Lombok Tengah menerangkan dengan sebenarnya kepada:</p>
       
       <table>
-        <tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">WAWAN</td></tr><tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">1234567890123456</td></tr><tr><td class="label">3. Tempat / Tanggal Lahir</td><td class="colon">:</td><td class="nilai">Penaban, 31-01-2026</td></tr><tr><td class="label">4. Jenis Kelamin</td><td class="colon">:</td><td class="nilai">Laki-laki</td></tr><tr><td class="label">5. Agama</td><td class="colon">:</td><td class="nilai">Islam</td></tr><tr><td class="label">6. Status</td><td class="colon">:</td><td class="nilai">Belum Kawin</td></tr><tr><td class="label">7. Pendidikan</td><td class="colon">:</td><td class="nilai">S1</td></tr><tr><td class="label">8. Pekerjaan</td><td class="colon">:</td><td class="nilai">Petani</td></tr><tr><td class="label">9. Kewarganegaraan</td><td class="colon">:</td><td class="nilai">Indonesia</td></tr><tr><td class="label">10. Alamat</td><td class="colon">:</td><td class="nilai">Dusun Aik Mual Timur, Desa Aikmual<br>Kec. Praya, Kab. Lombok Tengah</td></tr>
+        <tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">WAWAN</td></tr><tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">1234567890123456</td></tr><tr><td class="label">3. Tempat / Tanggal Lahir</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">4. Jenis Kelamin</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">5. Agama</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">6. Status</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">7. Pendidikan</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">8. Pekerjaan</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">9. Kewarganegaraan</td><td class="colon">:</td><td class="nilai">Indonesia</td></tr><tr><td class="label">10. Alamat</td><td class="colon">:</td><td class="nilai">Dusun A, Desa B<br>Kec. C, Kab. D</td></tr>
       </table>
 
       
       <p>Bahwa nama tersebut di atas adalah benar penduduk Desa Aikmual. Menurut keterangan Kepala Dusun setempat, yang bersangkutan merupakan anak/tanggungan dari:</p>
       <table>
-        <tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">HASAN</td></tr><tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">1234567890123456</td></tr><tr><td class="label">3. Tempat / Tanggal Lahir</td><td class="colon">:</td><td class="nilai">Praya, 01-01-1980</td></tr><tr><td class="label">4. Jenis Kelamin</td><td class="colon">:</td><td class="nilai">Laki-laki</td></tr><tr><td class="label">5. Agama</td><td class="colon">:</td><td class="nilai">Islam</td></tr>
+        <tr><td class="label">1. Nama Lengkap</td><td class="colon">:</td><td class="nilai nilai-bold">-</td></tr><tr><td class="label">2. NIK</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">3. Tempat / Tanggal Lahir</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">4. Jenis Kelamin</td><td class="colon">:</td><td class="nilai">-</td></tr><tr><td class="label">5. Agama</td><td class="colon">:</td><td class="nilai">-</td></tr>
       </table>
-      <p>Wali/orang tua tersebut memiliki penghasilan rata-rata sebesar <strong>Rp 1.500.000</strong> per bulan yang bersumber dari <strong>Bertani</strong>.</p>
+      <p>Wali/orang tua tersebut memiliki penghasilan rata-rata sebesar <strong>-</strong> per bulan yang bersumber dari <strong>-</strong>.</p>
     
     </div>
 
@@ -412,16 +462,16 @@
     <!-- TANDA TANGAN -->
     <div class="tanda-tangan">
       <div class="pejabat">
-        <div>Aikmual, 17 April 2026</div>
-        <div>KEPALA DESA AIKMUAL</div>
+        <div>Aikmual, 04 Mei 2026</div>
+        <div>Kepala Desa Aikmual</div>
         
         <div class="ttd-assets">
           <img class="ttd-signature" src="/uploads/signatures/kepala-desa-3.png" alt="Tanda tangan Kepala Desa" />
           <div class="ttd-qr-wrap">
-              <img class="ttd-qr" src="data:image/png;base64,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" alt="QR verifikasi surat" />
+              <img class="ttd-qr" src="data:image/png;base64,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" alt="QR verifikasi surat" />
             </div>
         </div>
-        <div class="nama nama-signed">KEPALA DESA AIKMUAL</div>
+        <div class="nama nama-signed">M. HASYIM</div>
         
       </div>
     </div>
@@ -436,7 +486,7 @@
           window.addEventListener('load', function () {
             setTimeout(function () {
               window.print();
-            }, 180);
+            }, 1500);
           });
         }
       } catch {

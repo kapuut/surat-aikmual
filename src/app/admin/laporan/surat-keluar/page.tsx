@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import PopupDatePicker from "@/components/shared/PopupDatePicker";
+import { FiInfo, FiRotateCcw } from "react-icons/fi";
 
 interface SuratKeluarApiItem {
   id?: number;
@@ -59,6 +61,16 @@ function formatDate(value: string): string {
   });
 }
 
+function formatIsoDate(value: string): string {
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).replace(/\//g, "-");
+}
+
 function buildRegistrasiCode(prefix: string, idValue: number, dateValue: string): string {
   const year = parseValidDate(dateValue)?.getFullYear() || new Date().getFullYear();
   return `${prefix}-${String(idValue).padStart(3, "0")}/${year}`;
@@ -68,10 +80,10 @@ export default function LaporanSuratKeluarPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterBulan, setFilterBulan] = useState("");
-  const [filterTahun, setFilterTahun] = useState("");
   const [filterTanggalDari, setFilterTanggalDari] = useState("");
   const [filterTanggalSampai, setFilterTanggalSampai] = useState("");
+  const [draftTanggalDari, setDraftTanggalDari] = useState("");
+  const [draftTanggalSampai, setDraftTanggalSampai] = useState("");
   const [suratKeluar, setSuratKeluar] = useState<SuratKeluarReportItem[]>([]);
 
   useEffect(() => {
@@ -117,48 +129,6 @@ export default function LaporanSuratKeluarPage() {
     fetchSuratKeluar();
   }, []);
 
-  const availableYears = useMemo(() => {
-    const years = suratKeluar
-      .map((surat) => parseValidDate(surat.tanggalSurat)?.getFullYear() ?? null)
-      .filter((year): year is number => year !== null)
-      .filter((year) => Number.isFinite(year));
-
-    return Array.from(new Set(years)).sort((a, b) => b - a);
-  }, [suratKeluar]);
-
-  const availableDays = useMemo(() => {
-    if (filterBulan === "") {
-      return Array.from({ length: 31 }, (_, index) => index + 1);
-    }
-
-    const month = Number(filterBulan);
-    const fallbackYear = new Date().getFullYear();
-    const year = filterTahun === "" ? fallbackYear : Number(filterTahun);
-
-    if (!Number.isFinite(month) || month < 1 || month > 12) {
-      return Array.from({ length: 31 }, (_, index) => index + 1);
-    }
-
-    const daysInMonth = new Date(year, month, 0).getDate();
-    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
-  }, [filterBulan, filterTahun]);
-
-  useEffect(() => {
-    if (filterTanggalDari !== "") {
-      const selectedDayFromNumber = Number(filterTanggalDari);
-      if (!availableDays.includes(selectedDayFromNumber)) {
-        setFilterTanggalDari("");
-      }
-    }
-
-    if (filterTanggalSampai !== "") {
-      const selectedDayToNumber = Number(filterTanggalSampai);
-      if (!availableDays.includes(selectedDayToNumber)) {
-        setFilterTanggalSampai("");
-      }
-    }
-  }, [availableDays, filterTanggalDari, filterTanggalSampai]);
-
   const filteredData = suratKeluar.filter((surat) => {
     const matchSearch = searchTerm === "" || 
       surat.noSurat.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -168,48 +138,46 @@ export default function LaporanSuratKeluarPage() {
       surat.penerima.toLowerCase().includes(searchTerm.toLowerCase());
 
     const tanggalSurat = parseValidDate(surat.tanggalSurat);
-    const isValidDate = Boolean(tanggalSurat);
-    const month = isValidDate ? tanggalSurat.getMonth() + 1 : null;
-    const year = isValidDate ? tanggalSurat.getFullYear() : null;
-    const day = isValidDate ? tanggalSurat.getDate() : null;
-    
-    const matchBulan = filterBulan === "" || 
-      month === Number(filterBulan);
-    
-    const matchTahun = filterTahun === "" || 
-      year === Number(filterTahun);
+    const tanggalSuratValue = tanggalSurat ? tanggalSurat.toISOString().slice(0, 10) : "";
+    const dayMin = filterTanggalDari && filterTanggalSampai ? (filterTanggalDari <= filterTanggalSampai ? filterTanggalDari : filterTanggalSampai) : filterTanggalDari;
+    const dayMax = filterTanggalDari && filterTanggalSampai ? (filterTanggalDari <= filterTanggalSampai ? filterTanggalSampai : filterTanggalDari) : filterTanggalSampai;
+    const matchDayFrom = !dayMin || (tanggalSuratValue !== "" && tanggalSuratValue >= dayMin);
+    const matchDayTo = !dayMax || (tanggalSuratValue !== "" && tanggalSuratValue <= dayMax);
 
-    const parsedDayFrom = filterTanggalDari === "" ? null : Number(filterTanggalDari);
-    const parsedDayTo = filterTanggalSampai === "" ? null : Number(filterTanggalSampai);
-    const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
-    const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
-    const matchDayFrom = dayMin === null || (day !== null && day >= dayMin);
-    const matchDayTo = dayMax === null || (day !== null && day <= dayMax);
-
-    return matchSearch && matchDayFrom && matchDayTo && matchBulan && matchTahun;
+    return matchSearch && matchDayFrom && matchDayTo;
   });
 
   const filterDescription = useMemo(() => {
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    const parts: string[] = [];
-    if (filterTanggalDari && filterTanggalSampai) {
-      parts.push(`tanggal ${filterTanggalDari}–${filterTanggalSampai}`);
-    } else if (filterTanggalDari) {
-      parts.push(`tanggal ${filterTanggalDari}`);
-    } else if (filterTanggalSampai) {
-      parts.push(`tanggal s/d ${filterTanggalSampai}`);
-    }
-    if (filterBulan) parts.push(months[Number(filterBulan) - 1] || filterBulan);
-    if (filterTahun) parts.push(`tahun ${filterTahun}`);
-    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
-  }, [filterTahun, filterBulan, filterTanggalDari, filterTanggalSampai]);
+    if (!filterTanggalDari && !filterTanggalSampai) return "";
+    const start = filterTanggalDari || filterTanggalSampai;
+    const end = filterTanggalSampai || filterTanggalDari;
+    return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${filteredData.length} data`;
+  }, [filterTanggalDari, filterTanggalSampai, filteredData.length]);
+
+  const hasDateFilter = Boolean(filterTanggalDari || filterTanggalSampai);
 
   const isFilterActive =
     searchTerm !== "" ||
     filterTanggalDari !== "" ||
-    filterTanggalSampai !== "" ||
-    filterBulan !== "" ||
-    filterTahun !== "";
+    filterTanggalSampai !== "";
+
+  const applyDateFilters = () => {
+    if (draftTanggalDari && draftTanggalSampai && draftTanggalDari > draftTanggalSampai) {
+      setFilterTanggalDari(draftTanggalSampai);
+      setFilterTanggalSampai(draftTanggalDari);
+      return;
+    }
+
+    setFilterTanggalDari(draftTanggalDari);
+    setFilterTanggalSampai(draftTanggalSampai);
+  };
+
+  const resetDateFilters = () => {
+    setDraftTanggalDari("");
+    setDraftTanggalSampai("");
+    setFilterTanggalDari("");
+    setFilterTanggalSampai("");
+  };
 
   const monthlyChartData = useMemo(() => {
     const counts = Array.from({ length: 12 }, () => 0);
@@ -281,18 +249,11 @@ export default function LaporanSuratKeluarPage() {
   return (
     <section>
         {/* Summary */}
-        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
             <div>
               <p className="text-sm font-medium text-gray-500">Total Surat Keluar</p>
               <p className="text-2xl font-bold text-red-600">{suratKeluar.length}</p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Data Ditampilkan</p>
-              <p className="text-2xl font-bold text-green-600">{filteredData.length}</p>
             </div>
           </div>
 
@@ -312,7 +273,7 @@ export default function LaporanSuratKeluarPage() {
         </div>
 
         <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-800">Grafik Surat Keluar per Bulan {filterTahun || new Date().getFullYear()}</h3>
+          <h3 className="text-sm font-semibold text-gray-800">Grafik Surat Keluar per Bulan</h3>
           <p className="mt-1 text-xs text-gray-500">Mengikuti data yang sedang difilter.</p>
           <div className="mt-4 space-y-2">
             <div className="grid grid-cols-[36px_1fr_28px] items-center gap-2">
@@ -335,92 +296,64 @@ export default function LaporanSuratKeluarPage() {
         </div>
 
         {/* Search and Filter */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div className="md:col-span-2">
-              <input
-                type="text"
-                placeholder="Cari berdasarkan nomor surat, pengirim, perihal, atau penerima..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                aria-label="Pencarian"
-              />
-            </div>
-            
-            <div>
-              <select
-                value={filterTanggalDari}
-                onChange={(e) => setFilterTanggalDari(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                aria-label="Tanggal Dari"
-              >
-                <option value="">Tanggal Dari</option>
-                {availableDays.map((day) => (
-                  <option key={day} value={String(day)}>{day}</option>
-                ))}
-              </select>
-            </div>
+        <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div className="mb-3">
+            <input
+              type="text"
+              placeholder="Cari berdasarkan nomor surat, pengirim, perihal, atau penerima..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              aria-label="Pencarian"
+            />
+          </div>
 
-            <div>
-              <select
-                value={filterTanggalSampai}
-                onChange={(e) => setFilterTanggalSampai(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                aria-label="Tanggal Sampai"
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={applyDateFilters}
+                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
               >
-                <option value="">Tanggal Sampai</option>
-                {availableDays.map((day) => (
-                  <option key={day} value={String(day)}>{day}</option>
-                ))}
-              </select>
+                Terapkan Filter
+              </button>
+              <button
+                type="button"
+                onClick={resetDateFilters}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+              >
+                <FiRotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </button>
             </div>
+          </div>
 
-            <div>
-              <select
-                value={filterBulan}
-                onChange={(e) => setFilterBulan(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                aria-label="Bulan"
-              >
-                <option value="">Semua Bulan</option>
-                <option value="1">Januari</option>
-                <option value="2">Februari</option>
-                <option value="3">Maret</option>
-                <option value="4">April</option>
-                <option value="5">Mei</option>
-                <option value="6">Juni</option>
-                <option value="7">Juli</option>
-                <option value="8">Agustus</option>
-                <option value="9">September</option>
-                <option value="10">Oktober</option>
-                <option value="11">November</option>
-                <option value="12">Desember</option>
-              </select>
-            </div>
-            
-            <div>
-              <select
-                value={filterTahun}
-                onChange={(e) => setFilterTahun(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                aria-label="Tahun"
-              >
-                <option value="">Semua Tahun</option>
-                {availableYears.map((year) => (
-                  <option key={year} value={String(year)}>{year}</option>
-                ))}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <PopupDatePicker
+              label="Tanggal Dari"
+              value={draftTanggalDari}
+              max={draftTanggalSampai || undefined}
+              onChange={setDraftTanggalDari}
+            />
+
+            <PopupDatePicker
+              label="Tanggal Sampai"
+              value={draftTanggalSampai}
+              min={draftTanggalDari || undefined}
+              onChange={setDraftTanggalSampai}
+            />
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="text-sm text-gray-600">
-            {isFilterActive && `Jumlah data dari ${filterDescription} = ${filteredData.length} data`}
+        {hasDateFilter && (
+          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900">
+            <FiInfo className="h-4 w-4 text-blue-700" />
+            <span>{filterDescription.replace(`${filteredData.length} data`, "")}<strong>{filteredData.length}</strong> data</span>
           </div>
-          
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end mb-6">
           <button 
             onClick={handleExportExcel}
             className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 flex items-center gap-2"

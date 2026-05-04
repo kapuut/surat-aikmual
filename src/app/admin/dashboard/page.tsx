@@ -4,9 +4,12 @@ import { useState, useEffect, useMemo } from "react";
 import { useRequireRole } from "@/lib/hooks";
 import { useSharedStats, type DashboardStats } from "@/lib/hooks";
 import { AdminStats } from "@/components/dashboard/SharedStats";
+import PopupDatePicker from "@/components/shared/PopupDatePicker";
 import {
   FiActivity,
   FiAlertCircle,
+  FiInfo,
+  FiRotateCcw,
 } from "react-icons/fi";
 
 const BAR_COLOR_PALETTE = [
@@ -22,33 +25,13 @@ const BAR_COLOR_PALETTE = [
   "#ea580c", // orange
 ];
 
-const MONTH_LABELS: Record<string, string> = {
-  "1": "Januari",
-  "2": "Februari",
-  "3": "Maret",
-  "4": "April",
-  "5": "Mei",
-  "6": "Juni",
-  "7": "Juli",
-  "8": "Agustus",
-  "9": "September",
-  "10": "Oktober",
-  "11": "November",
-  "12": "Desember",
-};
-
 export default function AdminDashboardPage() {
   // Ensure only admin users can access this page
   const { user: authorizedUser, loading, isAuthenticated } = useRequireRole(['admin']);
   const { stats, loading: statsLoading, error: statsError, refresh } = useSharedStats();
-  const now = useMemo(() => new Date(), []);
-  const [chartYear, setChartYear] = useState<string>(String(now.getFullYear()));
-  const [chartMonth, setChartMonth] = useState<string>("");
   const [chartDateFrom, setChartDateFrom] = useState<string>("");
   const [chartDateTo, setChartDateTo] = useState<string>("");
-  const [chartSort, setChartSort] = useState<"asc" | "desc" | "date_desc" | "date_asc">("desc");
   const [chartData, setChartData] = useState<Array<{ jenis_surat: string; jumlah: number }>>([]);
-  const [chartYears, setChartYears] = useState<number[]>([now.getFullYear()]);
   const [chartTotalSurat, setChartTotalSurat] = useState<number>(0);
   const [chartLoading, setChartLoading] = useState<boolean>(false);
   const [chartError, setChartError] = useState<string | null>(null);
@@ -86,78 +69,48 @@ export default function AdminDashboardPage() {
     return Math.max(...chartData.map((item) => item.jumlah), 0);
   }, [chartData]);
 
+  const formatIsoDate = (value: string) => {
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).replace(/\//g, "-");
+  };
+
   const chartFilterSummary = useMemo(() => {
-    const fallbackYear = String(now.getFullYear());
-    const yearLabel = chartYear || fallbackYear;
-    const monthLabel = chartMonth ? (MONTH_LABELS[chartMonth] || `Bulan ${chartMonth}`) : "semua bulan";
+    if (!chartDateFrom && !chartDateTo) return "";
 
-    let dateLabel = "semua tanggal";
-    if (chartDateFrom && chartDateTo) {
-      const from = Number(chartDateFrom);
-      const to = Number(chartDateTo);
-      const min = Number.isFinite(from) && Number.isFinite(to) ? Math.min(from, to) : chartDateFrom;
-      const max = Number.isFinite(from) && Number.isFinite(to) ? Math.max(from, to) : chartDateTo;
-      dateLabel = `tanggal ${min} sampai ${max}`;
-    } else if (chartDateFrom) {
-      dateLabel = `tanggal mulai ${chartDateFrom}`;
-    } else if (chartDateTo) {
-      dateLabel = `tanggal sampai ${chartDateTo}`;
-    }
-
-    return `Jumlah data dari ${dateLabel}, ${monthLabel}, tahun ${yearLabel} = ${chartTotalSurat} data`;
-  }, [chartDateFrom, chartDateTo, chartMonth, chartYear, chartTotalSurat, now]);
+    const start = chartDateFrom || chartDateTo;
+    const end = chartDateTo || chartDateFrom;
+    return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${chartTotalSurat} data`;
+  }, [chartDateFrom, chartDateTo, chartTotalSurat]);
 
   const hasChartFilter =
     chartDateFrom !== '' ||
-    chartDateTo !== '' ||
-    chartMonth !== '' ||
-    chartSort !== 'desc' ||
-    chartYear !== String(now.getFullYear());
+    chartDateTo !== '';
 
-  const availableChartDays = useMemo(() => {
-    if (chartMonth === "") {
-      return Array.from({ length: 31 }, (_, index) => index + 1);
+  const fetchJenisSuratChart = async (overrides?: Partial<{
+    dateFrom: string;
+    dateTo: string;
+  }>) => {
+    const dateFrom = overrides?.dateFrom ?? chartDateFrom;
+    const dateTo = overrides?.dateTo ?? chartDateTo;
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      setChartError("Tanggal Dari tidak boleh lebih besar dari Tanggal Sampai.");
+      return;
     }
 
-    const month = Number(chartMonth);
-    const fallbackYear = now.getFullYear();
-    const year = chartYear === "" ? fallbackYear : Number(chartYear);
-
-    if (!Number.isFinite(month) || month < 1 || month > 12) {
-      return Array.from({ length: 31 }, (_, index) => index + 1);
-    }
-
-    const daysInMonth = new Date(year, month, 0).getDate();
-    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
-  }, [chartMonth, chartYear, now]);
-
-  useEffect(() => {
-    if (chartDateFrom !== "") {
-      const dayFrom = Number(chartDateFrom);
-      if (!availableChartDays.includes(dayFrom)) {
-        setChartDateFrom("");
-      }
-    }
-
-    if (chartDateTo !== "") {
-      const dayTo = Number(chartDateTo);
-      if (!availableChartDays.includes(dayTo)) {
-        setChartDateTo("");
-      }
-    }
-  }, [availableChartDays, chartDateFrom, chartDateTo]);
-
-  const fetchJenisSuratChart = async () => {
     try {
       setChartLoading(true);
       setChartError(null);
 
       const params = new URLSearchParams();
-      params.set("year", chartYear);
-      if (chartMonth) params.set("month", chartMonth);
-      if (chartDateFrom) params.set("date_from", chartDateFrom);
-      if (chartDateTo) params.set("date_to", chartDateTo);
-      params.set("sort", chartSort);
+      if (dateFrom) params.set("date_from", dateFrom);
+      if (dateTo) params.set("date_to", dateTo);
+      params.set("sort", "date_desc");
 
       const response = await fetch(`/api/stats/surat-jenis?${params.toString()}`, {
         credentials: "include",
@@ -169,7 +122,6 @@ export default function AdminDashboardPage() {
       }
 
       setChartData(Array.isArray(result.data) ? result.data : []);
-      setChartYears(Array.isArray(result.availableYears) && result.availableYears.length > 0 ? result.availableYears : [now.getFullYear()]);
       setChartTotalSurat(Number(result?.summary?.totalSurat || 0));
     } catch (error) {
       setChartError(error instanceof Error ? error.message : "Gagal memuat diagram jenis surat");
@@ -183,7 +135,22 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (!authorizedUser) return;
     fetchJenisSuratChart();
-  }, [authorizedUser, chartYear, chartMonth, chartDateFrom, chartDateTo, chartSort]);
+  }, [authorizedUser]);
+
+  const applyFilters = () => {
+    fetchJenisSuratChart();
+  };
+
+  const resetFilters = () => {
+    const defaultFilters = {
+      dateFrom: "",
+      dateTo: "",
+    };
+
+    setChartDateFrom(defaultFilters.dateFrom);
+    setChartDateTo(defaultFilters.dateTo);
+    fetchJenisSuratChart(defaultFilters);
+  };
 
   if (loading || !isAuthenticated || !authorizedUser) {
     return (
@@ -216,103 +183,50 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
-            <div className="flex flex-wrap items-start justify-end gap-3">
-              <button
-                onClick={fetchJenisSuratChart}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                <FiActivity className="h-4 w-4" />
-                Segarkan Diagram
-              </button>
-            </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={applyFilters}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                  >
+                    <FiActivity className="h-3.5 w-3.5" />
+                    Terapkan Filter
+                  </button>
+                  <button
+                    onClick={resetFilters}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  >
+                    <FiRotateCcw className="h-3.5 w-3.5" />
+                    Reset
+                  </button>
+                </div>
+              </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Dari</label>
-                <select
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <PopupDatePicker
+                  label="Tanggal Dari"
                   value={chartDateFrom}
-                  onChange={(e) => setChartDateFrom(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Tanggal Dari</option>
-                  {availableChartDays.map((day) => (
-                    <option key={day} value={String(day)}>
-                      {day}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal Sampai</label>
-                <select
+                  max={chartDateTo || undefined}
+                  onChange={setChartDateFrom}
+                />
+                <PopupDatePicker
+                  label="Tanggal Sampai"
                   value={chartDateTo}
-                  onChange={(e) => setChartDateTo(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Tanggal Sampai</option>
-                  {availableChartDays.map((day) => (
-                    <option key={day} value={String(day)}>
-                      {day}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Bulan</label>
-                <select
-                  value={chartMonth}
-                  onChange={(e) => setChartMonth(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Semua Bulan</option>
-                  <option value="1">Januari</option>
-                  <option value="2">Februari</option>
-                  <option value="3">Maret</option>
-                  <option value="4">April</option>
-                  <option value="5">Mei</option>
-                  <option value="6">Juni</option>
-                  <option value="7">Juli</option>
-                  <option value="8">Agustus</option>
-                  <option value="9">September</option>
-                  <option value="10">Oktober</option>
-                  <option value="11">November</option>
-                  <option value="12">Desember</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Tahun</label>
-                <select
-                  value={chartYear}
-                  onChange={(e) => setChartYear(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {chartYears.map((year) => (
-                    <option key={year} value={String(year)}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Urutan</label>
-                <select
-                  value={chartSort}
-                  onChange={(e) => setChartSort(e.target.value as "asc" | "desc" | "date_desc" | "date_asc")}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="desc">Jumlah Terbanyak</option>
-                  <option value="asc">Jumlah Tersedikit</option>
-                  <option value="date_desc">Tanggal Terbaru</option>
-                  <option value="date_asc">Tanggal Terlama</option>
-                </select>
+                  min={chartDateFrom || undefined}
+                  onChange={setChartDateTo}
+                />
               </div>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
               {hasChartFilter && (
-                <span className="rounded-full bg-indigo-50 px-3 py-1.5 font-medium text-indigo-700">
-                  {chartFilterSummary}
-                </span>
+                <div className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900">
+                  <FiInfo className="h-4 w-4 text-blue-700" />
+                  <span>
+                    Jumlah data dari tanggal {formatIsoDate(chartDateFrom || chartDateTo)} sampai {formatIsoDate(chartDateTo || chartDateFrom)} = <strong>{chartTotalSurat}</strong> data
+                  </span>
+                </div>
               )}
             </div>
 
@@ -340,7 +254,7 @@ export default function AdminDashboardPage() {
               {!chartLoading && !chartError && chartData.length > 0 && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
                   <div className="mb-4">
-                    <p className="text-base font-semibold text-gray-800">Grafik Surat Tahun {chartYear || new Date().getFullYear()}</p>
+                    <p className="text-base font-semibold text-gray-800">Grafik Surat</p>
                     <p className="text-xs text-gray-500 mt-1">Perbandingan Jumlah Surat per Jenis</p>
                   </div>
 

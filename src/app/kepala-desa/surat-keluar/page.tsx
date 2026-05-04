@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { FiDownload, FiSearch, FiEye } from "react-icons/fi";
+import { FiDownload, FiInfo, FiSearch, FiEye } from "react-icons/fi";
 import * as XLSX from "xlsx";
 
 interface SuratKeluarItem {
@@ -43,6 +43,16 @@ const MONTH_OPTIONS = [
   { value: "11", label: "November" },
   { value: "12", label: "Desember" },
 ] as const;
+
+function formatIsoDate(value: string): string {
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).replace(/\//g, "-");
+}
 
 function buildYearOptions() {
   const startYear = 2016;
@@ -182,26 +192,13 @@ export default function KepalaDesaSuratKeluarPage() {
   const hasFilter = Boolean(normalizedSearchTerm || selectedMonth || selectedYear || selectedDayFrom || selectedDayTo);
 
   const filterDescription = useMemo(() => {
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    const parts: string[] = [];
-    if (selectedDayFrom && selectedDayTo) {
-      parts.push(`tanggal ${selectedDayFrom}\u2013${selectedDayTo}`);
-    } else if (selectedDayFrom) {
-      parts.push(`tanggal ${selectedDayFrom}`);
-    } else if (selectedDayTo) {
-      parts.push(`tanggal s/d ${selectedDayTo}`);
-    }
-    if (selectedMonth) parts.push(months[Number(selectedMonth) - 1] || selectedMonth);
-    if (selectedYear) parts.push(`tahun ${selectedYear}`);
-    return parts.length > 0 ? parts.join(' ') : 'semua waktu';
-  }, [selectedYear, selectedMonth, selectedDayFrom, selectedDayTo]);
+    if (!selectedDayFrom && !selectedDayTo) return "";
+    const start = selectedDayFrom || selectedDayTo;
+    const end = selectedDayTo || selectedDayFrom;
+    return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${filteredData.length} data`;
+  }, [selectedDayFrom, selectedDayTo, filteredData.length]);
 
-  const isFilterActive =
-    searchTerm !== "" ||
-    selectedDayFrom !== "" ||
-    selectedDayTo !== "" ||
-    selectedMonth !== "" ||
-    selectedYear !== "";
+  const hasDateFilter = Boolean(selectedDayFrom || selectedDayTo);
 
   const handleExportExcel = () => {
     const exportRows = filteredData.map((item, index) => ({
@@ -338,11 +335,10 @@ export default function KepalaDesaSuratKeluarPage() {
         </div>
       </div>
 
-      {isFilterActive && (
-        <div className="mb-4">
-          <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 border border-indigo-100">
-            Jumlah data dari {filterDescription} = {filteredData.length} data
-          </span>
+      {hasDateFilter && (
+        <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900">
+          <FiInfo className="h-4 w-4 text-blue-700" />
+          <span>{filterDescription.replace(`${filteredData.length} data`, "")}<strong>{filteredData.length}</strong> data</span>
         </div>
       )}
 
