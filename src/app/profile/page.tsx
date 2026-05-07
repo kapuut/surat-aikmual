@@ -229,10 +229,10 @@ export default function ProfilePage() {
   return (
     <SimpleLayout useSidebar>
       <div className="mx-auto w-full max-w-6xl space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-900 text-xl font-bold text-white">
+        <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-4 sm:p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-slate-900 text-lg sm:text-xl font-bold text-white">
                 {(formData.nama || user.nama || 'MS')
                   .split(' ')
                   .filter(Boolean)
@@ -241,7 +241,7 @@ export default function ProfilePage() {
                   .join('') || 'MS'}
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Kelola Profil</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Kelola Profil</h1>
                 <p className="text-sm text-slate-600">Semua pengaturan akun dan password ada di halaman ini.</p>
               </div>
             </div>
@@ -252,7 +252,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
               <p className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
                 <FiMail className="h-3.5 w-3.5" /> Email
@@ -276,12 +276,12 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-6 py-4">
+            <div className="border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
               <h2 className="text-lg font-semibold text-slate-900">Informasi Profil</h2>
               <p className="mt-1 text-sm text-slate-600">Perbarui data pribadi agar layanan administrasi tetap akurat.</p>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 {alert && (
                   <div
@@ -384,12 +384,12 @@ export default function ProfilePage() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-6 py-4">
+            <div className="border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
               <h2 className="text-lg font-semibold text-slate-900">Keamanan Akun</h2>
               <p className="mt-1 text-sm text-slate-600">Ubah password secara berkala agar akun tetap aman.</p>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {passwordAlert && (
                 <div
                   className={`rounded-lg p-3 flex items-center gap-3 mb-4 ${

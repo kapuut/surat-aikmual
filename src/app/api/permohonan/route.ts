@@ -27,6 +27,7 @@ type DynamicTemplateLookupRow = {
   id: string;
   jenis_surat: string;
   status: string;
+  fields_json?: string;
 };
 
 async function saveUploadedFiles(files: File[]): Promise<string[]> {
@@ -408,7 +409,7 @@ async function findActiveDynamicTemplate(
     const trimmedId = dynamicTemplateId.trim();
     if (trimmedId) {
       const [rows] = await db.execute(
-        `SELECT id, jenis_surat, status
+        `SELECT id, jenis_surat, status, fields_json
          FROM dynamic_template_surat
          WHERE id = ? AND status = 'aktif'
          LIMIT 1`,
@@ -423,7 +424,7 @@ async function findActiveDynamicTemplate(
     if (!trimmedJenisSurat) return null;
 
     const [rows] = await db.execute(
-      `SELECT id, jenis_surat, status
+      `SELECT id, jenis_surat, status, fields_json
        FROM dynamic_template_surat
        WHERE LOWER(TRIM(jenis_surat)) = LOWER(TRIM(?))
          AND status = 'aktif'
@@ -494,10 +495,12 @@ async function handlePermohonanPost(request: Request) {
 
     const rawJenisSurat = getFirstStringValue(payload, ['jenis_surat', 'jenisSurat', 'jenis']);
     const dynamicTemplateId = getFirstStringValue(payload, ['dynamicTemplateId', 'dynamic_template_id']);
-    const suratSlug = normalizeSuratSlug(rawJenisSurat);
-    const customTemplate = suratSlug
-      ? null
-      : await findActiveDynamicTemplate(dynamicTemplateId, rawJenisSurat);
+    // When dynamicTemplateId is explicitly provided, look up the dynamic template first.
+    // Static surat-slug validations only apply when there is no matching dynamic template.
+    const customTemplate = dynamicTemplateId
+      ? await findActiveDynamicTemplate(dynamicTemplateId, rawJenisSurat)
+      : null;
+    const suratSlug = customTemplate ? null : normalizeSuratSlug(rawJenisSurat);
 
     if (!suratSlug && !customTemplate) {
       return NextResponse.json(
@@ -758,11 +761,12 @@ async function handlePermohonanPost(request: Request) {
     let masaBerlakuDari = normalizeDateValue(masaBerlakuDariRaw);
     let masaBerlakuSampai = normalizeDateValue(masaBerlakuSampaiRaw);
     const tanggalKehilangan = normalizeDateValue(tanggalKehilanganRaw);
-    if (suratSlug === 'surat-kehilangan') {
-      const mulai = new Date();
-      const mulaiTanggal = new Date(mulai.getFullYear(), mulai.getMonth(), mulai.getDate());
-      masaBerlakuDari = formatDateYmd(mulaiTanggal);
-      masaBerlakuSampai = formatDateYmd(addMonths(mulaiTanggal, 6));
+    // Auto-calculate masa berlaku when not provided by user (always today + 6 months as default)
+    if (suratSlug === 'surat-kehilangan' || !masaBerlakuDari) {
+      const today = new Date();
+      const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      masaBerlakuDari = masaBerlakuDari || formatDateYmd(todayNormalized);
+      masaBerlakuSampai = masaBerlakuSampai || formatDateYmd(addMonths(todayNormalized, 6));
     }
     const tanggalLahirAlmarhum = normalizeDateValue(tanggalLahirAlmarhumRaw);
     const tanggalMeninggal = normalizeDateValue(tanggalMeninggalRaw);
@@ -923,6 +927,36 @@ async function handlePermohonanPost(request: Request) {
         { error: 'Nomor WhatsApp aktif wajib diisi dan harus valid untuk notifikasi proses surat' },
         { status: 400 }
       );
+    }
+
+    // For dynamic templates, validate required fields based on the template definition.
+    if (customTemplate?.fields_json) {
+      type TemplateFld = { name: string; label: string; required?: boolean };
+      let templateFields: TemplateFld[] = [];
+      try {
+        const raw = JSON.parse(customTemplate.fields_json);
+        if (Array.isArray(raw)) templateFields = raw;
+      } catch { /* ignore parse errors */ }
+
+      const managedFieldKeys = new Set([
+        'nama', 'namalengkap', 'nik', 'alamat', 'notelp', 'nowhatsapp', 'whatsapp',
+        // Auto-calculated by server — must never be required from user input
+        'masaberlaku', 'masa_berlaku', 'masaberlakudari', 'masaberlakusampai',
+        'validitas', 'tanggalberakhir', 'periodeberlaku',
+      ]);
+      const normalizeKey = (v: string) => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      const missingRequired = templateFields
+        .filter((f) => f.required && !managedFieldKeys.has(normalizeKey(f.name)))
+        .filter((f) => !getFirstStringValue(payload, [f.name, normalizeKey(f.name)]))
+        .map((f) => f.label);
+
+      if (missingRequired.length > 0) {
+        return NextResponse.json(
+          { error: `Field wajib belum diisi: ${missingRequired.join(', ')}` },
+          { status: 400 }
+        );
+      }
     }
 
     if (suratSlug === 'surat-domisili') {

@@ -66,6 +66,18 @@ function normalizeSuratName(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+function generatePermohonanDescription(jenisSurat: string): string {
+  // Strip common prefixes to get the core subject
+  const core = jenisSurat
+    .replace(/^surat\s+keterangan\s+/i, '')
+    .replace(/^surat\s+/i, '')
+    .trim();
+  if (!core) return 'Surat resmi administrasi desa';
+  // Capitalize first letter of each word
+  const titled = core.replace(/(?:^|\s)\S/g, (c) => c.toUpperCase());
+  return `Surat Pernyataan ${titled}`;
+}
+
 export default function PermohonanPage() {
   useRequireAuth();
 
@@ -127,7 +139,7 @@ export default function PermohonanPage() {
       const dynamicCard = {
         key: `dynamic-${template.id}`,
         title: dynamicTitle,
-        description: template.deskripsi || 'Jenis surat tambahan yang dikonfigurasi admin.',
+        description: generatePermohonanDescription(dynamicTitle),
         href: `/permohonan/dinamis/${encodeURIComponent(template.id)}`,
       };
 
@@ -150,12 +162,6 @@ export default function PermohonanPage() {
 
   return (
     <SimpleLayout useSidebar>
-      {/* Header Section */}
-      <div className="mb-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">Permohonan Surat</h1>
-        <p className="text-lg text-gray-600">Pilih jenis surat yang ingin Anda ajukan.</p>
-      </div>
-
       {/* Surat Types Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {suratCards.map((surat) => (

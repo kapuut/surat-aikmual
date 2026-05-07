@@ -502,6 +502,25 @@ async function findDynamicTemplateForGeneration(
   }
 }
 
+function toTitleCaseId(value: string): string {
+  return value
+    .toLowerCase()
+    .split(' ')
+    .map((word) => (word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : ''))
+    .join(' ');
+}
+
+// Keys that should NOT be title-cased (identifiers, numbers, codes)
+const NO_TITLECASE_KEY_PATTERNS = /^(nik|nomor|no_|kode|tanggal|waktu|tgl|jam|tahun|bulan|masa_berlaku)/i;
+
+function normalizeDynamicValue(key: string, value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  // Skip title-case for identifier/numeric-like keys or all-digit values
+  if (NO_TITLECASE_KEY_PATTERNS.test(key) || /^\d+$/.test(trimmed)) return trimmed;
+  return toTitleCaseId(trimmed);
+}
+
 function buildDynamicTemplateValuesForGeneration(
   permohonan: PermohonanRow,
   detailData: DetailData,
@@ -511,7 +530,7 @@ function buildDynamicTemplateValuesForGeneration(
 ): Record<string, string> {
   const createdAtDate = asDate(permohonan.created_at) || tanggalSurat;
   const values: Record<string, string> = {
-    nama: String(permohonan.nama_pemohon || '').trim(),
+    nama: String(permohonan.nama_pemohon || '').trim().toLocaleUpperCase('id-ID'),
     nik: String(permohonan.nik || '').trim(),
     alamat: String(permohonan.alamat || '').trim(),
     keperluan: String(permohonan.keperluan || '-').trim() || '-',
@@ -524,7 +543,7 @@ function buildDynamicTemplateValuesForGeneration(
     if (rawValue == null) continue;
 
     if (typeof rawValue === 'string') {
-      values[key] = rawValue;
+      values[key] = normalizeDynamicValue(key, rawValue);
       continue;
     }
 
@@ -535,6 +554,26 @@ function buildDynamicTemplateValuesForGeneration(
 
     if (rawValue instanceof Date && !Number.isNaN(rawValue.getTime())) {
       values[key] = formatDateIndonesian(rawValue);
+    }
+  }
+
+  // Build composite tempat_tanggal_lahir from separate fields (backward compat)
+  if (!values['tempat_tanggal_lahir']) {
+    const tempatLahirVal = String(detailData['tempat_lahir'] || '').trim();
+    const tlRaw = detailData['tanggal_lahir'];
+    let tanggalLahirVal = '';
+    if (typeof tlRaw === 'string' && tlRaw.trim()) {
+      const dt = new Date(tlRaw);
+      tanggalLahirVal = Number.isNaN(dt.getTime()) ? tlRaw.trim() : formatDateIndonesian(dt);
+    } else if (tlRaw instanceof Date && !Number.isNaN(tlRaw.getTime())) {
+      tanggalLahirVal = formatDateIndonesian(tlRaw);
+    }
+    if (tempatLahirVal && tanggalLahirVal) {
+      values['tempat_tanggal_lahir'] = `${toTitleCaseId(tempatLahirVal)}, ${tanggalLahirVal}`;
+    } else if (tempatLahirVal) {
+      values['tempat_tanggal_lahir'] = toTitleCaseId(tempatLahirVal);
+    } else if (tanggalLahirVal) {
+      values['tempat_tanggal_lahir'] = tanggalLahirVal;
     }
   }
 

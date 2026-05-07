@@ -33,6 +33,19 @@ function fromIsoDate(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function toDisplayDate(value: string): string {
+  const parsed = fromIsoDate(value);
+  if (!parsed) return value;
+
+  return parsed
+    .toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+    .replace(/\//g, "-");
+}
+
 function isSameDay(left: Date, right: Date): boolean {
   return (
     left.getFullYear() === right.getFullYear() &&
@@ -145,6 +158,7 @@ export default function PopupDatePicker({
   const minDate = min ? fromIsoDate(min) : null;
   const maxDate = max ? fromIsoDate(max) : null;
   const selectedDate = value ? fromIsoDate(value) : null;
+  const displayValue = value ? toDisplayDate(value) : placeholder;
   const today = new Date();
   const calendarCells = useMemo(() => buildCalendarCells(viewDate), [viewDate]);
 
@@ -157,17 +171,17 @@ export default function PopupDatePicker({
 
   return (
     <div ref={wrapperRef} className="relative">
-      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</label>
+      <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">{label}</label>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-4 py-3 text-left text-sm text-slate-700 transition-colors hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
         aria-haspopup="dialog"
         aria-expanded={open}
       >
         <span className="inline-flex items-center gap-2">
-          <FiCalendar className="h-4 w-4 text-gray-500" />
-          <span>{value || placeholder}</span>
+          <FiCalendar className="h-5 w-5 text-slate-500" />
+          <span className={value ? "text-slate-800" : "text-slate-500"}>{displayValue}</span>
         </span>
       </button>
 

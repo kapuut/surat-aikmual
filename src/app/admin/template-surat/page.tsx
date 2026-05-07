@@ -661,6 +661,11 @@ export default function TemplateSuratPage() {
   const closingRef = useRef<HTMLTextAreaElement | null>(null);
   const [activeEditParagraphTarget, setActiveEditParagraphTarget] = useState<ParagraphTarget>("body");
   const [customEditFieldLabel, setCustomEditFieldLabel] = useState("");
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<
+    | { type: 'static'; id: number; name: string }
+    | { type: 'dynamic'; id: string; isCustom: boolean; name: string }
+    | null
+  >(null);
   const editOpeningRef = useRef<HTMLTextAreaElement | null>(null);
   const editBodyRef = useRef<HTMLTextAreaElement | null>(null);
   const editClosingRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1156,45 +1161,40 @@ export default function TemplateSuratPage() {
     }
   };
 
-  const handleDelete = async (templateId: number) => {
-    const shouldDelete = window.confirm("Hapus template ini?");
-    if (!shouldDelete) return;
-
-    try {
-      setDynamicError("");
-      setDynamicMessage("");
-      const response = await fetch(`/api/admin/templates/${templateId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Gagal menghapus template");
-      }
-
-      setDynamicMessage(data.message || "Template berhasil dihapus");
-      await fetchTemplates();
-    } catch (err) {
-      setDynamicError(err instanceof Error ? err.message : "Gagal menghapus template");
-    }
+  const handleDelete = (templateId: number, templateName: string) => {
+    setDeleteConfirmTarget({ type: 'static', id: templateId, name: templateName });
   };
 
-  const handleDeleteDynamicTemplate = async (templateId: string) => {
-    if (!window.confirm("Apakah Anda yakin ingin menghapus template ini? Tindakan ini tidak dapat dibatalkan.")) return;
+  const handleDeleteDynamicTemplate = (templateId: string, isCustom: boolean, templateName: string) => {
+    setDeleteConfirmTarget({ type: 'dynamic', id: templateId, isCustom, name: templateName });
+  };
+
+  const executeConfirmedDelete = async () => {
+    if (!deleteConfirmTarget) return;
+    const target = deleteConfirmTarget;
+    setDeleteConfirmTarget(null);
     setDynamicError("");
     setDynamicMessage("");
     try {
-      const response = await fetch(`/api/admin/dynamic-templates?id=${encodeURIComponent(templateId)}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const data = await response.json();
-      if (!response.ok || !data?.success) {
-        throw new Error(data?.error || "Gagal menghapus template");
+      if (target.type === 'static') {
+        const response = await fetch(`/api/admin/templates/${target.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Gagal menghapus template");
+        setDynamicMessage(data.message || "Template berhasil dihapus");
+        await fetchTemplates();
+      } else {
+        const response = await fetch(`/api/admin/dynamic-templates?id=${encodeURIComponent(target.id)}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.error || "Gagal menghapus template");
+        setDynamicMessage(data.message || "Template berhasil dihapus.");
+        await fetchDynamicTemplates();
       }
-      setDynamicMessage(data.message || "Template berhasil dihapus.");
-      await fetchDynamicTemplates();
     } catch (err) {
       setDynamicError(err instanceof Error ? err.message : "Gagal menghapus template");
     }
@@ -2063,20 +2063,58 @@ export default function TemplateSuratPage() {
                   >
                     Preview
                   </a>
-                  {isCustom && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteDynamicTemplate(template.id)}
-                      className="bg-red-50 text-red-600 px-3 py-2 rounded-lg text-sm hover:bg-red-100"
-                    >
-                      Hapus
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDynamicTemplate(template.id, isCustom, template.nama)}
+                    className="px-3 py-2 rounded-lg text-sm bg-red-50 text-red-600 hover:bg-red-100"
+                    title="Hapus template"
+                  >
+                    Hapus
+                  </button>
                 </div>
               </div>
             </div>
           ))}
         </div>
+        )}
+
+        {/* Modal Konfirmasi Hapus */}
+        {deleteConfirmTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+              {/* Header */}
+              <div className="flex flex-col items-center px-6 pt-8 pb-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100 mb-4">
+                  <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 text-center">Hapus Template</h3>
+                <p className="mt-2 text-sm text-gray-500 text-center">
+                  Apakah Anda yakin ingin menghapus template{' '}
+                  <span className="font-medium text-gray-800">&ldquo;{deleteConfirmTarget.name}&rdquo;</span>?
+                </p>
+                <p className="mt-1 text-xs text-red-500 text-center">Tindakan ini tidak dapat dibatalkan.</p>
+              </div>
+              {/* Footer */}
+              <div className="flex gap-3 px-6 pb-6 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmTarget(null)}
+                  className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={executeConfirmedDelete}
+                  className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+                >
+                  Ya, Hapus
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Modal Edit Template */}

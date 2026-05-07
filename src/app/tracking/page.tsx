@@ -3,9 +3,10 @@
 import { useRequireAuth } from '@/lib/hooks';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiDownload, FiClock, FiEye, FiInfo, FiSearch, FiRefreshCw } from 'react-icons/fi';
+import { FiDownload, FiClock, FiEye, FiInfo, FiSearch, FiRefreshCw, FiActivity, FiRotateCcw } from 'react-icons/fi';
 import { useMemo } from 'react';
 import SimpleLayout from '@/components/layout/SimpleLayout';
+import PopupDatePicker from '@/components/shared/PopupDatePicker';
 import Card, { CardHeader, CardBody } from '@/components/ui/Card';
 import { Table, TableHead, TableBody, TableRow, TableHeaderCell, TableCell, StatusBadge, EmptyState } from '@/components/ui/Table';
 import { Button } from '@/components/ui/button';
@@ -37,10 +38,10 @@ export default function TrackingPage() {
   
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('');
-  const [selectedYear, setSelectedYear] = useState('');
-  const [selectedDayFrom, setSelectedDayFrom] = useState('');
-  const [selectedDayTo, setSelectedDayTo] = useState('');
+  const [selectedDateFrom, setSelectedDateFrom] = useState('');
+  const [selectedDateTo, setSelectedDateTo] = useState('');
+  const [draftDateFrom, setDraftDateFrom] = useState('');
+  const [draftDateTo, setDraftDateTo] = useState('');
 
   const summarizeReason = (reason: string | null): string => {
     const text = (reason || '').trim();
@@ -97,72 +98,57 @@ export default function TrackingPage() {
     return `/api/admin/permohonan/${item.id}/preview?print=1`;
   };
 
-  const yearOptions = useMemo(() => {
-    const startYear = 2016;
-    const currentYear = new Date().getFullYear();
-    const endYear = Math.max(currentYear, startYear);
-    return Array.from({ length: endYear - startYear + 1 }, (_, index) => String(endYear - index));
-  }, []);
+  const applyDateFilters = () => {
+    if (draftDateFrom && draftDateTo && draftDateFrom > draftDateTo) {
+      setSelectedDateFrom(draftDateTo);
+      setSelectedDateTo(draftDateFrom);
+      setDraftDateFrom(draftDateTo);
+      setDraftDateTo(draftDateFrom);
+      return;
+    }
 
-  const monthOptions = [
-    { value: '1', label: 'Januari' },
-    { value: '2', label: 'Februari' },
-    { value: '3', label: 'Maret' },
-    { value: '4', label: 'April' },
-    { value: '5', label: 'Mei' },
-    { value: '6', label: 'Juni' },
-    { value: '7', label: 'Juli' },
-    { value: '8', label: 'Agustus' },
-    { value: '9', label: 'September' },
-    { value: '10', label: 'Oktober' },
-    { value: '11', label: 'November' },
-    { value: '12', label: 'Desember' },
-  ];
+    setSelectedDateFrom(draftDateFrom);
+    setSelectedDateTo(draftDateTo);
+  };
+
+  const resetDateFilters = () => {
+    setSelectedDateFrom('');
+    setSelectedDateTo('');
+    setDraftDateFrom('');
+    setDraftDateTo('');
+  };
 
   const filteredPermohonan = useMemo(() => {
     return permohonan.filter(item => {
       const normalizedSearch = searchTerm.trim().toLowerCase();
-      const searchMatch = !normalizedSearch || 
+      const searchMatch = !normalizedSearch ||
         [item.jenis_surat, item.nomor_surat].filter(Boolean).some(v => String(v).toLowerCase().includes(normalizedSearch));
 
-      const date = new Date(item.tanggal_permohonan);
-      const day = date.getDate();
-      const month = date.getMonth() + 1;
-      const year = date.getFullYear();
+      const itemDate = item.tanggal_permohonan.split('T')[0];
+      const dateFromMatch = !selectedDateFrom || itemDate >= selectedDateFrom;
+      const dateToMatch = !selectedDateTo || itemDate <= selectedDateTo;
 
-      const parsedDayFrom = selectedDayFrom === '' ? null : Number(selectedDayFrom);
-      const parsedDayTo = selectedDayTo === '' ? null : Number(selectedDayTo);
-      const dayMin = parsedDayFrom !== null && parsedDayTo !== null ? Math.min(parsedDayFrom, parsedDayTo) : parsedDayFrom;
-      const dayMax = parsedDayFrom !== null && parsedDayTo !== null ? Math.max(parsedDayFrom, parsedDayTo) : parsedDayTo;
-
-      const dayFromMatch = dayMin === null || day >= dayMin;
-      const dayToMatch = dayMax === null || day <= dayMax;
-      const monthMatch = !selectedMonth || String(month) === selectedMonth;
-      const yearMatch = !selectedYear || String(year) === selectedYear;
-
-      return searchMatch && dayFromMatch && dayToMatch && monthMatch && yearMatch;
+      return searchMatch && dateFromMatch && dateToMatch;
     });
-  }, [permohonan, searchTerm, selectedDayFrom, selectedDayTo, selectedMonth, selectedYear]);
+  }, [permohonan, searchTerm, selectedDateFrom, selectedDateTo]);
 
-  const hasDateFilter = Boolean(selectedDayFrom || selectedDayTo);
+  const hasDateFilter = Boolean(selectedDateFrom || selectedDateTo);
 
   const filterDescription = useMemo(() => {
-    if (!selectedDayFrom && !selectedDayTo) return '';
-    const start = selectedDayFrom || selectedDayTo;
-    const end = selectedDayTo || selectedDayFrom;
-    return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${filteredPermohonan.length} data`;
-  }, [selectedDayFrom, selectedDayTo, filteredPermohonan.length]);
+    if (!selectedDateFrom && !selectedDateTo) return '';
+    const parts: string[] = [];
+    if (selectedDateFrom) parts.push(`dari ${formatIsoDate(selectedDateFrom)}`);
+    if (selectedDateTo) parts.push(`sampai ${formatIsoDate(selectedDateTo)}`);
+    return `Menampilkan data ${parts.join(' ')}`;
+  }, [selectedDateFrom, selectedDateTo]);
 
-  const isFilterActive = searchTerm !== '' || selectedDayFrom !== '' || selectedDayTo !== '' || selectedMonth !== '' || selectedYear !== '';
+  const isFilterActive = searchTerm !== '' || selectedDateFrom !== '' || selectedDateTo !== '';
+  const canApplyDateFilter = draftDateFrom !== selectedDateFrom || draftDateTo !== selectedDateTo;
+  const canResetDateFilter = draftDateFrom !== '' || draftDateTo !== '' || selectedDateFrom !== '' || selectedDateTo !== '';
 
   if (!loadingData && fetchError) {
     return (
       <SimpleLayout useSidebar>
-        <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Lacak Surat</h1>
-          <p className="text-base sm:text-lg text-gray-600">Pantau status permohonan surat Anda.</p>
-        </div>
-
         <Card>
           <CardBody>
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm">
@@ -176,12 +162,8 @@ export default function TrackingPage() {
 
   return (
     <SimpleLayout useSidebar>
-      {/* Header Section */}
-      <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Lacak Surat</h1>
-          <p className="text-base sm:text-lg text-gray-600">Pantau status permohonan surat Anda.</p>
-        </div>
+      {/* Refresh Button */}
+      <div className="mb-4 flex justify-end">
         {!loadingData && !fetchError && (
           <Button variant="outline" size="sm" onClick={fetchPermohonan}>
             <FiRefreshCw className="mr-2 h-4 w-4" />
@@ -193,61 +175,82 @@ export default function TrackingPage() {
       {/* Filters Section */}
       {!loadingData && permohonan.length > 0 && (
         <div className="mb-6 space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center w-full">
-              <div className="relative w-full sm:w-80">
-                <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Cari jenis atau nomor surat"
-                  className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+          <div className="relative w-full sm:w-96">
+            <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Cari jenis atau nomor surat"
+              className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-              <div className="flex flex-wrap gap-2">
-                <select
-                  value={selectedDayFrom}
-                  onChange={(e) => setSelectedDayFrom(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Tgl Dari</option>
-                  {Array.from({ length: 31 }, (_, i) => String(i + 1)).map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-                <select
-                  value={selectedDayTo}
-                  onChange={(e) => setSelectedDayTo(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Tgl Ke</option>
-                  {Array.from({ length: 31 }, (_, i) => String(i + 1)).map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Pilih Bulan</option>
-                  {monthOptions.map(m => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Pilih Tahun</option>
-                  {yearOptions.map(y => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
-              </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div className="mb-3 hidden items-center justify-end gap-2 md:flex">
+              <Button
+                type="button"
+                onClick={applyDateFilters}
+                disabled={!canApplyDateFilter}
+                variant="outline"
+                size="sm"
+                className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+              >
+                <FiActivity className="mr-2 h-4 w-4" />
+                Terapkan Filter
+              </Button>
+              <Button
+                type="button"
+                onClick={resetDateFilters}
+                disabled={!canResetDateFilter}
+                variant="outline"
+                size="sm"
+              >
+                <FiRotateCcw className="mr-2 h-4 w-4" />
+                Reset
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <PopupDatePicker
+                label="TANGGAL DARI"
+                value={draftDateFrom}
+                max={draftDateTo || undefined}
+                onChange={setDraftDateFrom}
+                placeholder="Pilih tanggal"
+              />
+              <PopupDatePicker
+                label="TANGGAL SAMPAI"
+                value={draftDateTo}
+                min={draftDateFrom || undefined}
+                onChange={setDraftDateTo}
+                placeholder="Pilih tanggal"
+              />
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-2 md:hidden">
+              <Button
+                type="button"
+                onClick={applyDateFilters}
+                disabled={!canApplyDateFilter}
+                variant="outline"
+                size="sm"
+                className="w-full border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+              >
+                <FiActivity className="mr-2 h-4 w-4" />
+                Terapkan Filter
+              </Button>
+              <Button
+                type="button"
+                onClick={resetDateFilters}
+                disabled={!canResetDateFilter}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                <FiRotateCcw className="mr-2 h-4 w-4" />
+                Reset
+              </Button>
             </div>
           </div>
 

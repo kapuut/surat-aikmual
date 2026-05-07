@@ -35,15 +35,14 @@ const MANAGED_FIELD_KEYS = new Set([
   "whatsapp",
 ]);
 
-const PERSONAL_FIELD_KEYS = new Set([
-  "tempatlahir",
-  "tanggallahir",
-  "jeniskelamin",
-  "jenikelamin",
-  "agama",
-  "pekerjaan",
-  "statusperkawinan",
-  "kewarganegaraan",
+// Fields that are auto-calculated by the server — hide from form
+const AUTO_CALC_FIELD_KEYS = new Set([
+  "masaberlaku",
+  "masa_berlaku",
+  "masaberlakudari",
+  "masaberlakusampai",
+  "validitas",
+  "tanggalberakhir",
 ]);
 
 function normalizeSpacing(value: string): string {
@@ -92,9 +91,11 @@ function isManagedField(field: TemplateField): boolean {
   return MANAGED_FIELD_KEYS.has(normalizeFieldKey(field.name));
 }
 
-function isPersonalField(field: TemplateField): boolean {
-  return PERSONAL_FIELD_KEYS.has(normalizeFieldKey(field.name));
+function isAutoCalcField(field: TemplateField): boolean {
+  return AUTO_CALC_FIELD_KEYS.has(normalizeFieldKey(field.name));
 }
+
+const AGAMA_OPTIONS = ["Islam", "Kristen", "Katolik", "Hindu", "Buddha", "Konghucu"];
 
 function renderField(
   field: TemplateField,
@@ -107,6 +108,28 @@ function renderField(
   const labelClassName = "mb-1 block text-sm font-medium text-gray-700";
   const wrapperClassName =
     field.type === "textarea" || key === "keperluan" ? "md:col-span-2" : "";
+
+  // Special case: render Agama as a fixed dropdown regardless of template field type
+  if (key === "agama") {
+    return (
+      <div key={field.name} className={wrapperClassName}>
+        <label className={labelClassName}>
+          {field.label} {field.required ? <span className="text-red-500">*</span> : null}
+        </label>
+        <select
+          value={values[field.name] ?? ""}
+          onChange={(event) => onFieldChange(field.name, event.target.value)}
+          required={field.required}
+          className={commonClassName}
+        >
+          <option value="">Pilih Agama</option>
+          {AGAMA_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
 
   if (field.type === "textarea") {
     return (
@@ -240,18 +263,9 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
     return `/permohonan/dinamis/${safeId}`;
   }, [params.id]);
 
-  const personalFields = useMemo(
-    () => (template?.fields ?? []).filter((field) => !isManagedField(field) && isPersonalField(field)),
-    [template]
-  );
-
-  const additionalFields = useMemo(
-    () => (template?.fields ?? []).filter((field) => !isManagedField(field) && !isPersonalField(field)),
-    [template]
-  );
-
-  const requiredAdminFields = useMemo(
-    () => (template?.fields ?? []).filter((field) => field.required && !isManagedField(field)),
+  // All template fields visible to user: exclude managed (nama/nik/alamat) and auto-calc (masa_berlaku)
+  const visibleTemplateFields = useMemo(
+    () => (template?.fields ?? []).filter((field) => !isManagedField(field) && !isAutoCalcField(field)),
     [template]
   );
 
@@ -450,7 +464,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
                   />
                   <p className="mt-1 text-xs text-gray-500">NIK mengikuti akun yang sedang login.</p>
                 </div>
-                {personalFields.map((field) => renderField(field, dynamicValues, handleFieldChange))}
+                {visibleTemplateFields.map((field) => renderField(field, dynamicValues, handleFieldChange))}
               </div>
             </section>
 
@@ -522,18 +536,6 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
               </div>
             </section>
 
-            {additionalFields.length > 0 && (
-              <section className="rounded-lg bg-white p-6 shadow-sm">
-                <h2 className="mb-2 border-b pb-2 text-lg font-semibold text-gray-900">Data Tambahan dari Admin</h2>
-                <p className="mb-4 text-sm text-gray-500">
-                  Lengkapi field tambahan berikut sesuai kebutuhan surat yang dibuat admin.
-                </p>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {additionalFields.map((field) => renderField(field, dynamicValues, handleFieldChange))}
-                </div>
-              </section>
-            )}
-
             <section className="rounded-lg bg-white p-6 shadow-sm">
               <h2 className="mb-4 border-b pb-2 text-lg font-semibold text-gray-900">Kontak Pemohon</h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -586,12 +588,6 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
                   />
                 </div>
                 <p className="text-xs text-gray-500">Format yang didukung: JPG, PNG, PDF. Upload hanya jika diperlukan.</p>
-                {requiredAdminFields.length > 0 && (
-                  <div className="rounded-lg border border-green-100 bg-green-50 p-4 text-sm text-green-800">
-                    <p className="font-semibold">Field wajib dari admin:</p>
-                    <p className="mt-1">{requiredAdminFields.map((field) => field.label).join(", ")}</p>
-                  </div>
-                )}
               </div>
             </section>
 

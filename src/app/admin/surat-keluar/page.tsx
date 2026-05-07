@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PopupDatePicker from "@/components/shared/PopupDatePicker";
+import {
+  TableActionAnchor,
+  TableActionButton,
+  TableActionGroup,
+  TableActionLink,
+  TableActionMuted,
+} from "@/components/shared/TableActionButton";
 import { FiInfo, FiRotateCcw, FiSearch } from "react-icons/fi";
 import * as XLSX from "xlsx";
 
@@ -434,45 +441,43 @@ export default function SuratKeluarPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-center align-middle">
-                      <div className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
+                      <TableActionGroup>
                         {(() => {
                           const refId = getReferenceId(s);
                           return (
                             <>
                         {s.file_path ? (
-                          <a
+                          <TableActionAnchor
                             href={`/admin/surat-keluar/${refId}/preview`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="aksi-btn aksi-btn-view"
+                            variant="view"
                           >
                             Lihat File
-                          </a>
+                          </TableActionAnchor>
                         ) : (
-                          <span className="aksi-btn-muted">
-                            Tidak ada file
-                          </span>
+                          <TableActionMuted>Tidak ada file</TableActionMuted>
                         )}
 
-                        <Link
+                        <TableActionLink
                           href={`/admin/surat-keluar/${refId}`}
-                          className="aksi-btn aksi-btn-edit"
+                          variant="edit"
                         >
                           Edit
-                        </Link>
+                        </TableActionLink>
 
-                        <button
+                        <TableActionButton
                           type="button"
                           onClick={() => handleDelete(s)}
                           disabled={deletingId === s.id}
-                          className="aksi-btn aksi-btn-delete"
+                          variant="delete"
                         >
                           {deletingId === s.id ? "Menghapus..." : "Hapus"}
-                        </button>
+                        </TableActionButton>
                             </>
                           );
                         })()}
-                      </div>
+                      </TableActionGroup>
                     </td>
                   </tr>
                   );

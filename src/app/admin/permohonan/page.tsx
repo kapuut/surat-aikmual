@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import PopupDatePicker from "@/components/shared/PopupDatePicker";
-import { FiInfo, FiRotateCcw, FiTrash2 } from "react-icons/fi";
+import {
+  TableActionAnchor,
+  TableActionButton,
+  TableActionGroup,
+} from "@/components/shared/TableActionButton";
+import { FiInfo, FiRotateCcw } from "react-icons/fi";
 
 type WorkflowStatus =
   | "pending"
@@ -724,20 +729,21 @@ export default function PermohonanAdminPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <a
+                            <TableActionGroup className="justify-start">
+                              <TableActionAnchor
                                 href={suratPreviewUrl}
-                                className={`aksi-btn ${isFinalizedStatus ? "aksi-btn-success" : "aksi-btn-view"}`}
+                                variant={isFinalizedStatus ? "success" : "view"}
                               >
                                 {isFinalizedStatus ? "Final" : "Draft"}
-                              </a>
-                            </div>
+                              </TableActionAnchor>
+                            </TableActionGroup>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-1.5 items-center justify-center">
+                            <TableActionGroup className="flex-wrap">
                               {(p.status === "pending" || p.status === "diproses" || p.status === "perlu_revisi") && (
                                 <>
-                                  <button
+                                  <TableActionButton
+                                    type="button"
                                     onClick={() =>
                                       handleUpdateStatus(
                                         p.id,
@@ -748,17 +754,18 @@ export default function PermohonanAdminPage() {
                                       )
                                     }
                                     disabled={actionId === p.id}
-                                    className="aksi-btn aksi-btn-primary"
+                                    variant="send"
                                   >
                                     Kirim ke Kades
-                                  </button>
-                                  <button
+                                  </TableActionButton>
+                                  <TableActionButton
+                                    type="button"
                                     onClick={() => openRejectDialog(p.id)}
                                     disabled={actionId === p.id}
-                                    className="aksi-btn aksi-btn-delete"
+                                    variant="reject"
                                   >
                                     Tolak
-                                  </button>
+                                  </TableActionButton>
                                 </>
                               )}
 
@@ -770,28 +777,28 @@ export default function PermohonanAdminPage() {
 
                               {(p.status === "ditandatangani" || p.status === "selesai") && (
                                 <>
-                                  <button
+                                  <TableActionButton
+                                    type="button"
                                     onClick={() => handleDelete(p.id)}
                                     disabled={deleteId === p.id}
-                                    className="aksi-btn aksi-btn-delete"
+                                    variant="delete"
                                   >
-                                    <FiTrash2 className="w-3 h-3" />
                                     {deleteId === p.id ? "Menghapus..." : "Hapus"}
-                                  </button>
+                                  </TableActionButton>
                                 </>
                               )}
 
                               {p.status === "ditolak" && (
-                                <button
+                                <TableActionButton
+                                  type="button"
                                   onClick={() => handleDelete(p.id)}
                                   disabled={deleteId === p.id}
-                                  className="aksi-btn aksi-btn-delete"
+                                  variant="delete"
                                 >
-                                  <FiTrash2 className="w-3 h-3" />
                                   {deleteId === p.id ? "Menghapus..." : "Hapus"}
-                                </button>
+                                </TableActionButton>
                               )}
-                            </div>
+                            </TableActionGroup>
                           </td>
                         </tr>
                       );

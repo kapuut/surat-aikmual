@@ -308,50 +308,42 @@ export default function UserDashboardLayout({ children, onLogout }: UserDashboar
 
       {/* Main Content */}
       <main className="flex-1 h-screen bg-gray-50 overflow-y-auto w-full">
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0">
+        <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Hamburger button — mobile only */}
             <button
-              className="md:hidden mt-1 p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg shrink-0"
+              className="md:hidden p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg shrink-0"
               onClick={() => setIsMobileMenuOpen(true)}
               aria-label="Buka menu navigasi"
             >
               <FiMenu className="w-5 h-5" />
             </button>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{headerContent.eyebrow}</p>
-              <h1 className="mt-1 text-xl md:text-2xl font-bold text-gray-900">{headerContent.title}</h1>
-              <p className="mt-1 text-sm text-gray-600 max-w-3xl">{headerContent.description}</p>
+              <p className="hidden md:block text-xs font-semibold uppercase tracking-wide text-blue-600">{headerContent.eyebrow}</p>
+              <h1 className="text-base md:text-2xl font-bold text-gray-900 leading-tight truncate">{headerContent.title}</h1>
+              <p className="hidden md:block mt-1 text-sm text-gray-600 max-w-3xl">{headerContent.description}</p>
             </div>
           </div>
 
-          <div className="relative" ref={profileRef}>
+          <div className="relative shrink-0" ref={profileRef}>
             <button
               onClick={() => setIsProfileOpen((prev) => !prev)}
-              className="flex h-9 items-center gap-2 bg-gray-100 hover:bg-gray-200 rounded-lg px-2.5 transition"
+              className="flex h-8 md:h-9 items-center gap-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg px-2 md:px-2.5 transition"
             >
-              <span className="w-7 h-7 rounded-full bg-slate-900 text-white text-xs font-semibold flex items-center justify-center">
+              <span className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-slate-900 text-white text-xs font-semibold flex items-center justify-center">
                 {initials || 'MS'}
               </span>
-              <span className="hidden sm:flex h-7 max-w-[180px] items-center truncate text-xs font-medium text-gray-700 leading-none">{userName}</span>
-              <FiChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
+              <span className="hidden sm:flex h-7 items-center text-xs font-medium text-gray-700 leading-none truncate max-w-[80px]">{userName}</span>
+              <FiChevronDown className={`h-3.5 w-3.5 text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isProfileOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-30">
-                <Link
-                  href="/profile"
-                  onClick={() => setIsProfileOpen(false)}
-                  className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                >
-                  <FiUser className="w-4 h-4" />
-                  Profil Saya
-                </Link>
+              <div className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-30">
                 <button
                   onClick={onLogout}
-                  className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  className="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                 >
-                  <FiLogOut className="w-4 h-4" />
+                  <FiLogOut className="w-3.5 h-3.5" />
                   Logout
                 </button>
               </div>
