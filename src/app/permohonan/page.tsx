@@ -30,8 +30,8 @@ const SURAT_TYPES = [
   },
   {
     slug: 'surat-janda',
-    title: 'Surat Keterangan Janda',
-    description: 'Surat yang menyatakan status janda',
+    title: 'Surat Keterangan Janda/Duda',
+    description: 'Surat yang menyatakan status janda atau duda',
   },
   {
     slug: 'surat-kehilangan',
@@ -82,6 +82,7 @@ export default function PermohonanPage() {
   useRequireAuth();
 
   const [dynamicTemplates, setDynamicTemplates] = useState<DynamicTemplateSummary[]>([]);
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +101,8 @@ export default function PermohonanPage() {
         }
       } catch {
         // Keep static cards when dynamic endpoint is unavailable.
+      } finally {
+        if (!cancelled) setTemplatesLoaded(true);
       }
     };
 
@@ -159,6 +162,18 @@ export default function PermohonanPage() {
 
     return mergedCards;
   }, [dynamicTemplates]);
+
+  if (!templatesLoaded) {
+    return (
+      <SimpleLayout useSidebar>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="h-36 bg-gray-200 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      </SimpleLayout>
+    );
+  }
 
   return (
     <SimpleLayout useSidebar>

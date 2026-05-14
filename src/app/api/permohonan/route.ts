@@ -25,8 +25,10 @@ type WorkflowStatus =
 
 type DynamicTemplateLookupRow = {
   id: string;
+  nama?: string;
   jenis_surat: string;
   status: string;
+  html_template?: string;
   fields_json?: string;
 };
 
@@ -119,6 +121,42 @@ function normalizeDateValue(value: string): string | null {
   const parsed = new Date(trimmed);
   if (Number.isNaN(parsed.getTime())) return null;
   return formatDateYmd(parsed);
+}
+
+function parseCompositeBirthValue(value: string): { tempatLahir?: string; tanggalLahirRaw?: string } {
+  const cleaned = normalizeSpacing(value);
+  if (!cleaned) return {};
+
+  const [tempatPart, ...restParts] = cleaned.split(',');
+  const tanggalPart = restParts.join(',').trim();
+
+  if (!tanggalPart) {
+    return { tempatLahir: tempatPart.trim() };
+  }
+
+  return {
+    tempatLahir: tempatPart.trim(),
+    tanggalLahirRaw: tanggalPart,
+  };
+}
+
+function composeBirthLabel(tempatLahir: string, tanggalLahir: string | null): string {
+  if (tempatLahir && tanggalLahir) {
+    return `${tempatLahir}, ${tanggalLahir}`;
+  }
+  if (tempatLahir) {
+    return tempatLahir;
+  }
+  if (tanggalLahir) {
+    return tanggalLahir;
+  }
+  return '';
+}
+
+function maskNikForLog(value: string): string {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length <= 4) return digits;
+  return `${'*'.repeat(Math.max(0, digits.length - 4))}${digits.slice(-4)}`;
 }
 
 function formatDateYmd(value: Date): string {
@@ -409,7 +447,7 @@ async function findActiveDynamicTemplate(
     const trimmedId = dynamicTemplateId.trim();
     if (trimmedId) {
       const [rows] = await db.execute(
-        `SELECT id, jenis_surat, status, fields_json
+        `SELECT id, nama, jenis_surat, status, html_template, fields_json
          FROM dynamic_template_surat
          WHERE id = ? AND status = 'aktif'
          LIMIT 1`,
@@ -424,7 +462,7 @@ async function findActiveDynamicTemplate(
     if (!trimmedJenisSurat) return null;
 
     const [rows] = await db.execute(
-      `SELECT id, jenis_surat, status, fields_json
+      `SELECT id, nama, jenis_surat, status, html_template, fields_json
        FROM dynamic_template_surat
        WHERE LOWER(TRIM(jenis_surat)) = LOWER(TRIM(?))
          AND status = 'aktif'
@@ -497,21 +535,12 @@ async function handlePermohonanPost(request: Request) {
     const dynamicTemplateId = getFirstStringValue(payload, ['dynamicTemplateId', 'dynamic_template_id']);
     // When dynamicTemplateId is explicitly provided, look up the dynamic template first.
     // Static surat-slug validations only apply when there is no matching dynamic template.
-    const customTemplate = dynamicTemplateId
-      ? await findActiveDynamicTemplate(dynamicTemplateId, rawJenisSurat)
-      : null;
+    const customTemplate = await findActiveDynamicTemplate(dynamicTemplateId, rawJenisSurat);
     const suratSlug = customTemplate ? null : normalizeSuratSlug(rawJenisSurat);
 
     if (!suratSlug && !customTemplate) {
       return NextResponse.json(
         { error: 'Jenis surat tidak tersedia' },
-        { status: 400 }
-      );
-    }
-
-    if (suratSlug === 'surat-cerai' && !hasUploadedFileValue(payload.dokumenAktaCerai)) {
-      return NextResponse.json(
-        { error: 'Upload Akta Cerai wajib untuk permohonan surat cerai' },
         { status: 400 }
       );
     }
@@ -532,15 +561,21 @@ async function handlePermohonanPost(request: Request) {
       'no_wa',
       'whatsapp',
     ]);
-    const tempatLahir = toTitleCase(getFirstStringValue(payload, [
+    const tempatTanggalLahirRaw = getFirstStringValue(payload, [
+      'tempat_tanggal_lahir',
+      'tempatTanggalLahir',
+      'ttl',
+    ]);
+    const parsedCompositeBirth = parseCompositeBirthValue(tempatTanggalLahirRaw);
+    const tempatLahirRaw = getFirstStringValue(payload, [
       'tempatLahir',
       'tempat_lahir',
       'tempatLahirPemohon',
       'tempat_lahir_pemohon',
       'tempatLahirAlmarhum',
       'tempat_lahir_almarhum',
-    ]));
-    const tanggalLahirRaw = getFirstStringValue(payload, [
+    ]);
+    const tanggalLahirRawInput = getFirstStringValue(payload, [
       'tanggalLahir',
       'tanggal_lahir',
       'tanggalLahirPemohon',
@@ -548,6 +583,8 @@ async function handlePermohonanPost(request: Request) {
       'tanggalLahirAlmarhum',
       'tanggal_lahir_almarhum',
     ]);
+    const tempatLahir = toTitleCase(tempatLahirRaw || parsedCompositeBirth.tempatLahir || '');
+    const tanggalLahirRaw = tanggalLahirRawInput || parsedCompositeBirth.tanggalLahirRaw || '';
     const jenisKelamin = getFirstStringValue(payload, [
       'jenisKelamin',
       'jenis_kelamin',
@@ -622,7 +659,7 @@ async function handlePermohonanPost(request: Request) {
     const labelNomorBarang = toTitleCase(getFirstStringValue(payload, ['labelNomorBarang', 'label_nomor_barang'])) || 'Nomor';
     const nomorBarang = normalizeSpacing(getFirstStringValue(payload, ['nomorBarang', 'nomor_barang']));
     const ciriBarang = toTitleCase(getFirstStringValue(payload, ['ciriBarang', 'ciri_barang', 'deskripsiBarang', 'deskripsi_barang']));
-    const uraianKehilangan = normalizeSpacing(getFirstStringValue(payload, [
+    const uraianKehilangan = toTitleCase(getFirstStringValue(payload, [
       'keteranganKehilangan',
       'keterangan_kehilangan',
       'uraianKehilangan',
@@ -758,6 +795,7 @@ async function handlePermohonanPost(request: Request) {
       }) || toTitleCase(alamatPasanganRaw);
 
     const tanggalLahir = normalizeDateValue(tanggalLahirRaw);
+    const tempatTanggalLahir = composeBirthLabel(tempatLahir, tanggalLahir);
     let masaBerlakuDari = normalizeDateValue(masaBerlakuDariRaw);
     let masaBerlakuSampai = normalizeDateValue(masaBerlakuSampaiRaw);
     const tanggalKehilangan = normalizeDateValue(tanggalKehilanganRaw);
@@ -776,6 +814,20 @@ async function handlePermohonanPost(request: Request) {
     const tanggalCerai = normalizeDateValue(tanggalCeraiRaw);
     const tanggalKejadianJanda = normalizeDateValue(tanggalKejadianJandaRaw);
 
+    if (tanggalLahirRaw && !tanggalLahir) {
+      return NextResponse.json(
+        { error: 'Format tanggal lahir tidak valid. Gunakan format tanggal yang benar.' },
+        { status: 400 }
+      );
+    }
+
+    if (tempatTanggalLahirRaw && (!tempatLahir || !tanggalLahir)) {
+      return NextResponse.json(
+        { error: 'Format Tempat, Tanggal Lahir tidak valid. Gunakan format "Tempat, YYYY-MM-DD".' },
+        { status: 400 }
+      );
+    }
+
     const normalizedStatusPerkawinan =
       statusPerkawinan || (statusJanda ? `${statusJanda}${alasanStatusJanda ? ` (${alasanStatusJanda})` : ''}` : '');
 
@@ -788,8 +840,27 @@ async function handlePermohonanPost(request: Request) {
     const nik = isMasyarakat && nikUser ? nikUser : nikInput;
     const effectiveTelepon = teleponInput || teleponUser;
 
+    console.info('[permohonan][submit] birth-data-input', {
+      jenisSurat: resolvedJenisSurat,
+      nik: maskNikForLog(nik),
+      hasTempatLahir: Boolean(tempatLahir),
+      hasTanggalLahir: Boolean(tanggalLahir),
+      hasCompositeInput: Boolean(tempatTanggalLahirRaw),
+      compositeValue: tempatTanggalLahir || tempatTanggalLahirRaw || null,
+    });
+
     const detailData: Record<string, unknown> = {
       dynamic_template_id: customTemplate?.id || dynamicTemplateId || undefined,
+      dynamic_template_snapshot: customTemplate
+        ? {
+            id: customTemplate.id,
+            nama: customTemplate.nama || undefined,
+            jenis_surat: customTemplate.jenis_surat || undefined,
+            html_template: customTemplate.html_template || undefined,
+            fields_json: customTemplate.fields_json || undefined,
+          }
+        : undefined,
+      tempat_tanggal_lahir: tempatTanggalLahir || tempatTanggalLahirRaw || undefined,
       tempat_lahir: tempatLahir || undefined,
       tanggal_lahir: tanggalLahir || undefined,
       jenis_kelamin: jenisKelamin || undefined,
@@ -922,9 +993,12 @@ async function handlePermohonanPost(request: Request) {
       );
     }
 
-    if (!effectiveTelepon || !isValidWhatsAppNumber(effectiveTelepon)) {
+    const resolvedSuratSlug = suratSlug || normalizeSuratSlug(resolvedJenisSurat);
+
+    // Surat masih hidup tidak memerlukan nomor HP (kompatibilitas form lama).
+    if (resolvedSuratSlug !== 'surat-masih-hidup' && (!effectiveTelepon || !isValidWhatsAppNumber(effectiveTelepon))) {
       return NextResponse.json(
-        { error: 'Nomor WhatsApp aktif wajib diisi dan harus valid untuk notifikasi proses surat' },
+        { error: 'Nomor HP aktif wajib diisi dan harus valid untuk proses layanan surat' },
         { status: 400 }
       );
     }
@@ -948,7 +1022,16 @@ async function handlePermohonanPost(request: Request) {
 
       const missingRequired = templateFields
         .filter((f) => f.required && !managedFieldKeys.has(normalizeKey(f.name)))
-        .filter((f) => !getFirstStringValue(payload, [f.name, normalizeKey(f.name)]))
+        .filter((f) => {
+          // tempat_tanggal_lahir* is split into tempat_lahir* + tanggal_lahir* in the form
+          if (/^tempat_tanggal_lahir/.test(f.name)) {
+            const suffix = f.name.replace('tempat_tanggal_lahir', '');
+            const tempatVal = getFirstStringValue(payload, [`tempat_lahir${suffix}`]);
+            const tanggalVal = getFirstStringValue(payload, [`tanggal_lahir${suffix}`]);
+            return !tempatVal || !tanggalVal;
+          }
+          return !getFirstStringValue(payload, [f.name, normalizeKey(f.name)]);
+        })
         .map((f) => f.label);
 
       if (missingRequired.length > 0) {
@@ -1205,6 +1288,30 @@ async function handlePermohonanPost(request: Request) {
     const insertVariants: Array<{ query: string; values: unknown[] }> = [
       {
         query: `INSERT INTO permohonan_surat 
+         (jenis_surat, nama_pemohon, nik, alamat, keperluan, tempat_lahir, tanggal_lahir, jenis_kelamin, agama, pekerjaan, status_perkawinan, kewarganegaraan, masa_berlaku_dari, masa_berlaku_sampai, data_detail, dokumen_path, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        values: [
+          resolvedJenisSurat,
+          namaPemohon,
+          nik,
+          alamat,
+          keperluan,
+          tempatLahir || null,
+          tanggalLahir,
+          jenisKelamin || null,
+          agama || null,
+          pekerjaan || null,
+          normalizedStatusPerkawinan || null,
+          kewarganegaraan,
+          masaBerlakuDari,
+          masaBerlakuSampai,
+          detailDataJson,
+          filePayload,
+          'pending',
+        ],
+      },
+      {
+        query: `INSERT INTO permohonan_surat 
          (jenis_surat, nama_pemohon, nik, alamat, keperluan, tempat_lahir, tanggal_lahir, jenis_kelamin, agama, pekerjaan, status_perkawinan, kewarganegaraan, masa_berlaku_dari, masa_berlaku_sampai, dokumen_path, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         values: [
@@ -1254,21 +1361,111 @@ async function handlePermohonanPost(request: Request) {
 
     let result: any = null;
     let lastUnknownColumnError: unknown;
-    for (const variant of insertVariants) {
+    let usedInsertVariant = -1;
+    for (let variantIndex = 0; variantIndex < insertVariants.length; variantIndex++) {
+      const variant = insertVariants[variantIndex];
       try {
         const [insertResult]: any = await db.execute(variant.query, variant.values);
         result = insertResult;
+        usedInsertVariant = variantIndex;
+        console.info('[permohonan][submit] insert-success', {
+          insertId: insertResult?.insertId,
+          variantIndex,
+          jenisSurat: resolvedJenisSurat,
+          nik: maskNikForLog(nik),
+        });
         break;
       } catch (error: any) {
         if (!String(error?.message || '').toLowerCase().includes('unknown column')) {
           throw error;
         }
+        console.warn('[permohonan][submit] insert-unknown-column-fallback', {
+          variantIndex,
+          message: String(error?.message || ''),
+        });
         lastUnknownColumnError = error;
       }
     }
 
     if (!result) {
       throw lastUnknownColumnError || new Error('Gagal menyimpan permohonan ke database');
+    }
+
+    const shouldVerifyBirthPersistence = Boolean(tempatLahir || tanggalLahir || tempatTanggalLahirRaw);
+    if (shouldVerifyBirthPersistence && Number.isFinite(Number(result.insertId))) {
+      const insertId = Number(result.insertId);
+      let storedTempatLahir = '';
+      let storedTanggalLahir = '';
+
+      try {
+        const [rows]: any = await db.execute(
+          `SELECT tempat_lahir, tanggal_lahir, data_detail
+           FROM permohonan_surat
+           WHERE id = ?
+           LIMIT 1`,
+          [insertId]
+        );
+        const row = (rows as any[])?.[0] || {};
+        storedTempatLahir = String(row.tempat_lahir || '').trim();
+        storedTanggalLahir = row.tanggal_lahir ? String(row.tanggal_lahir).slice(0, 10) : '';
+
+        if ((!storedTempatLahir || !storedTanggalLahir) && row.data_detail) {
+          const parsed = JSON.parse(String(row.data_detail));
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            if (!storedTempatLahir) {
+              storedTempatLahir = String((parsed as Record<string, unknown>).tempat_lahir || '').trim();
+            }
+            if (!storedTanggalLahir) {
+              const parsedTanggal = String((parsed as Record<string, unknown>).tanggal_lahir || '').trim();
+              storedTanggalLahir = parsedTanggal ? String(parsedTanggal).slice(0, 10) : '';
+            }
+          }
+        }
+      } catch (readError: any) {
+        const message = String(readError?.message || '').toLowerCase();
+        if (!message.includes('unknown column')) {
+          throw readError;
+        }
+
+        // Fallback schema lama: cek hanya dari data_detail
+        const [rows]: any = await db.execute(
+          `SELECT data_detail
+           FROM permohonan_surat
+           WHERE id = ?
+           LIMIT 1`,
+          [insertId]
+        );
+        const row = (rows as any[])?.[0] || {};
+        if (row.data_detail) {
+          const parsed = JSON.parse(String(row.data_detail));
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            storedTempatLahir = String((parsed as Record<string, unknown>).tempat_lahir || '').trim();
+            const parsedTanggal = String((parsed as Record<string, unknown>).tanggal_lahir || '').trim();
+            storedTanggalLahir = parsedTanggal ? String(parsedTanggal).slice(0, 10) : '';
+          }
+        }
+      }
+
+      console.info('[permohonan][submit] birth-data-saved', {
+        insertId,
+        variantIndex: usedInsertVariant,
+        hasStoredTempatLahir: Boolean(storedTempatLahir),
+        hasStoredTanggalLahir: Boolean(storedTanggalLahir),
+      });
+
+      const missingTempatLahir = Boolean(tempatLahir) && !storedTempatLahir;
+      const missingTanggalLahir = Boolean(tanggalLahir) && !storedTanggalLahir;
+      if (missingTempatLahir || missingTanggalLahir) {
+        console.error('[permohonan][submit] birth-data-persistence-failed', {
+          insertId,
+          missingTempatLahir,
+          missingTanggalLahir,
+        });
+        return NextResponse.json(
+          { error: 'Data Tempat/Tanggal Lahir gagal tersimpan. Silakan kirim ulang permohonan.' },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({ 

@@ -1206,7 +1206,11 @@ export default function TemplateSuratPage() {
 
     setSelectedDynamicTemplateId(templateId);
 
-    const blueprint = DEFAULT_EDIT_BLUEPRINTS[templateId];
+    // Only use the hardcoded blueprint when the template has NOT been saved to DB yet.
+    // Once a template has been customised and saved, always load from the saved data so
+    // edits (like removing a field) are actually reflected when the modal is reopened.
+    const isAlreadySaved = customDynamicTemplates.some((t) => t.id === templateId);
+    const blueprint = isAlreadySaved ? undefined : DEFAULT_EDIT_BLUEPRINTS[templateId];
     if (blueprint) {
       const mainFields = blueprint.fields.filter((f) => !SECOND_PARTY_FIELD_NAMES.has(f.name));
       const hasPihak2 = !!blueprint.secondPartyFields?.length ||
@@ -1461,6 +1465,10 @@ export default function TemplateSuratPage() {
   const handleSaveEditedTemplate = async () => {
     if (!selectedDynamicTemplate) return;
 
+    const normalizedDeskripsi = String(selectedDynamicTemplate.deskripsi || "").trim();
+    const fallbackDeskripsi = generateDeskripsi(String(selectedDynamicTemplate.id || "").trim());
+    const deskripsiToSave = normalizedDeskripsi || fallbackDeskripsi;
+
     const normalizedFields = editingFields
       .map((field) => ({
         ...field,
@@ -1582,7 +1590,7 @@ export default function TemplateSuratPage() {
           id: selectedDynamicTemplate.id,
           nama: selectedDynamicTemplate.nama,
           jenisSurat: selectedDynamicTemplate.jenisSurat,
-          deskripsi: selectedDynamicTemplate.deskripsi,
+          deskripsi: deskripsiToSave,
           htmlTemplate: generatedHtmlTemplate,
           fields: payloadFields,
         }),
@@ -2019,13 +2027,6 @@ export default function TemplateSuratPage() {
                   <div className="bg-blue-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center">
                     <span className="text-sm font-bold text-blue-700">TMPL</span>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    isCustom
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {isCustom ? 'Aktif' : 'Default'}
-                  </span>
                 </div>
                 
                 <h3 className="text-lg font-semibold text-gray-800 mb-1">

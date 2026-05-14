@@ -118,19 +118,12 @@ export default function PreviewSekretarisSuratMasukPage() {
             {detail?.file_path ? (
               <>
                 <a
-                  href={detail.file_path}
-                  download={fileName}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                >
-                  Unduh File
-                </a>
-                <a
-                  href={detail.file_path}
+                  href={/\.(html|htm|xhtml)$/i.test(detail.file_path) ? `${detail.file_path}?print=1` : /\.(doc|docx)$/i.test(detail.file_path) ? `/api/files/docx-print?path=${encodeURIComponent(detail.file_path)}` : detail.file_path}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                 >
-                  <FiExternalLink className="h-4 w-4" /> Buka File Asli
+                  <FiExternalLink className="h-4 w-4" /> Unduh
                 </a>
               </>
             ) : null}
@@ -150,56 +143,44 @@ export default function PreviewSekretarisSuratMasukPage() {
           ) : null}
 
           {!loading && !error && previewKind === "pdf" && detail?.file_path ? (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">Nama file: {fileName}</p>
-              <iframe
-                src={detail.file_path}
-                title={title}
-                className="min-h-[78vh] w-full rounded-xl border border-slate-200 bg-slate-100"
-              />
-            </div>
+            <iframe
+              src={detail.file_path}
+              title={title}
+              className="min-h-[78vh] w-full rounded-xl border border-slate-200 bg-slate-100"
+            />
           ) : null}
 
           {!loading && !error && previewKind === "image" && detail?.file_path ? (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">Nama file: {fileName}</p>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <img src={detail.file_path} alt={title} className="mx-auto max-w-full rounded-lg shadow-sm" />
-              </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <img src={detail.file_path} alt={title} className="mx-auto max-w-full rounded-lg shadow-sm" />
             </div>
           ) : null}
 
           {!loading && !error && previewKind === "docx" && detail?.file_path ? (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">Nama file: {fileName}</p>
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                <object
-                  data={detail.file_path}
-                  type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  className="min-h-[78vh] w-full"
-                >
-                  <div className="p-4 text-sm text-slate-600">
-                    Browser tidak mendukung preview Word langsung. Gunakan tombol <strong>Buka File Asli</strong> atau <strong>Unduh File</strong>.
-                  </div>
-                </object>
-              </div>
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+              <object
+                data={detail.file_path}
+                type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                className="min-h-[78vh] w-full"
+              >
+                <div className="p-4 text-sm text-slate-600">
+                  Browser tidak mendukung preview Word langsung. Gunakan tombol <strong>Buka File Asli</strong>.
+                </div>
+              </object>
             </div>
           ) : null}
 
           {!loading && !error && previewKind === "doc" && detail?.file_path ? (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">Nama file: {fileName}</p>
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                <object
-                  data={detail.file_path}
-                  type="application/msword"
-                  className="min-h-[78vh] w-full"
-                >
-                  <div className="p-4 text-sm text-slate-600">
-                    Browser tidak mendukung preview Word langsung. Gunakan tombol <strong>Buka File Asli</strong> atau <strong>Unduh File</strong>.
-                  </div>
-                </object>
-              </div>
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+              <object
+                data={detail.file_path}
+                type="application/msword"
+                className="min-h-[78vh] w-full"
+              >
+                <div className="p-4 text-sm text-slate-600">
+                  Browser tidak mendukung preview Word langsung. Gunakan tombol <strong>Buka File Asli</strong>.
+                </div>
+              </object>
             </div>
           ) : null}
 

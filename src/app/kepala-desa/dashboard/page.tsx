@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { AuthUser } from '@/lib/types';
 import { useRequireRole, useSharedStats } from '@/lib/hooks';
 import PopupDatePicker from '@/components/shared/PopupDatePicker';
@@ -30,6 +31,11 @@ const BAR_COLOR_PALETTE = [
   '#ea580c',
 ];
 
+const DEFAULT_CHART_SORT = 'date_desc';
+const DEFAULT_CHART_PAGE = 1;
+const DEFAULT_CHART_PAGE_SIZE = 20;
+const DASHBOARD_FILTER_QUERY_KEYS = ['date_from', 'date_to', 'sort', 'page', 'page_size'] as const;
+
 interface SuratMasukDateRow {
   tanggal_terima?: string;
   tanggal_surat?: string;
@@ -47,6 +53,7 @@ function parseDate(value?: string): Date | null {
 }
 
 export default function HeadVillageDashboardPage() {
+  const pathname = usePathname();
   const { user: authorizedUser, loading, isAuthenticated } = useRequireRole(['kepala_desa']);
   const { stats, loading: statsLoading } = useSharedStats();
   const now = useMemo(() => new Date(), []);
@@ -123,10 +130,13 @@ export default function HeadVillageDashboardPage() {
       const params = new URLSearchParams();
       if (dateFrom) params.set('date_from', dateFrom);
       if (dateTo) params.set('date_to', dateTo);
-      params.set('sort', 'date_desc');
+      params.set('sort', DEFAULT_CHART_SORT);
+      params.set('page', String(DEFAULT_CHART_PAGE));
+      params.set('page_size', String(DEFAULT_CHART_PAGE_SIZE));
 
       const response = await fetch(`/api/stats/surat-jenis?${params.toString()}`, {
         credentials: 'include',
+        cache: 'no-store',
       });
       const result = await response.json();
 
@@ -147,42 +157,62 @@ export default function HeadVillageDashboardPage() {
 
   useEffect(() => {
     if (!authorizedUser) return;
-    fetchJenisSuratChart();
-  }, [authorizedUser]);
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      DASHBOARD_FILTER_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
+      const nextQuery = url.searchParams.toString();
+      window.history.replaceState({}, '', `${pathname}${nextQuery ? `?${nextQuery}` : ''}`);
+    }
+
+    fetchJenisSuratChart({ dateFrom: '', dateTo: '' });
+  }, [authorizedUser, pathname]);
 
   const pendingApproval = stats?.permohonan.menunggu_tanda_tangan ?? stats?.permohonan.pending ?? 0;
-  const totalApproved = stats?.permohonan.selesai_ditandatangani ?? stats?.permohonan.disetujui ?? 0;
+  const totalPermohonanSelesai = stats?.permohonan.total ?? stats?.permohonan.selesai_ditandatangani ?? stats?.permohonan.disetujui ?? 0;
   const totalSuratMasuk = stats?.suratMasuk.total ?? 0;
-  const hasSuratKeluarRows = suratKeluarRows.length > 0;
-  const suratKeluarBulanIniFromRows = suratKeluarRows.filter((item) => {
-    const parsed = parseDate(item.tanggal_surat);
-    if (!parsed) return false;
-    const now = new Date();
-    return parsed.getMonth() === now.getMonth() && parsed.getFullYear() === now.getFullYear();
-  }).length;
-  const totalSuratKeluar = hasSuratKeluarRows ? suratKeluarRows.length : (stats?.suratKeluar.total ?? 0);
-  const totalDraftKeluar = hasSuratKeluarRows
-    ? suratKeluarRows.filter((item) => String(item.status || '').trim().toLowerCase() === 'draft').length
-    : (stats?.suratKeluar.draft ?? 0);
-  const totalSuratKeluarBulanIni = hasSuratKeluarRows
-    ? suratKeluarBulanIniFromRows
-    : (stats?.suratKeluar.bulanIni ?? 0);
-  const totalBulanIni = (stats?.suratMasuk.bulanIni ?? 0) + totalSuratKeluarBulanIni;
+  const totalSuratKeluar = stats?.suratKeluar.total ?? suratKeluarRows.length;
+  const totalDraftKeluar = stats?.suratKeluar.draft
+    ?? suratKeluarRows.filter((item) => String(item.status || '').trim().toLowerCase() === 'draft').length;
   const totalBelumDibacaMasuk = stats?.suratMasuk.belumDibaca ?? 0;
 
   const applyFilters = () => {
-    fetchJenisSuratChart();
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (chartDateFrom) {
+        url.searchParams.set('date_from', chartDateFrom);
+      } else {
+        url.searchParams.delete('date_from');
+      }
+      if (chartDateTo) {
+        url.searchParams.set('date_to', chartDateTo);
+      } else {
+        url.searchParams.delete('date_to');
+      }
+      url.searchParams.set('sort', DEFAULT_CHART_SORT);
+      url.searchParams.set('page', String(DEFAULT_CHART_PAGE));
+      url.searchParams.set('page_size', String(DEFAULT_CHART_PAGE_SIZE));
+      window.history.replaceState({}, '', `${pathname}?${url.searchParams.toString()}`);
+    }
+
+    fetchJenisSuratChart({
+      dateFrom: chartDateFrom,
+      dateTo: chartDateTo,
+    });
   };
 
   const resetFilters = () => {
-    const defaultFilters = {
-      dateFrom: '',
-      dateTo: '',
-    };
+    setChartDateFrom('');
+    setChartDateTo('');
 
-    setChartDateFrom(defaultFilters.dateFrom);
-    setChartDateTo(defaultFilters.dateTo);
-    fetchJenisSuratChart(defaultFilters);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      DASHBOARD_FILTER_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
+      const nextQuery = url.searchParams.toString();
+      window.history.replaceState({}, '', `${pathname}${nextQuery ? `?${nextQuery}` : ''}`);
+    }
+
+    fetchJenisSuratChart({ dateFrom: '', dateTo: '' });
   };
 
   const filterDescription = useMemo(() => {
@@ -200,6 +230,15 @@ export default function HeadVillageDashboardPage() {
     const end = chartDateTo || chartDateFrom;
     return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${chartTotalSurat} data`;
   }, [chartDateFrom, chartDateTo, chartTotalSurat]);
+
+  const chartYear = useMemo(() => {
+    const fromYear = chartDateFrom ? new Date(`${chartDateFrom}T00:00:00`).getFullYear() : null;
+    const toYear = chartDateTo ? new Date(`${chartDateTo}T00:00:00`).getFullYear() : null;
+    if (fromYear && toYear && fromYear === toYear) return fromYear;
+    if (fromYear && !toYear) return fromYear;
+    if (!fromYear && toYear) return toYear;
+    return new Date().getFullYear();
+  }, [chartDateFrom, chartDateTo]);
 
   const hasChartFilter =
     chartDateFrom !== '' ||
@@ -240,7 +279,7 @@ export default function HeadVillageDashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-600 mb-1">Disetujui / Selesai</p>
-              <p className="text-3xl font-bold text-gray-900">{totalApproved}</p>
+              <p className="text-3xl font-bold text-gray-900">{totalPermohonanSelesai}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
               <FiCheckCircle className="w-6 h-6 text-green-600" />
@@ -343,7 +382,7 @@ export default function HeadVillageDashboardPage() {
           {!chartLoading && !chartError && chartData.length > 0 && (
             <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
               <div className="mb-4">
-                <p className="text-base font-semibold text-gray-800">Grafik Surat</p>
+                <p className="text-base font-semibold text-gray-800">Grafik Surat Tahun {chartYear}</p>
                 <p className="text-xs text-gray-500 mt-1">Perbandingan Jumlah Surat per Jenis</p>
               </div>
 
@@ -403,14 +442,10 @@ export default function HeadVillageDashboardPage() {
               Ringkasan
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs uppercase tracking-wide text-gray-500">Total</p>
               <p className="text-2xl font-bold text-gray-900">{totalSuratMasuk}</p>
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Bulan Ini</p>
-              <p className="text-2xl font-bold text-gray-900">{stats?.suratMasuk.bulanIni ?? 0}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs uppercase tracking-wide text-gray-500">Belum Dibaca</p>
@@ -435,14 +470,10 @@ export default function HeadVillageDashboardPage() {
               Ringkasan
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs uppercase tracking-wide text-gray-500">Total</p>
               <p className="text-2xl font-bold text-gray-900">{totalSuratKeluar}</p>
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Bulan Ini</p>
-              <p className="text-2xl font-bold text-gray-900">{totalSuratKeluarBulanIni}</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs uppercase tracking-wide text-gray-500">Draft</p>
@@ -466,7 +497,7 @@ export default function HeadVillageDashboardPage() {
               <FiFileText className="w-5 h-5 text-orange-600" /> Tindak Lanjut Permohonan
             </h3>
             <p className="text-sm text-gray-500 mt-1">
-              Saat ini ada {pendingApproval} permohonan menunggu persetujuan. Total surat bulan ini: {totalBulanIni}.
+              Saat ini ada {pendingApproval} permohonan menunggu persetujuan dan {totalPermohonanSelesai} permohonan selesai atau sudah ditandatangani.
             </p>
           </div>
           <div className="flex items-center gap-2">

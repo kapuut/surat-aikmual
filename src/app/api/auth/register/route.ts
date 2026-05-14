@@ -74,9 +74,9 @@ export async function POST(request: Request) {
     const dokumenKTP = formData?.get('dokumenKTP');
     const dokumenKK = formData?.get('dokumenKK');
 
-    if (!nama || !email || !nik || !password || !alamat || !telepon) {
+    if (!nama || !nik || !password || !alamat || !telepon) {
       return NextResponse.json(
-        { error: 'Semua field wajib diisi, termasuk nomor WhatsApp aktif' },
+        { error: 'Nama, NIK, password, alamat, dan nomor HP aktif wajib diisi' },
         { status: 400 }
       );
     }
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isValidEmail(email)) {
+    if (email && !isValidEmail(email)) {
       return NextResponse.json(
         { error: 'Format email tidak valid' },
         { status: 400 }
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
 
     if (!isValidPhone(telepon)) {
       return NextResponse.json(
-        { error: 'Format nomor WhatsApp tidak valid' },
+        { error: 'Format nomor HP tidak valid' },
         { status: 400 }
       );
     }
@@ -128,13 +128,17 @@ export async function POST(request: Request) {
       [nik]
     );
 
-    const [existingEmailRows] = await db.execute(
-      'SELECT 1 FROM users WHERE LOWER(email) = ? LIMIT 1',
-      [email]
-    );
+    const [existingEmailRows] = email
+      ? await db.execute(
+          'SELECT 1 FROM users WHERE LOWER(email) = ? LIMIT 1',
+          [email]
+        )
+      : [[] as unknown[]];
 
     const nikSudahTerdaftar = Array.isArray(existingNikRows) && existingNikRows.length > 0;
-    const emailSudahTerdaftar = Array.isArray(existingEmailRows) && existingEmailRows.length > 0;
+    const emailSudahTerdaftar = email
+      ? Array.isArray(existingEmailRows) && existingEmailRows.length > 0
+      : false;
 
     if (nikSudahTerdaftar && emailSudahTerdaftar) {
       return NextResponse.json(
@@ -177,7 +181,7 @@ export async function POST(request: Request) {
     };
 
     appendColumn('nama', nama);
-    appendColumn('email', email);
+    appendColumn('email', email || null);
     appendColumn('nik', nik);
     appendColumn('password', passwordHash);
     appendColumn('alamat', alamat);
@@ -247,7 +251,7 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json(
-        { error: 'NIK atau email sudah terdaftar' },
+        { error: email ? 'NIK atau email sudah terdaftar' : 'NIK sudah terdaftar' },
         { status: 409 }
       );
     }

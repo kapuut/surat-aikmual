@@ -108,7 +108,10 @@ const aliasToSlugMap = new Map<string, AllowedSuratSlug>([
   ["surat keterangan cerai", "surat-cerai"],
   ["surat-janda", "surat-janda"],
   ["surat keterangan janda/duda", "surat-janda"],
+  ["surat keterangan janda / duda", "surat-janda"],
+  ["surat keterangan janda atau duda", "surat-janda"],
   ["surat keterangan janda", "surat-janda"],
+  ["surat keterangan duda", "surat-janda"],
   ["surat-kehilangan", "surat-kehilangan"],
   ["surat keterangan kehilangan", "surat-kehilangan"],
   ["surat-penghasilan", "surat-penghasilan"],
@@ -121,7 +124,12 @@ const aliasToSlugMap = new Map<string, AllowedSuratSlug>([
 
 export function normalizeSuratSlug(value: string | null | undefined): AllowedSuratSlug | null {
   if (!value) return null;
-  const normalized = value.trim().toLowerCase().replace(/_/g, "-");
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-")
+    .replace(/\s*\/\s*/g, "/")
+    .replace(/\s+/g, " ");
   return aliasToSlugMap.get(normalized) ?? null;
 }
 

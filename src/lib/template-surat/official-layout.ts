@@ -50,6 +50,30 @@ const LEGACY_CLOSING_TEXT =
 
 const OFFICIAL_CLOSING_TEXT = OFFICIAL_DYNAMIC_CLOSING_PARAGRAPH;
 
+function normalizeIdentityNamePlaceholder(templateHtml: string): string {
+  let normalized = templateHtml;
+
+  // Auto-upgrade common name placeholders to bold variant, but only in identity table rows.
+  normalized = normalized.replace(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi, (rowHtml) => {
+    const plainRow = rowHtml.toLowerCase();
+    const hasNameLabel = /nama(\s+lengkap|\s+pemohon)?/i.test(plainRow);
+    if (!hasNameLabel) return rowHtml;
+
+    return rowHtml.replace(
+      /{{\s*(nama|nama_lengkap|namalengkap|namaLengkap|nama_pemohon|namaPemohon)\s*}}/gi,
+      '{{nama_bold}}'
+    );
+  });
+
+  // Fallback for non-table identity blocks like: <p>Nama Lengkap : {{nama}}</p>
+  normalized = normalized.replace(
+    /(<p\b[^>]*>\s*(?:\d+\.?\s*)?nama(?:\s+lengkap|\s+pemohon)?\s*:\s*){{\s*(nama|nama_lengkap|namalengkap|namaLengkap|nama_pemohon|namaPemohon)\s*}}(\s*<\/p>)/gi,
+    '$1{{nama_bold}}$3'
+  );
+
+  return normalized;
+}
+
 export function normalizeCustomTemplateHtml(templateHtml: string): string {
   let normalized = String(templateHtml || '').trim();
 
@@ -74,5 +98,22 @@ export function normalizeCustomTemplateHtml(templateHtml: string): string {
     .replace(/margin: 0 0 12px; text-align: justify;/g, 'margin: 0 0 0.35cm; text-align: justify; text-indent: 1.1cm; line-height: 1.5;')
     .replace(/margin: 20px 0 0; text-align: justify;/g, 'margin: 0.25cm 0 0.6cm 0; text-align: justify; text-indent: 1.1cm; line-height: 1.5;');
 
+  normalized = normalizeIdentityNamePlaceholder(normalized);
+
   return normalized;
+}
+
+/**
+ * Post-process rendered surat-janda HTML to replace "JANDA/DUDA" in the title
+ * with a gender-specific label based on the pemohon's jenis_kelamin.
+ */
+export function adaptJandaDudaTitle(html: string, jenisKelamin: string): string {
+  const jk = (jenisKelamin || '').trim().toLowerCase();
+  if (jk === 'laki-laki') {
+    return html.replace(/SURAT\s+KETERANGAN\s+JANDA\/DUDA/gi, 'SURAT KETERANGAN DUDA');
+  }
+  if (jk === 'perempuan') {
+    return html.replace(/SURAT\s+KETERANGAN\s+JANDA\/DUDA/gi, 'SURAT KETERANGAN JANDA');
+  }
+  return html;
 }

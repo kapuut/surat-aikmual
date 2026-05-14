@@ -158,6 +158,8 @@ function processNote(status: WorkflowStatus, catatan?: string | null): string {
 
   const isGenericNote =
     !note ||
+    lowerNote === "selesai" ||
+    lowerNote.includes("permohonan selesai diproses") ||
     lowerNote.includes("status diperbarui oleh") ||
     lowerNote.includes("data diverifikasi admin dan dikirim ke kepala desa") ||
     lowerNote.includes("menunggu verifikasi/tanda tangan kepala desa") ||
@@ -732,9 +734,19 @@ export default function PermohonanAdminPage() {
                             <TableActionGroup className="justify-start">
                               <TableActionAnchor
                                 href={suratPreviewUrl}
-                                variant={isFinalizedStatus ? "success" : "view"}
+                                variant="view"
+                                target="_blank"
+                                rel="noreferrer"
                               >
-                                {isFinalizedStatus ? "Final" : "Draft"}
+                                Lihat
+                              </TableActionAnchor>
+                              <TableActionAnchor
+                                href={`/api/admin/permohonan/${p.id}/preview?print=1`}
+                                variant="download"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Unduh
                               </TableActionAnchor>
                             </TableActionGroup>
                           </td>

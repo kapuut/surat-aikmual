@@ -41,7 +41,7 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
   },
   '/sekretaris/permohonan': {
     eyebrow: 'Portal Sekretaris',
-    title: 'Permohonan Warga',
+    title: 'Permohonan',
     description: 'Verifikasi kelengkapan berkas sebelum diteruskan ke kepala desa.',
   },
   '/sekretaris/disposisi': {
@@ -223,7 +223,7 @@ export default function SekretarisLayout({ children }: { children: React.ReactNo
               }`}
             >
               <FiFileText className="w-4 h-4" />
-              <span>Permohonan Warga</span>
+              <span>Permohonan</span>
             </Link>
           </div>
           

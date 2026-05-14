@@ -667,10 +667,11 @@ export default function SekretarisDisposisiPage() {
 
                         {item.file_path ? (
                           <a
-                            href={item.file_path}
-                            download={getFileNameFromPath(item.file_path)}
+                            href={/\.(html|htm|xhtml)$/i.test(item.file_path) ? `${item.file_path}?print=1` : /\.(doc|docx)$/i.test(item.file_path) ? `/api/files/docx-print?path=${encodeURIComponent(item.file_path)}` : item.file_path}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
-                            title="Unduh file"
+                            title="Unduh"
                           >
                             <FiDownload className="w-3.5 h-3.5" />
                             Unduh
@@ -786,12 +787,12 @@ export default function SekretarisDisposisiPage() {
 
               <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm text-slate-600">Nama file: {detailFileName}</p>
                   {detailItem.file_path ? (
                     <div className="flex gap-2">
                       <a
-                        href={detailItem.file_path}
-                        download={detailFileName}
+                        href={/\.(html|htm|xhtml)$/i.test(detailItem.file_path) ? `${detailItem.file_path}?print=1` : /\.(doc|docx)$/i.test(detailItem.file_path) ? `/api/files/docx-print?path=${encodeURIComponent(detailItem.file_path)}` : detailItem.file_path}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
                       >
                         <FiDownload className="h-4 w-4" /> Unduh

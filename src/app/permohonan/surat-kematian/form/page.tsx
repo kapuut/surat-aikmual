@@ -272,7 +272,7 @@ export default function SuratKematianFormPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nomor Telepon/WhatsApp <span className="text-red-500">*</span>
+                  Nomor Telepon/HP <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"

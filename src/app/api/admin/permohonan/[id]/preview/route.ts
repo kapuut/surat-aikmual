@@ -7,7 +7,7 @@ import { normalizeSuratSlug } from '@/lib/surat-data';
 import type { JenisSurat, SuratData } from '@/lib/surat-generator/types';
 import { renderTemplateWithValues } from '@/lib/template-surat/render-template';
 import type { TemplateField } from '@/lib/template-surat/types';
-import { normalizeCustomTemplateHtml } from '@/lib/template-surat/official-layout';
+import { normalizeCustomTemplateHtml, adaptJandaDudaTitle } from '@/lib/template-surat/official-layout';
 import { buildOfficialDynamicSystemValues } from '@/lib/template-surat/official-defaults';
 import { getKopSuratStyles, getKopSuratHtml } from '@/lib/kop-surat';
 
@@ -247,6 +247,36 @@ function isGeneratedSuratFile(pathValue: string | null): boolean {
   return pathValue.includes('/generated-surat/') || pathValue.toLowerCase().endsWith('.html');
 }
 
+function isLikelyFinalDocumentFile(pathValue: string | null): boolean {
+  if (!pathValue) return false;
+  const lowerPath = pathValue.toLowerCase();
+  return (
+    isGeneratedSuratFile(pathValue)
+    || /\.pdf(?:$|\?)/i.test(lowerPath)
+    || lowerPath.includes('/uploads/surat-keluar/')
+  );
+}
+
+function appendPrintQueryParam(pathValue: string, printFlag: boolean): string {
+  if (!printFlag || !isGeneratedSuratFile(pathValue)) {
+    return pathValue;
+  }
+
+  try {
+    if (/^https?:\/\//i.test(pathValue)) {
+      const url = new URL(pathValue);
+      url.searchParams.set('print', '1');
+      return url.toString();
+    }
+
+    const url = new URL(pathValue, 'http://localhost');
+    url.searchParams.set('print', '1');
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return pathValue.includes('?') ? `${pathValue}&print=1` : `${pathValue}?print=1`;
+  }
+}
+
 async function resolveFinalSuratKeluarPath(nomorSurat: string | null, jenisSurat: string): Promise<string | null> {
   if (!nomorSurat || !nomorSurat.trim()) return null;
 
@@ -293,6 +323,7 @@ async function getNextNomorSuratForPreview(
   jenisSurat: JenisSurat,
   currentPermohonanId: number
 ): Promise<string> {
+  const targetScope = toNomorSuratScope(jenisSurat);
   const bulan = String(tanggal.getMonth() + 1).padStart(2, '0');
   const tahun = String(tanggal.getFullYear());
   const suffix = `/${bulan}.${tahun}`;
@@ -310,7 +341,7 @@ async function getNextNomorSuratForPreview(
     if (id === currentPermohonanId) return false;
     const rowStatus = normalizeWorkflowStatus(row?.status, row?.nomor_surat, row?.catatan);
     if (rowStatus === 'ditolak') return false;
-    return normalizeSuratSlug(String(row?.jenis_surat || '')) === jenisSurat;
+    return toNomorSuratScope(String(row?.jenis_surat || '')) === targetScope;
   });
 
   let nomorUrut = 1;
@@ -327,24 +358,26 @@ async function getNextNomorSuratForDynamicPreview(
   jenisSurat: string,
   currentPermohonanId: number
 ): Promise<string> {
+  const targetScope = toNomorSuratScope(jenisSurat);
   const bulan = String(tanggal.getMonth() + 1).padStart(2, '0');
   const tahun = String(tanggal.getFullYear());
   const suffix = `/${bulan}.${tahun}`;
 
+  // Count permohonan that already have a nomor_surat assigned for this scope
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT id, nomor_surat, jenis_surat, status, catatan
      FROM permohonan_surat
      WHERE nomor_surat LIKE ?
-       AND LOWER(TRIM(jenis_surat)) = LOWER(TRIM(?))
      ORDER BY id DESC`,
-    [`%${suffix}`, jenisSurat]
+    [`%${suffix}`]
   );
 
   const scopedRows = (rows || []).filter((row: any) => {
     const id = Number(row?.id || 0);
     if (id === currentPermohonanId) return false;
     const rowStatus = normalizeWorkflowStatus(row?.status, row?.nomor_surat, row?.catatan);
-    return rowStatus !== 'ditolak';
+    if (rowStatus === 'ditolak') return false;
+    return toNomorSuratScope(String(row?.jenis_surat || '')) === targetScope;
   });
 
   let nomorUrut = 1;
@@ -354,6 +387,21 @@ async function getNextNomorSuratForDynamicPreview(
   }
 
   return generateNomorSurat(nomorUrut, tanggal);
+}
+
+function toNomorSuratScope(value: string | null | undefined): string {
+  const knownSlug = normalizeSuratSlug(value);
+  if (knownSlug) return knownSlug;
+
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, '-')
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  return normalized || 'global';
 }
 
 function isAttachmentFile(pathValue: string): boolean {
@@ -583,6 +631,12 @@ function parseDetailData(value: unknown): DetailData {
 }
 
 function parseTemplateFields(value: unknown): TemplateField[] {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => item as TemplateField);
+  }
+
   if (typeof value !== 'string') return [];
 
   try {
@@ -595,6 +649,33 @@ function parseTemplateFields(value: unknown): TemplateField[] {
   } catch {
     return [];
   }
+}
+
+function extractDynamicTemplateSnapshot(detailData: DetailData): DynamicTemplatePreview | null {
+  const rawSnapshot = detailData.dynamic_template_snapshot;
+  if (!rawSnapshot || typeof rawSnapshot !== 'object' || Array.isArray(rawSnapshot)) {
+    return null;
+  }
+
+  const snapshot = rawSnapshot as Record<string, unknown>;
+  const htmlTemplate = asText(snapshot.html_template) || asText(snapshot.htmlTemplate);
+  if (!htmlTemplate) return null;
+
+  const fields = parseTemplateFields(snapshot.fields_json ?? snapshot.fieldsJson ?? snapshot.fields ?? []);
+  const jenisSurat =
+    asText(snapshot.jenis_surat)
+    || asText(snapshot.jenisSurat)
+    || asText(detailData.jenis_surat)
+    || asText(detailData.jenisSurat)
+    || 'Surat';
+
+  return {
+    id: asText(snapshot.id) || asText(detailData.dynamic_template_id) || `snapshot-${Date.now()}`,
+    nama: asText(snapshot.nama) || 'Template Arsip',
+    jenisSurat,
+    htmlTemplate,
+    fields,
+  };
 }
 
 async function findDynamicTemplateForPreview(
@@ -655,12 +736,33 @@ function formatDateIndonesian(value: Date): string {
   }).format(value);
 }
 
+function formatDateDDMMYYYY(value: Date): string {
+  const day = String(value.getDate()).padStart(2, '0');
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const year = value.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function toDateDDMMYYYY(value: unknown): string {
+  if (!value) return '';
+  const dateValue = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(dateValue.getTime())) return String(value).trim();
+  return formatDateDDMMYYYY(dateValue);
+}
+
 function toTitleCaseId(value: string): string {
   return value
     .toLowerCase()
     .split(' ')
     .map((word) => (word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : ''))
     .join(' ');
+}
+
+function normalizePersonName(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const compact = value.trim().replace(/\s+/g, ' ');
+  if (!compact) return '';
+  return toTitleCaseId(compact);
 }
 
 const NO_TITLECASE_KEY_PATTERNS_PREVIEW = /^(nik|nomor|no_|kode|tanggal|waktu|tgl|jam|tahun|bulan|masa_berlaku)/i;
@@ -672,6 +774,51 @@ function normalizeDynamicValuePreview(key: string, value: string): string {
   return toTitleCaseId(trimmed);
 }
 
+function toIndonesianDateText(value: unknown): string {
+  if (!value) return '';
+  const dateValue = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(dateValue.getTime())) {
+    return String(value).trim();
+  }
+  return formatDateIndonesian(dateValue);
+}
+
+function parseFlexibleDate(value: unknown): Date | undefined {
+  if (!value) return undefined;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? undefined : value;
+  }
+
+  const text = String(value).trim();
+  if (!text) return undefined;
+
+  const ddmmyyyyMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (ddmmyyyyMatch) {
+    const day = Number(ddmmyyyyMatch[1]);
+    const month = Number(ddmmyyyyMatch[2]);
+    const year = Number(ddmmyyyyMatch[3]);
+    const parsed = new Date(year, month - 1, day);
+    if (
+      parsed.getFullYear() === year
+      && parsed.getMonth() === month - 1
+      && parsed.getDate() === day
+    ) {
+      return parsed;
+    }
+    return undefined;
+  }
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+function formatFormalDate(value: unknown, fallback?: Date): string {
+  const parsed = parseFlexibleDate(value) || fallback;
+  if (parsed) return formatDateIndonesian(parsed);
+  return String(value || '').trim();
+}
+
 function buildDynamicTemplateValues(
   permohonan: PermohonanRow,
   detailData: DetailData,
@@ -679,20 +826,55 @@ function buildDynamicTemplateValues(
   tanggalSurat: Date,
   signerName?: string
 ): Record<string, string> {
+  const tempatLahirFromColumn = asText(permohonan.tempat_lahir);
+  const defaultMasaBerlakuDari = asDate(permohonan.masa_berlaku_dari) || tanggalSurat;
+  const defaultMasaBerlakuSampai = asDate(permohonan.masa_berlaku_sampai)
+    || new Date(defaultMasaBerlakuDari.getFullYear(), defaultMasaBerlakuDari.getMonth() + 6, defaultMasaBerlakuDari.getDate());
+  const normalizedNamaPemohon = normalizePersonName(
+    asText(permohonan.nama_pemohon) ||
+    asText(detailData.nama) ||
+    asText(detailData.namalengkap) ||
+    asText(detailData.nama_lengkap) ||
+    asText(detailData.namaLengkap) ||
+    asText(detailData.nama_pemohon) ||
+    asText(detailData.namaPemohon)
+  );
+
+  const tanggalLahirDDMMYYYY = toDateDDMMYYYY(permohonan.tanggal_lahir);
+
   const values: Record<string, string> = {
-    nama: String(permohonan.nama_pemohon || '').trim().toLocaleUpperCase('id-ID'),
+    nama: normalizedNamaPemohon,
+    nama_lengkap: normalizedNamaPemohon,
+    namalengkap: normalizedNamaPemohon,
+    namaLengkap: normalizedNamaPemohon,
+    nama_pemohon: normalizedNamaPemohon,
+    namaPemohon: normalizedNamaPemohon,
+    nama_bold: normalizedNamaPemohon,
     nik: String(permohonan.nik || '').trim(),
     alamat: String(permohonan.alamat || '').trim(),
     keperluan: String(permohonan.keperluan || '-').trim() || '-',
     jenis_surat: String(permohonan.jenis_surat || '').trim(),
     tanggal_permohonan: formatDateIndonesian(new Date(permohonan.created_at || tanggalSurat)),
+    tempat_lahir: tempatLahirFromColumn ? toTitleCaseId(tempatLahirFromColumn) : '',
+    tanggal_lahir: tanggalLahirDDMMYYYY,
     ...buildOfficialDynamicSystemValues(formatDateIndonesian(tanggalSurat), nomorSurat, signerName),
   };
+
+  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
   for (const [key, rawValue] of Object.entries(detailData)) {
     if (rawValue == null) continue;
 
     if (typeof rawValue === 'string') {
+      const trimmed = rawValue.trim();
+      // Convert ISO date strings (YYYY-MM-DD) to DD/MM/YYYY for date-prefixed keys
+      if (/^(tanggal|tgl|masa_berlaku)/i.test(key) && ISO_DATE_RE.test(trimmed)) {
+        const d = new Date(trimmed);
+        if (!Number.isNaN(d.getTime())) {
+          values[key] = formatDateDDMMYYYY(d);
+          continue;
+        }
+      }
       values[key] = normalizeDynamicValuePreview(key, rawValue);
       continue;
     }
@@ -703,22 +885,56 @@ function buildDynamicTemplateValues(
     }
 
     if (rawValue instanceof Date && !Number.isNaN(rawValue.getTime())) {
-      values[key] = formatDateIndonesian(rawValue);
+      values[key] = formatDateDDMMYYYY(rawValue);
       continue;
     }
   }
 
-  // Build composite tempat_tanggal_lahir from separate fields (backward compat)
-  if (!values['tempat_tanggal_lahir']) {
-    const tempatLahirVal = String(detailData['tempat_lahir'] || '').trim();
-    const tlRaw = detailData['tanggal_lahir'];
-    let tanggalLahirVal = '';
-    if (typeof tlRaw === 'string' && tlRaw.trim()) {
-      const dt = new Date(tlRaw);
-      tanggalLahirVal = Number.isNaN(dt.getTime()) ? tlRaw.trim() : formatDateIndonesian(dt);
-    } else if (tlRaw instanceof Date && !Number.isNaN(tlRaw.getTime())) {
-      tanggalLahirVal = formatDateIndonesian(tlRaw);
+  // Ensure template placeholders for masa berlaku always have values for dynamic letters.
+  {
+    const masaBerlakuDariVal = formatFormalDate(
+      values['masa_berlaku_dari'] || values['masaBerlakuDari'],
+      defaultMasaBerlakuDari
+    );
+    const masaBerlakuSampaiVal = formatFormalDate(
+      values['masa_berlaku_sampai'] || values['masaBerlakuSampai'],
+      defaultMasaBerlakuSampai
+    );
+
+    if (masaBerlakuDariVal) {
+      values['masa_berlaku_dari'] = masaBerlakuDariVal;
+      values['masaBerlakuDari'] = masaBerlakuDariVal;
     }
+    if (masaBerlakuSampaiVal) {
+      values['masa_berlaku_sampai'] = masaBerlakuSampaiVal;
+      values['masaBerlakuSampai'] = masaBerlakuSampaiVal;
+    }
+    if (masaBerlakuDariVal && masaBerlakuSampaiVal) {
+      const masaBerlakuLabel = `${masaBerlakuDariVal} sampai ${masaBerlakuSampaiVal}`;
+      values['masa_berlaku'] = masaBerlakuLabel;
+      values['masaBerlaku'] = masaBerlakuLabel;
+    }
+  }
+
+  // Always rebuild tempat_tanggal_lahir from separately formatted fields to ensure correct date format
+  {
+    const tempatLahirVal = (
+      values['tempat_lahir'] ||
+      values['tempatLahir'] ||
+      asText(detailData['tempat_lahir']) ||
+      asText(detailData['tempatLahir']) ||
+      ''
+    ).trim();
+    const tanggalLahirVal = (
+      values['tanggal_lahir'] ||
+      values['tanggalLahir'] ||
+      ''
+    ).trim();
+
+    if (tempatLahirVal && !values['tempat_lahir']) {
+      values['tempat_lahir'] = toTitleCaseId(tempatLahirVal);
+    }
+
     if (tempatLahirVal && tanggalLahirVal) {
       values['tempat_tanggal_lahir'] = `${toTitleCaseId(tempatLahirVal)}, ${tanggalLahirVal}`;
     } else if (tempatLahirVal) {
@@ -736,66 +952,9 @@ function renderDynamicTemplatePage(
   renderedHtml: string,
   options?: { adminMode?: boolean; printFlag?: boolean }
 ): string {
-  const adminMode = Boolean(options?.adminMode);
-
-  const toolbarHtml = adminMode
-    ? `
-    <div class="editor-toolbar no-print">
-      <div class="toolbar-title">Mode Edit Admin</div>
-      <div class="toolbar-actions">
-        <button type="button" onclick="downloadAsWord()">Simpan Word (.doc)</button>
-        <button type="button" onclick="saveAsHtml()">Simpan HTML</button>
-        <button type="button" onclick="saveAsPdf()">Simpan PDF / Print</button>
-      </div>
-    </div>`
-    : '';
-
-  const scriptHtml = adminMode
-    ? `
-  <script>
-    function buildExportHtml() {
-      const suratContent = document.getElementById('suratContent');
-      const page = suratContent ? suratContent.outerHTML : '';
-      const styles = Array.from(document.querySelectorAll('style'))
-        .map((styleEl) => styleEl.innerHTML)
-        .join('\\n');
-
-      return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(template.jenisSurat)}</title><style>' + styles + '</style></head><body>' + page + '</body></html>';
-    }
-
-    function downloadBlob(blob, filename) {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    function getBaseFilename() {
-      const today = new Date().toISOString().slice(0, 10);
-      return 'surat-dinamis-' + today;
-    }
-
-    function downloadAsWord() {
-      const html = buildExportHtml();
-      const blob = new Blob(['\\ufeff', html], { type: 'application/msword' });
-      downloadBlob(blob, getBaseFilename() + '.doc');
-    }
-
-    function saveAsHtml() {
-      const html = buildExportHtml();
-      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      downloadBlob(blob, getBaseFilename() + '.html');
-    }
-
-    function saveAsPdf() {
-      window.print();
-    }
-  </script>`
-    : '';
+  const { adminMode = false } = options ?? {};
+  const toolbarHtml = '';
+  const scriptHtml = '';
 
   const printScriptHtml = `
   <script>
@@ -916,18 +1075,6 @@ function renderDynamicTemplatePage(
         display: none !important;
       }
     }
-
-    <script>
-      (function() {
-        var originalTitle = document.title;
-        window.onbeforeprint = function() {
-          document.title = "";
-        };
-        window.onafterprint = function() {
-          document.title = originalTitle;
-        };
-      })();
-    </script>
     
     ${getKopSuratStyles()}
 
@@ -960,6 +1107,17 @@ function renderDynamicTemplatePage(
       .editor-toolbar, .page { width: 100%; }
     }
   </style>
+  <script>
+    (function() {
+      var originalTitle = document.title;
+      window.onbeforeprint = function() {
+        document.title = "";
+      };
+      window.onafterprint = function() {
+        document.title = originalTitle;
+      };
+    })();
+  </script>
 </head>
 <body>
   ${toolbarHtml}
@@ -1045,18 +1203,19 @@ export async function GET(
     const shouldEmbedSignature = isFinalized && mode !== 'admin';
     const attachmentPaths = normalizeFilePaths(permohonan.file_path).filter((pathValue) => isAttachmentFile(pathValue));
 
-    const suratKeluarFinalPath = isFinalized
-      ? await resolveFinalSuratKeluarPath(permohonan.nomor_surat, permohonan.jenis_surat)
-      : null;
-    const permohonanFinalPath = normalizeFilePath(permohonan.file_path);
-    const preferredFinalPath = suratKeluarFinalPath || permohonanFinalPath;
+    // For finalized surat, always prioritize the stored final file instead of re-rendering preview.
+    if (isFinalized && mode !== 'admin' && !wantsAttachments && !withAttachments && !wantsDoc) {
+      const permohonanFinalPath = normalizeFilePath(permohonan.file_path);
+      const archivedFinalPath = await resolveFinalSuratKeluarPath(permohonan.nomor_surat, permohonan.jenis_surat);
+      const bestFinalPath = [archivedFinalPath, permohonanFinalPath].find((pathValue) => isLikelyFinalDocumentFile(pathValue));
 
-    if (isFinalized && mode !== 'admin' && isGeneratedSuratFile(preferredFinalPath)) {
-      const targetUrl = new URL(preferredFinalPath as string, request.url);
-      if (printFlag) {
-        targetUrl.searchParams.set('print', '1');
+      if (bestFinalPath) {
+        const redirectPath = appendPrintQueryParam(bestFinalPath, printFlag);
+        const redirectUrl = /^https?:\/\//i.test(redirectPath)
+          ? redirectPath
+          : new URL(redirectPath, requestUrl.origin).toString();
+        return NextResponse.redirect(redirectUrl);
       }
-      return NextResponse.redirect(targetUrl);
     }
 
     if (wantsAttachments) {
@@ -1071,10 +1230,23 @@ export async function GET(
     const signerInfo = await resolveKepalaDesaSigner(permohonan.processed_by);
     const suratSlug = normalizeSuratSlug(permohonan.jenis_surat);
     const tanggalSurat = new Date(permohonan.updated_at || permohonan.created_at || Date.now());
+    const dynamicTemplateSnapshot = extractDynamicTemplateSnapshot(detailData);
+
+    console.info('[permohonan][preview] birth-data-fetch', {
+      permohonanId: Number(permohonan.id),
+      jenisSurat: permohonan.jenis_surat,
+      hasTempatLahirColumn: Boolean(asText(permohonan.tempat_lahir)),
+      hasTanggalLahirColumn: Boolean(asDate(permohonan.tanggal_lahir)),
+      hasTempatLahirDetail: Boolean(asText(detailData.tempat_lahir) || asText(detailData.tempatLahir)),
+      hasTanggalLahirDetail: Boolean(asText(detailData.tanggal_lahir) || asText(detailData.tanggalLahir)),
+      hasCompositeDetail: Boolean(asText(detailData.tempat_tanggal_lahir) || asText(detailData.tempatTanggalLahir)),
+      mode,
+    });
 
     if (!suratSlug) {
       const dynamicTemplateId = asText(detailData.dynamic_template_id);
-      const dynamicTemplate = await findDynamicTemplateForPreview(permohonan.jenis_surat, dynamicTemplateId);
+      const dynamicTemplate = dynamicTemplateSnapshot
+        || await findDynamicTemplateForPreview(permohonan.jenis_surat, dynamicTemplateId);
 
       if (!dynamicTemplate) {
         return NextResponse.json({ error: 'Jenis surat tidak valid untuk preview' }, { status: 400 });
@@ -1112,6 +1284,40 @@ export async function GET(
         }
       );
     }
+
+    // For known static surat types, check if admin has saved a DB override template
+    const staticDbOverride = dynamicTemplateSnapshot
+      || await findDynamicTemplateForPreview(permohonan.jenis_surat, suratSlug ?? undefined);
+    if (staticDbOverride) {
+      const previewNomorSurat = permohonan.nomor_surat
+        ? String(permohonan.nomor_surat)
+        : await getNextNomorSuratForDynamicPreview(tanggalSurat, permohonan.jenis_surat, Number(permohonan.id));
+      const renderValues = buildDynamicTemplateValues(
+        permohonan,
+        detailData,
+        previewNomorSurat,
+        tanggalSurat,
+        signerInfo.nama
+      );
+      const htmlBody = renderTemplateWithValues(
+        normalizeCustomTemplateHtml(staticDbOverride.htmlTemplate),
+        renderValues
+      );
+      const adaptedHtmlBody = staticDbOverride.jenisSurat === 'surat-janda'
+        ? adaptJandaDudaTitle(htmlBody, String(permohonan.jenis_kelamin || renderValues['jenis_kelamin'] || ''))
+        : htmlBody;
+      const dynamicHtml = renderDynamicTemplatePage(staticDbOverride, adaptedHtmlBody, {
+        adminMode: mode === 'admin',
+        printFlag,
+      });
+      const responseHtml = withAttachments
+        ? appendInlineAttachmentsSection(dynamicHtml, attachmentPaths)
+        : dynamicHtml;
+      return new NextResponse(responseHtml, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+
     const tempatLahir = getTextWithDetail(permohonan.tempat_lahir, detailData, [
       'tempat_lahir',
       'tempatLahir',
@@ -1458,6 +1664,8 @@ export async function GET(
     const isSuratPenghasilan = suratSlug === 'surat-penghasilan';
     const isSuratTidakPunyaRumah = suratSlug === 'surat-tidak-punya-rumah';
     const isSuratUsaha = suratSlug === 'surat-usaha';
+    const namaPemohonTitleCase = normalizePersonName(permohonan.nama_pemohon);
+    const namaAlmarhumTitleCase = normalizePersonName(namaAlmarhum || permohonan.nama_pemohon);
     const kewarganegaraan =
       getTextWithDetail(permohonan.kewarganegaraan, detailData, ['kewarganegaraan']) || 'Indonesia';
 
@@ -1476,7 +1684,7 @@ export async function GET(
       jenisSurat: suratSlug as JenisSurat,
       nomorSurat: previewNomorSurat,
       tanggalSurat,
-      nama: isSuratKematian ? (namaAlmarhum || permohonan.nama_pemohon) : permohonan.nama_pemohon,
+      nama: isSuratKematian ? namaAlmarhumTitleCase : namaPemohonTitleCase,
       nik: isSuratKematian ? (nikAlmarhum || permohonan.nik) : permohonan.nik,
       tempatLahir: isSuratKematian ? (tempatLahirAlmarhum || tempatLahir) : tempatLahir,
       tanggalLahir: isSuratKematian ? (tanggalLahirAlmarhum || tanggalLahir) : tanggalLahir,
@@ -1491,7 +1699,7 @@ export async function GET(
       },
       alamat: isSuratKematian ? (alamatTerakhir || permohonan.alamat) : permohonan.alamat,
       isiSurat: isSuratCerai
-        ? `Bahwa berdasarkan data administrasi kependudukan yang ada, benar ${permohonan.nama_pemohon} telah bercerai secara sah dengan ${namaMantan || 'pasangannya'}.`
+        ? `Bahwa berdasarkan data administrasi kependudukan yang ada, benar ${namaPemohonTitleCase} telah bercerai secara sah dengan ${namaMantan || 'pasangannya'}.`
         : isSuratJanda
           ? `Bahwa yang namanya tersebut diatas memang benar berstatus ${statusJanda || 'Janda/Duda'}${alasanStatusJanda ? ` (${alasanStatusJanda})` : ''}.`
           : isSuratPenghasilan
@@ -1505,7 +1713,7 @@ export async function GET(
           : `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}.`,
       kematian: isSuratKematian
         ? {
-            namaAlmarhum: namaAlmarhum || permohonan.nama_pemohon,
+            namaAlmarhum: namaAlmarhumTitleCase,
             nikAlmarhum: nikAlmarhum || permohonan.nik,
             tempatLahirAlmarhum: tempatLahirAlmarhum || tempatLahir,
             tanggalLahirAlmarhum: tanggalLahirAlmarhum || tanggalLahir,
@@ -1635,7 +1843,10 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('Error generating preview:', error);
-    return NextResponse.json({ error: 'Gagal membuat preview surat' }, { status: 500 });
+    console.error('[preview] Error generating preview:', error instanceof Error ? error.message : error, error);
+    return NextResponse.json({
+      error: 'Gagal membuat preview surat',
+      ...(process.env.NODE_ENV === 'development' && { detail: String(error) }),
+    }, { status: 500 });
   }
 }

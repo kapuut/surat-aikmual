@@ -173,17 +173,15 @@ export default function KepalaDesaSuratMasukDetailPage() {
           <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Dokumen Surat</h3>
             {detail.file_path ? (
-              <div className="mt-3 space-y-1.5 text-sm">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <a
-                  href={detail.file_path}
+                  href={/\.(html|htm|xhtml)$/i.test(detail.file_path) ? `${detail.file_path}?print=1` : /\.(doc|docx)$/i.test(detail.file_path) ? `/api/files/docx-print?path=${encodeURIComponent(detail.file_path)}` : detail.file_path}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 font-medium text-blue-600 hover:underline"
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
                 >
-                  <FiExternalLink className="h-4 w-4" /> Lihat file surat
+                  <FiExternalLink className="h-4 w-4" /> Unduh
                 </a>
-                <p className="text-gray-500">Nama file: {getFileNameFromPath(detail.file_path)}</p>
-                <p className="break-all text-xs text-gray-400">Path: {detail.file_path}</p>
               </div>
             ) : (
               <p className="mt-2 inline-flex items-center gap-2 text-sm text-gray-500">

@@ -9,6 +9,10 @@ import FooterWrapper from "@/components/layout/FooterWrapper";
 import { useRequireAuth } from "@/lib/hooks";
 import { checkBusinessHours } from "@/lib/utils";
 
+function normalizeSuratName(value: unknown): string {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 export default function SuratMasihHidupFormPage() {
   const router = useRouter();
   const { user, loading: loadingAuth } = useRequireAuth();
@@ -30,6 +34,38 @@ export default function SuratMasihHidupFormPage() {
       setError(hoursCheck.message || "Diluar jam kerja");
     }
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveDynamicTemplateForm = async () => {
+      try {
+        const response = await fetch("/api/dynamic-templates", { credentials: "include" });
+        const data = await response.json();
+
+        if (!response.ok || !data?.success || !Array.isArray(data?.templates)) {
+          return;
+        }
+
+        const target = data.templates.find((item: { id?: string; jenisSurat?: string; nama?: string }) => {
+          const candidate = item?.jenisSurat || item?.nama || "";
+          return normalizeSuratName(candidate) === normalizeSuratName("Surat Keterangan Masih Hidup");
+        });
+
+        if (!cancelled && target?.id) {
+          router.replace(`/permohonan/dinamis/${encodeURIComponent(target.id)}/form`);
+        }
+      } catch {
+        // Keep static form as fallback when dynamic template endpoint is unavailable.
+      }
+    };
+
+    resolveDynamicTemplateForm();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const normalizeSpacing = (value: string) => value.replace(/\s+/g, " ").trim();
 

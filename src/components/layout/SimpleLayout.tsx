@@ -12,7 +12,7 @@ interface SimpleLayoutProps {
 }
 
 export default function SimpleLayout({ children, useSidebar = false }: SimpleLayoutProps) {
-  const { loading } = useRequireAuth();
+  const { user, loading } = useRequireAuth();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -44,7 +44,7 @@ export default function SimpleLayout({ children, useSidebar = false }: SimpleLay
 
   if (useSidebar) {
     return (
-      <UserDashboardLayout onLogout={handleLogout}>
+      <UserDashboardLayout onLogout={handleLogout} initialUserName={user?.nama}>
         <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
           {children}
         </main>

@@ -360,20 +360,83 @@ function mapPermohonanToSuratKeluarDetail(row: RowDataPacket) {
   const perihal = `${jenisSurat || "surat"}${keperluan ? ` - ${keperluan}` : ""}`;
   const tanggal = (row as { updated_at?: unknown; created_at?: unknown }).updated_at
     ?? (row as { created_at?: unknown }).created_at;
+  const permohonanId = Number((row as { id?: unknown }).id);
+  const previewPath = Number.isFinite(permohonanId) && permohonanId > 0
+    ? `/api/admin/permohonan/${permohonanId}/preview`
+    : null;
+  const effectivePath = primaryPath || previewPath;
 
   return {
-    id: Number((row as { id?: unknown }).id) * -1,
+    id: permohonanId * -1,
     nomor_surat: String((row as { nomor_surat?: unknown }).nomor_surat || "-"),
     tanggal_surat: tanggal,
     tujuan: String((row as { nama_pemohon?: unknown }).nama_pemohon || "Pemohon"),
     perihal,
-    file_path: primaryPath,
+    file_path: effectivePath,
     attachment_paths: attachmentPaths,
     status: normalizeStatus((row as { status?: unknown }).status),
     created_by_name: null,
     is_auto_from_permohonan: true,
     jenis_key: normalizeSuratSlug(jenisSurat) || jenisSurat.toLowerCase(),
   };
+}
+
+function normalizeMatchingText(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+async function findRelatedPermohonanIdFromSuratKeluarRow(row: RowDataPacket): Promise<number | null> {
+  const nomorSurat = String((row as { nomor_surat?: unknown }).nomor_surat || "").trim();
+  if (!nomorSurat) return null;
+
+  const tujuan = normalizeMatchingText((row as { tujuan?: unknown }).tujuan);
+  const perihal = String((row as { perihal?: unknown }).perihal || "").trim();
+  const { jenisSurat, keperluan } = splitPerihalToJenisAndKeperluan(perihal, "", "");
+  const normalizedJenis = normalizeMatchingText(jenisSurat);
+  const normalizedKeperluan = normalizeMatchingText(keperluan);
+
+  try {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT id, nama_pemohon, jenis_surat, keperluan
+       FROM permohonan_surat
+       WHERE nomor_surat = ?
+       ORDER BY updated_at DESC, created_at DESC, id DESC`,
+      [nomorSurat]
+    );
+
+    const candidates = Array.isArray(rows) ? rows : [];
+    if (candidates.length === 0) return null;
+
+    const strictMatch = candidates.find((candidate) => {
+      const sameJenis = !normalizedJenis
+        || normalizeMatchingText((candidate as { jenis_surat?: unknown }).jenis_surat) === normalizedJenis;
+      const sameTujuan = !tujuan
+        || normalizeMatchingText((candidate as { nama_pemohon?: unknown }).nama_pemohon) === tujuan;
+      const sameKeperluan = !normalizedKeperluan
+        || normalizeMatchingText((candidate as { keperluan?: unknown }).keperluan) === normalizedKeperluan;
+      return sameJenis && sameTujuan && sameKeperluan;
+    });
+
+    if (strictMatch) {
+      const parsed = Number((strictMatch as { id?: unknown }).id);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }
+
+    const byTujuan = candidates.find((candidate) => {
+      if (!tujuan) return false;
+      return normalizeMatchingText((candidate as { nama_pemohon?: unknown }).nama_pemohon) === tujuan;
+    });
+
+    if (byTujuan) {
+      const parsed = Number((byTujuan as { id?: unknown }).id);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }
+
+    const fallbackId = Number((candidates[0] as { id?: unknown }).id);
+    return Number.isFinite(fallbackId) && fallbackId > 0 ? fallbackId : null;
+  } catch {
+    return null;
+  }
 }
 
 function mapOutgoingStatusToWorkflowStatus(value: string): string {
@@ -512,7 +575,20 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     if (parsedId > 0) {
       const suratKeluar = await findSuratKeluarById(parsedId);
       if (suratKeluar) {
-        return NextResponse.json({ success: true, data: mapSuratKeluarDetail(suratKeluar) });
+        const mapped = mapSuratKeluarDetail(suratKeluar) as ReturnType<typeof mapSuratKeluarDetail> & {
+          source_permohonan_id?: number;
+        };
+        const relatedPermohonanId = await findRelatedPermohonanIdFromSuratKeluarRow(suratKeluar);
+
+        if (relatedPermohonanId) {
+          mapped.is_auto_from_permohonan = true;
+          mapped.source_permohonan_id = relatedPermohonanId;
+          if (!mapped.file_path) {
+            mapped.file_path = `/api/admin/permohonan/${relatedPermohonanId}/preview`;
+          }
+        }
+
+        return NextResponse.json({ success: true, data: mapped });
       }
     }
 

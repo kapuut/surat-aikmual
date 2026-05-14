@@ -29,6 +29,7 @@ interface PermohonanItem {
   file_path: string | null;
   attachment_paths?: string[];
   created_at: string;
+  updated_at: string;
   nama_pemohon: string;
   nik: string;
   jenis_surat: string;
@@ -351,6 +352,10 @@ export default function KepalaDesaWorkflowClient() {
     };
 
     return [...filtered].sort((a, b) => {
+      // For "Surat Selesai", sort by most recently signed/completed
+      if (archiveCategory === "Surat Selesai") {
+        return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+      }
       const priorityDiff = statusPriority[a.status] - statusPriority[b.status];
       if (priorityDiff !== 0) return priorityDiff;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -519,6 +524,7 @@ export default function KepalaDesaWorkflowClient() {
         <table className="w-full text-xs sm:text-sm table-auto border-collapse">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
+              <th className="px-3 py-3 text-center font-bold text-gray-700 w-10">No</th>
               <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">Nomor</th>
               <th className="px-3 py-3 text-left font-bold text-gray-700">Pemohon</th>
               <th className="px-3 py-3 text-left font-bold text-gray-700 w-40">Jenis Surat</th>
@@ -530,7 +536,7 @@ export default function KepalaDesaWorkflowClient() {
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td className="px-4 py-8 text-center text-gray-500" colSpan={6}>
+                  <td className="px-4 py-8 text-center text-gray-500" colSpan={7}>
                   <div className="flex flex-col items-center gap-2">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
                     <span>Memuat data...</span>
@@ -539,16 +545,17 @@ export default function KepalaDesaWorkflowClient() {
               </tr>
             ) : filteredPermohonan.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-gray-500 italic" colSpan={6}>
+                <td className="px-4 py-8 text-center text-gray-500 italic" colSpan={7}>
                   Belum ada data surat.
                 </td>
               </tr>
             ) : (
-              filteredPermohonan.map((item) => {
+              filteredPermohonan.map((item, index) => {
                 const suratPreviewPageUrl = `/kepala-desa/permohonan/${item.id}/preview`;
 
                 return (
                   <tr key={item.id} className="hover:bg-indigo-50/30 transition-colors">
+                    <td className="px-3 py-3 text-center text-gray-500 font-medium">{index + 1}</td>
                     <td className="px-3 py-3 font-semibold text-gray-900 break-words truncate max-w-[150px]" title={item.nomor_surat || `REG-${item.id}`}>
                       {item.nomor_surat || `REG-${item.id}`}
                     </td>
@@ -577,7 +584,7 @@ export default function KepalaDesaWorkflowClient() {
                           Lihat
                         </button>
                         <a
-                          href={suratPreviewPageUrl}
+                          href={`/api/admin/permohonan/${item.id}/preview?print=1`}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"

@@ -51,6 +51,12 @@ function formatAlamatDisplay(value: string): string {
   return escapeHtml(cleaned).replace(/\r?\n/g, '<br>');
 }
 
+function formatAlamatInline(value: string): string {
+  const cleaned = (value || '').trim();
+  if (!cleaned) return '-';
+  return escapeHtml(cleaned.replace(/\r?\n/g, ', ').replace(/,\s*,/g, ',').replace(/,\s*$/, '').trim());
+}
+
 function formatHariTanggal(value?: Date): string {
   if (!value || Number.isNaN(value.getTime())) {
     return '-';
@@ -107,6 +113,11 @@ export function generateSuratTemplate(
   options: SuratTemplateOptions = {}
 ): string {
   const suratType = SURAT_TYPES[data.jenisSurat];
+  const judulDisplay = data.jenisSurat === 'surat-janda'
+    ? (data.jeniKelamin === 'Laki-laki' ? 'SURAT KETERANGAN DUDA'
+      : data.jeniKelamin === 'Perempuan' ? 'SURAT KETERANGAN JANDA'
+      : (suratType?.judul ?? 'SURAT KETERANGAN JANDA/DUDA'))
+    : (suratType?.judul ?? '');
   const nomorSurat = data.nomorSurat || generateNomorSurat(1, data.tanggalSurat);
   const tanggalSurat = formatTanggalSurat(data.tanggalSurat);
   const editable = Boolean(options.editable);
@@ -148,11 +159,11 @@ export function generateSuratTemplate(
 
   if (data.jenisSurat === 'surat-masih-hidup') {
     rows = [
-      `<tr><td class="label">Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
-      `<tr><td class="label">TTL</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
-      `<tr><td class="label">Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
-      `<tr><td class="label">Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
-      `<tr><td class="label">Alamat Terakhir</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
+      `<tr><td class="label">1. Nama</td><td class="colon">:</td><td class="nilai nilai-bold">${valueOrDash(data.nama)}</td></tr>`,
+      `<tr><td class="label">2. TTL</td><td class="colon">:</td><td class="nilai">${tempatTanggalLahir}</td></tr>`,
+      `<tr><td class="label">3. Kelamin</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.jeniKelamin)}</td></tr>`,
+      `<tr><td class="label">4. Agama</td><td class="colon">:</td><td class="nilai">${valueOrDash(data.agama)}</td></tr>`,
+      `<tr><td class="label">5. Alamat Terakhir</td><td class="colon">:</td><td class="nilai">${formatAlamatDisplay(data.alamat)}</td></tr>`,
     ];
     isiSuratBodyHtml = `<p>${escapeHtml(isiSurat)}</p>`;
   } else if (data.jenisSurat === 'surat-kematian') {
@@ -241,7 +252,7 @@ export function generateSuratTemplate(
     ];
 
     isiSuratBodyHtml = `
-      <p>Bahwa yang namanya tersebut diatas yang bertempat tinggal di ${formatAlamatDisplay(data.alamat)} memang benar berstatus <strong>${statusFinalHtml}</strong>.</p>
+      <p>Bahwa yang namanya tersebut diatas yang bertempat tinggal di ${formatAlamatInline(data.alamat)} memang benar berstatus <strong>${statusFinalHtml}</strong>.</p>
     `;
   } else if (data.jenisSurat === 'surat-penghasilan') {
     const penghasilanData = data.penghasilan || {};
@@ -376,64 +387,9 @@ export function generateSuratTemplate(
     isiSuratBodyHtml = `<p>${escapeHtml(isiSurat)}</p>`;
   }
 
-  const toolbarHtml = showToolbar
-    ? `
-    <div class="editor-toolbar no-print">
-      <div class="toolbar-title">Mode Edit Admin</div>
-      <div class="toolbar-actions">
-        <button type="button" onclick="downloadAsWord()">Simpan Word (.doc)</button>
-        <button type="button" onclick="saveAsHtml()">Simpan HTML</button>
-        <button type="button" onclick="saveAsPdf()">Simpan PDF / Print</button>
-      </div>
-    </div>`
-    : '';
+  const toolbarHtml = '';
 
-  const scriptHtml = showToolbar
-    ? `
-  <script>
-    function buildExportHtml() {
-      const suratContent = document.getElementById('suratContent');
-      const page = suratContent ? suratContent.outerHTML : '';
-      const styles = Array.from(document.querySelectorAll('style'))
-        .map((styleEl) => styleEl.innerHTML)
-        .join('\n');
-
-      return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Surat Desa Aikmual</title><style>' + styles + '</style></head><body>' + page + '</body></html>';
-    }
-
-    function downloadBlob(blob, filename) {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    function getBaseFilename() {
-      const today = new Date().toISOString().slice(0, 10);
-      return 'surat-aikmual-' + today;
-    }
-
-    function downloadAsWord() {
-      const html = buildExportHtml();
-      const blob = new Blob(['\\ufeff', html], { type: 'application/msword' });
-      downloadBlob(blob, getBaseFilename() + '.doc');
-    }
-
-    function saveAsHtml() {
-      const html = buildExportHtml();
-      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      downloadBlob(blob, getBaseFilename() + '.html');
-    }
-
-    function saveAsPdf() {
-      window.print();
-    }
-  </script>`
-    : '';
+  const scriptHtml = '';
 
   const printScriptHtml = `
   <script>
@@ -564,10 +520,12 @@ export function generateSuratTemplate(
     }
     
     .isi-surat p {
-      margin-bottom: 0.35cm;
+      margin-bottom: 0.3cm;
       text-align: justify;
       text-indent: 1.1cm;
       line-height: 1.5;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
     
     .isi-surat table {
@@ -575,10 +533,11 @@ export function generateSuratTemplate(
       border-collapse: collapse;
       margin: 0.2cm 0 0.4cm 1.2cm;
       font-size: 12pt;
+      line-height: 1.2;
     }
     
     .isi-surat td {
-      padding: 0.05cm 0;
+      padding: 0.02cm 0;
       border: none;
       vertical-align: top;
     }
@@ -597,6 +556,9 @@ export function generateSuratTemplate(
     .isi-surat .nilai {
       font-weight: 400;
       text-align: left;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
     }
 
     .isi-surat .nilai-bold {
@@ -804,7 +766,7 @@ export function generateSuratTemplate(
     ${getKopSuratHtml(escapeHtml(logoUrl), { crossOrigin: true })}
 
     <!-- JUDUL SURAT -->
-    <div class="judul-surat">${escapeHtml(suratType.judul)}</div>
+    <div class="judul-surat">${escapeHtml(judulDisplay)}</div>
 
     <!-- NOMOR SURAT -->
     <div class="nomor-surat">Nomor : ${escapeHtml(nomorSurat)}</div>

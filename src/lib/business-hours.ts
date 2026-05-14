@@ -44,7 +44,14 @@ function getWitaClock(now: Date): WitaClock {
   }
 }
 
+// Set to false to disable all business-hours restrictions (useful during testing/development)
+const BUSINESS_HOURS_ENABLED = false;
+
 export function checkBusinessHoursWita(now: Date = new Date()): BusinessHourCheckResult {
+  if (!BUSINESS_HOURS_ENABLED) {
+    return { isAllowed: true };
+  }
+
   const { weekday, hour, minute } = getWitaClock(now);
 
   if (weekday === "Sun" || weekday === "Sat") {

@@ -1,13 +1,51 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiHeart, FiFileText, FiCheckCircle, FiArrowLeft } from "react-icons/fi";
 import Header from "@/components/layout/Header";
 import FooterWrapper from "@/components/layout/FooterWrapper";
 import { OFFICIAL_STANDARD_PROCEDURE } from "@/lib/template-surat/official-defaults";
 
+function normalizeSuratName(value: unknown): string {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 export default function SuratMasihHidupInfoPage() {
   const router = useRouter();
+  const [ctaHref, setCtaHref] = useState<string>("/permohonan/surat-masih-hidup/form");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveDynamicTemplateDetail = async () => {
+      try {
+        const response = await fetch("/api/dynamic-templates", { credentials: "include" });
+        const data = await response.json();
+
+        if (!response.ok || !data?.success || !Array.isArray(data?.templates)) {
+          return;
+        }
+
+        const target = data.templates.find((item: { id?: string; jenisSurat?: string; nama?: string }) => {
+          const candidate = item?.jenisSurat || item?.nama || "";
+          return normalizeSuratName(candidate) === normalizeSuratName("Surat Keterangan Masih Hidup");
+        });
+
+        if (!cancelled && target?.id) {
+          setCtaHref(`/permohonan/dinamis/${encodeURIComponent(target.id)}`);
+        }
+      } catch {
+        // Keep static route fallback when dynamic template endpoint is unavailable.
+      }
+    };
+
+    resolveDynamicTemplateDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const persyaratan = [
     "NIK terdaftar dan akun sudah tervalidasi admin",
@@ -89,7 +127,7 @@ export default function SuratMasihHidupInfoPage() {
           {/* CTA Button */}
           <div className="text-center">
             <button
-              onClick={() => router.push("/permohonan/surat-masih-hidup/form")}
+              onClick={() => router.push(ctaHref)}
               className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-lg text-lg transition duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
             >
               Ajukan Permohonan Sekarang

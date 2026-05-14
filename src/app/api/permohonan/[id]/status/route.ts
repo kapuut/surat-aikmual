@@ -9,12 +9,11 @@ import QRCode from 'qrcode';
 import { createHash, createHmac } from 'crypto';
 import { generateSuratTemplate } from '@/lib/surat-generator/template';
 import { generateNomorSurat } from '@/lib/surat-generator/nomor-surat';
-import { normalizeSuratSlug } from '@/lib/surat-data';
-import { isWhatsAppApiConfigured, sendWhatsAppNotification } from '@/lib/whatsapp';
+import { ALLOWED_SURAT_TYPES, normalizeSuratSlug } from '@/lib/surat-data';
 import type { UserRole } from '@/lib/types';
 import { type JenisSurat, type SuratData } from '@/lib/surat-generator/types';
 import { renderTemplateWithValues } from '@/lib/template-surat/render-template';
-import { normalizeCustomTemplateHtml } from '@/lib/template-surat/official-layout';
+import { normalizeCustomTemplateHtml, adaptJandaDudaTitle } from '@/lib/template-surat/official-layout';
 import { buildOfficialDynamicSystemValues } from '@/lib/template-surat/official-defaults';
 import { getKopSuratStyles, getKopSuratHtml } from '@/lib/kop-surat';
 
@@ -92,7 +91,9 @@ function normalizeStatus(input: unknown): NormalizedStatus | null {
     return 'dikirim_ke_kepala_desa';
   }
   if (['perlu_revisi', 'perlu revisi', 'revisi'].includes(value)) return 'perlu_revisi';
-  if (['ditandatangani', 'signed', 'tertanda'].includes(value)) return 'ditandatangani';
+  if (['ditandatangani', 'signed', 'tertanda', 'selesai_ditandatangani', 'selesai ditandatangani'].includes(value)) {
+    return 'ditandatangani';
+  }
   if (['selesai', 'approved', 'disetujui', 'approve'].includes(value)) return 'selesai';
   if (['ditolak', 'rejected', 'tolak', 'reject'].includes(value)) return 'ditolak';
   return null;
@@ -159,7 +160,7 @@ function getDefaultStatusNote(status: NormalizedStatus, role: InternalRole): str
   }
 
   if (status === 'selesai') {
-    return 'Permohonan selesai diproses dan surat siap digunakan.';
+    return 'Selesai';
   }
 
   if (status === 'ditolak') {
@@ -252,9 +253,8 @@ async function upsertSuratKeluarArchive(
                   status = 'aktif',
                   tanggal = ?,
                   updated_at = CURRENT_TIMESTAMP
-              WHERE nomor_surat = ?
-                AND LOWER(TRIM(perihal)) = LOWER(TRIM(?))`,
-      values: [params.perihal, params.tujuan, params.filePath, params.tanggal, params.nomorSurat, params.perihal],
+              WHERE nomor_surat = ?`,
+      values: [params.perihal, params.tujuan, params.filePath, params.tanggal, params.nomorSurat],
     },
     {
       query: `UPDATE surat_keluar
@@ -263,9 +263,8 @@ async function upsertSuratKeluarArchive(
                   file_path = ?,
                   status = 'aktif',
                   updated_at = CURRENT_TIMESTAMP
-              WHERE nomor_surat = ?
-                AND LOWER(TRIM(perihal)) = LOWER(TRIM(?))`,
-      values: [params.perihal, params.tujuan, params.filePath, params.nomorSurat, params.perihal],
+              WHERE nomor_surat = ?`,
+      values: [params.perihal, params.tujuan, params.filePath, params.nomorSurat],
     },
     {
       query: `UPDATE surat_keluar
@@ -273,9 +272,8 @@ async function upsertSuratKeluarArchive(
                   tujuan = ?,
                   file_path = ?,
                   updated_at = CURRENT_TIMESTAMP
-              WHERE nomor_surat = ?
-                AND LOWER(TRIM(perihal)) = LOWER(TRIM(?))`,
-      values: [params.perihal, params.tujuan, params.filePath, params.nomorSurat, params.perihal],
+              WHERE nomor_surat = ?`,
+      values: [params.perihal, params.tujuan, params.filePath, params.nomorSurat],
     },
   ];
 
@@ -435,6 +433,24 @@ function toNomorSuratScope(value: string | null | undefined): string {
   return normalized || 'global';
 }
 
+function resolveNomorSuratScopeKey(
+  jenisSurat: string | null | undefined,
+  detailData?: DetailData
+): string {
+  // Numbering scope must remain tied to jenis surat.
+  // Template edits (paragraph/field/title) must not create a new numbering series.
+  void detailData;
+  return toNomorSuratScope(jenisSurat);
+}
+
+function toCanonicalJenisSuratLabel(value: string | null | undefined): string {
+  const fallback = String(value || '').trim();
+  const slug = normalizeSuratSlug(fallback);
+  if (!slug) return fallback;
+
+  return ALLOWED_SURAT_TYPES.find((item) => item.slug === slug)?.title || fallback;
+}
+
 function asText(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const cleaned = value.trim();
@@ -447,6 +463,20 @@ function formatDateIndonesian(value: Date): string {
     month: 'long',
     year: 'numeric',
   }).format(value);
+}
+
+function formatDateDDMMYYYY(value: Date): string {
+  const day = String(value.getDate()).padStart(2, '0');
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const year = value.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function toDateDDMMYYYY(value: unknown): string {
+  if (!value) return '';
+  const dateValue = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(dateValue.getTime())) return String(value).trim();
+  return formatDateDDMMYYYY(dateValue);
 }
 
 async function findDynamicTemplateForGeneration(
@@ -502,6 +532,24 @@ async function findDynamicTemplateForGeneration(
   }
 }
 
+function extractDynamicTemplateSnapshotForGeneration(detailData: DetailData): DynamicTemplateGeneration | null {
+  const rawSnapshot = detailData.dynamic_template_snapshot;
+  if (!rawSnapshot || typeof rawSnapshot !== 'object' || Array.isArray(rawSnapshot)) {
+    return null;
+  }
+
+  const snapshot = rawSnapshot as Record<string, unknown>;
+  const htmlTemplate = asText(snapshot.html_template) || asText(snapshot.htmlTemplate);
+  if (!htmlTemplate) return null;
+
+  return {
+    id: asText(snapshot.id) || asText(detailData.dynamic_template_id) || 'snapshot-template',
+    nama: asText(snapshot.nama) || 'Template Arsip',
+    jenisSurat: asText(snapshot.jenis_surat) || asText(snapshot.jenisSurat) || 'Surat',
+    htmlTemplate,
+  };
+}
+
 function toTitleCaseId(value: string): string {
   return value
     .toLowerCase()
@@ -521,6 +569,51 @@ function normalizeDynamicValue(key: string, value: string): string {
   return toTitleCaseId(trimmed);
 }
 
+function toIndonesianDateText(value: unknown): string {
+  if (!value) return '';
+  const dateValue = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(dateValue.getTime())) {
+    return String(value).trim();
+  }
+  return formatDateIndonesian(dateValue);
+}
+
+function parseFlexibleDate(value: unknown): Date | undefined {
+  if (!value) return undefined;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? undefined : value;
+  }
+
+  const text = String(value).trim();
+  if (!text) return undefined;
+
+  const ddmmyyyyMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (ddmmyyyyMatch) {
+    const day = Number(ddmmyyyyMatch[1]);
+    const month = Number(ddmmyyyyMatch[2]);
+    const year = Number(ddmmyyyyMatch[3]);
+    const parsed = new Date(year, month - 1, day);
+    if (
+      parsed.getFullYear() === year
+      && parsed.getMonth() === month - 1
+      && parsed.getDate() === day
+    ) {
+      return parsed;
+    }
+    return undefined;
+  }
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+function formatFormalDate(value: unknown, fallback?: Date): string {
+  const parsed = parseFlexibleDate(value) || fallback;
+  if (parsed) return formatDateIndonesian(parsed);
+  return String(value || '').trim();
+}
+
 function buildDynamicTemplateValuesForGeneration(
   permohonan: PermohonanRow,
   detailData: DetailData,
@@ -529,20 +622,45 @@ function buildDynamicTemplateValuesForGeneration(
   signerName?: string
 ): Record<string, string> {
   const createdAtDate = asDate(permohonan.created_at) || tanggalSurat;
+  const tempatLahirFromColumn = asText(permohonan.tempat_lahir);
+  const defaultMasaBerlakuDari = asDate(permohonan.masa_berlaku_dari) || tanggalSurat;
+  const defaultMasaBerlakuSampai = asDate(permohonan.masa_berlaku_sampai)
+    || new Date(defaultMasaBerlakuDari.getFullYear(), defaultMasaBerlakuDari.getMonth() + 6, defaultMasaBerlakuDari.getDate());
+  const namaPemohonTitleCase = toTitleCaseId(String(permohonan.nama_pemohon || '').trim().replace(/\s+/g, ' '));
+  const namaPemohonUpper = namaPemohonTitleCase.toLocaleUpperCase('id-ID');
   const values: Record<string, string> = {
-    nama: String(permohonan.nama_pemohon || '').trim().toLocaleUpperCase('id-ID'),
+    nama: namaPemohonTitleCase,
+    nama_lengkap: namaPemohonTitleCase,
+    namalengkap: namaPemohonTitleCase,
+    namaLengkap: namaPemohonTitleCase,
+    nama_pemohon: namaPemohonTitleCase,
+    namaPemohon: namaPemohonTitleCase,
+    nama_bold: namaPemohonUpper,
     nik: String(permohonan.nik || '').trim(),
     alamat: String(permohonan.alamat || '').trim(),
     keperluan: String(permohonan.keperluan || '-').trim() || '-',
     jenis_surat: String(permohonan.jenis_surat || '').trim(),
     tanggal_permohonan: formatDateIndonesian(createdAtDate),
+    tempat_lahir: tempatLahirFromColumn ? toTitleCaseId(tempatLahirFromColumn) : '',
+    tanggal_lahir: toDateDDMMYYYY(permohonan.tanggal_lahir),
     ...buildOfficialDynamicSystemValues(formatDateIndonesian(tanggalSurat), nomorSurat, signerName),
   };
+
+  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
   for (const [key, rawValue] of Object.entries(detailData)) {
     if (rawValue == null) continue;
 
     if (typeof rawValue === 'string') {
+      const trimmed = rawValue.trim();
+      // Convert ISO date strings (YYYY-MM-DD) to DD/MM/YYYY for date-prefixed keys
+      if (/^(tanggal|tgl|masa_berlaku)/i.test(key) && ISO_DATE_RE.test(trimmed)) {
+        const d = new Date(trimmed);
+        if (!Number.isNaN(d.getTime())) {
+          values[key] = formatDateDDMMYYYY(d);
+          continue;
+        }
+      }
       values[key] = normalizeDynamicValue(key, rawValue);
       continue;
     }
@@ -553,27 +671,87 @@ function buildDynamicTemplateValuesForGeneration(
     }
 
     if (rawValue instanceof Date && !Number.isNaN(rawValue.getTime())) {
-      values[key] = formatDateIndonesian(rawValue);
+      values[key] = formatDateDDMMYYYY(rawValue);
     }
   }
 
-  // Build composite tempat_tanggal_lahir from separate fields (backward compat)
-  if (!values['tempat_tanggal_lahir']) {
-    const tempatLahirVal = String(detailData['tempat_lahir'] || '').trim();
-    const tlRaw = detailData['tanggal_lahir'];
-    let tanggalLahirVal = '';
-    if (typeof tlRaw === 'string' && tlRaw.trim()) {
-      const dt = new Date(tlRaw);
-      tanggalLahirVal = Number.isNaN(dt.getTime()) ? tlRaw.trim() : formatDateIndonesian(dt);
-    } else if (tlRaw instanceof Date && !Number.isNaN(tlRaw.getTime())) {
-      tanggalLahirVal = formatDateIndonesian(tlRaw);
+  // Ensure template placeholders for masa berlaku always have values for dynamic letters.
+  {
+    const masaBerlakuDariVal = formatFormalDate(
+      values['masa_berlaku_dari'] || values['masaBerlakuDari'],
+      defaultMasaBerlakuDari
+    );
+    const masaBerlakuSampaiVal = formatFormalDate(
+      values['masa_berlaku_sampai'] || values['masaBerlakuSampai'],
+      defaultMasaBerlakuSampai
+    );
+
+    if (masaBerlakuDariVal) {
+      values['masa_berlaku_dari'] = masaBerlakuDariVal;
+      values['masaBerlakuDari'] = masaBerlakuDariVal;
     }
+    if (masaBerlakuSampaiVal) {
+      values['masa_berlaku_sampai'] = masaBerlakuSampaiVal;
+      values['masaBerlakuSampai'] = masaBerlakuSampaiVal;
+    }
+    if (masaBerlakuDariVal && masaBerlakuSampaiVal) {
+      const masaBerlakuLabel = `${masaBerlakuDariVal} sampai ${masaBerlakuSampaiVal}`;
+      values['masa_berlaku'] = masaBerlakuLabel;
+      values['masaBerlaku'] = masaBerlakuLabel;
+    }
+  }
+
+  // Always rebuild tempat_tanggal_lahir from separately formatted fields to ensure correct date format
+  {
+    const tempatLahirVal = (
+      values['tempat_lahir'] ||
+      values['tempatLahir'] ||
+      asText(detailData['tempat_lahir']) ||
+      asText(detailData['tempatLahir']) ||
+      ''
+    ).trim();
+    const tanggalLahirVal = (
+      values['tanggal_lahir'] ||
+      values['tanggalLahir'] ||
+      ''
+    ).trim();
+
+    if (tempatLahirVal && !values['tempat_lahir']) {
+      values['tempat_lahir'] = toTitleCaseId(tempatLahirVal);
+    }
+
     if (tempatLahirVal && tanggalLahirVal) {
       values['tempat_tanggal_lahir'] = `${toTitleCaseId(tempatLahirVal)}, ${tanggalLahirVal}`;
     } else if (tempatLahirVal) {
       values['tempat_tanggal_lahir'] = toTitleCaseId(tempatLahirVal);
     } else if (tanggalLahirVal) {
       values['tempat_tanggal_lahir'] = tanggalLahirVal;
+    }
+  }
+
+  // Build composite tempat_tanggal_lahir_wali from separate wali fields
+  if (!values['tempat_tanggal_lahir_wali']) {
+    const tempatWali = (values['tempat_lahir_wali'] || asText(detailData['tempat_lahir_wali']) || '').trim();
+    const tanggalWali = (values['tanggal_lahir_wali'] || '').trim();
+    if (tempatWali && tanggalWali) {
+      values['tempat_tanggal_lahir_wali'] = `${toTitleCaseId(tempatWali)}, ${tanggalWali}`;
+    } else if (tempatWali) {
+      values['tempat_tanggal_lahir_wali'] = toTitleCaseId(tempatWali);
+    } else if (tanggalWali) {
+      values['tempat_tanggal_lahir_wali'] = tanggalWali;
+    }
+  }
+
+  // Build composite tempat_tanggal_lahir_pihak_2 from separate pihak_2 fields
+  if (!values['tempat_tanggal_lahir_pihak_2']) {
+    const tempatPihak2 = (values['tempat_lahir_pihak_2'] || asText(detailData['tempat_lahir_pihak_2']) || '').trim();
+    const tanggalPihak2 = (values['tanggal_lahir_pihak_2'] || '').trim();
+    if (tempatPihak2 && tanggalPihak2) {
+      values['tempat_tanggal_lahir_pihak_2'] = `${toTitleCaseId(tempatPihak2)}, ${tanggalPihak2}`;
+    } else if (tempatPihak2) {
+      values['tempat_tanggal_lahir_pihak_2'] = toTitleCaseId(tempatPihak2);
+    } else if (tanggalPihak2) {
+      values['tempat_tanggal_lahir_pihak_2'] = tanggalPihak2;
     }
   }
 
@@ -745,67 +923,9 @@ function getGenderWithDetail(
   return undefined;
 }
 
-function normalizeNikValue(value: unknown): string {
-  if (typeof value !== 'string') return '';
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  return trimmed.split('_')[0].trim();
-}
-
 function getAppBaseUrl(): string {
   const raw = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   return raw.replace(/\/$/, '');
-}
-
-async function resolvePemohonWhatsAppNumber(
-  detailData: DetailData,
-  permohonan: PermohonanRow
-): Promise<string | null> {
-  const fromDetail = getTextWithDetail(undefined, detailData, [
-    'telepon',
-    'noTelp',
-    'no_telp',
-    'phone',
-    'no_hp',
-    'nomor_hp',
-    'no_wa',
-    'nomor_wa',
-    'whatsapp',
-  ]);
-
-  if (fromDetail) {
-    return fromDetail;
-  }
-
-  const fromPermohonan = asText(permohonan.telepon);
-  if (fromPermohonan) {
-    return fromPermohonan;
-  }
-
-  const nikRaw = String(permohonan.nik || '').trim();
-  const nikBase = normalizeNikValue(nikRaw);
-  const email = asText(permohonan.email)?.toLowerCase() || '';
-
-  if (!nikRaw && !nikBase && !email) {
-    return null;
-  }
-
-  const [userRows]: any = await db.execute(
-    `SELECT telepon
-     FROM users
-     WHERE telepon IS NOT NULL
-       AND telepon <> ''
-       AND (
-         nik = ?
-         OR SUBSTRING_INDEX(nik, '_', 1) = ?
-         OR (? <> '' AND LOWER(email) = ?)
-       )
-     ORDER BY CASE WHEN SUBSTRING_INDEX(nik, '_', 1) = ? THEN 0 ELSE 1 END
-     LIMIT 1`,
-    [nikRaw || nikBase, nikBase || nikRaw, email, email, nikBase || nikRaw]
-  );
-
-  return asText(userRows?.[0]?.telepon) || null;
 }
 
 function buildVerificationCode(source: string): string {
@@ -856,7 +976,7 @@ async function getNextNomorSuratWithLock(
   connection: any,
   tanggal: Date,
   scopeKey: string
-): Promise<string> {
+): Promise<{ nomorSurat: string; lockName: string }> {
   const bulan = String(tanggal.getMonth() + 1).padStart(2, '0');
   const tahun = String(tanggal.getFullYear());
   const suffix = `/${bulan}.${tahun}`;
@@ -864,46 +984,52 @@ async function getNextNomorSuratWithLock(
   const nomorScope = normalizedScope || 'global';
   const lockName = `permohonan_surat_nomor_${nomorScope}_${bulan}_${tahun}`;
 
+  // Acquire lock and hold it until the caller commits the transaction.
+  // This prevents a race condition where two concurrent approvals both see
+  // no existing rows and both generate the same nomor_surat (e.g. both get 001).
   await connection.execute('SELECT GET_LOCK(?, 10)', [lockName]);
-  try {
-    const [rows]: any = await connection.execute(
-      `SELECT nomor_surat, jenis_surat, status, catatan
-       FROM permohonan_surat
-       WHERE nomor_surat LIKE ?
-       ORDER BY id DESC
-       FOR UPDATE`,
-      [`%${suffix}`]
-    );
 
-    const scopedRows = Array.isArray(rows)
-      ? rows.filter((row: any) => {
-          const rowStatus = normalizeCurrentStatus(row?.status, row?.nomor_surat, row?.catatan);
-          if (rowStatus === 'ditolak') return false;
-          const rowScope = toNomorSuratScope(String(row?.jenis_surat || ''));
-          return rowScope === scopeKey;
-        })
-      : [];
+  const [rows]: any = await connection.execute(
+    `SELECT nomor_surat, jenis_surat, status, catatan, data_detail
+     FROM permohonan_surat
+     WHERE nomor_surat LIKE ?
+     ORDER BY id DESC
+     FOR UPDATE`,
+    [`%${suffix}`]
+  );
 
-    let nomorUrut = 1;
-    if (scopedRows.length > 0 && typeof scopedRows[0].nomor_surat === 'string') {
-      const parsed = parseInt(String(scopedRows[0].nomor_surat).split('/')[0], 10);
-      nomorUrut = Number.isFinite(parsed) ? parsed + 1 : 1;
-    }
+  const scopedRows = Array.isArray(rows)
+    ? rows.filter((row: any) => {
+        const rowStatus = normalizeCurrentStatus(row?.status, row?.nomor_surat, row?.catatan);
+        // Hanya surat yang benar-benar selesai ditandatangani yang dihitung sebagai nomor terpakai.
+        // Surat yang ditolak atau masih dalam proses tidak dihitung agar nomornya tidak terkunci.
+        if (rowStatus !== 'ditandatangani' && rowStatus !== 'selesai') return false;
+        const rowScope = resolveNomorSuratScopeKey(
+          String(row?.jenis_surat || ''),
+          parseDetailData(row?.data_detail)
+        );
+        return rowScope === scopeKey;
+      })
+    : [];
 
-    return generateNomorSurat(nomorUrut, tanggal);
-  } finally {
-    await connection.execute('SELECT RELEASE_LOCK(?)', [lockName]);
-  }
+  // Nomor mengikuti jumlah surat yang sudah benar-benar selesai (ditandatangani/selesai) per jenis di bulan/tahun berjalan.
+  const nomorUrut = scopedRows.length + 1;
+
+  // NOTE: Lock is intentionally NOT released here.
+  // The caller must release it after connection.commit() via the returned lockName.
+  return { nomorSurat: generateNomorSurat(nomorUrut, tanggal), lockName };
 }
 
 async function saveGeneratedSuratHtml(
   htmlContent: string,
   nomorSurat: string,
-  jenisSurat: string
+  jenisSurat: string,
+  permohonanId: string | number
 ): Promise<string> {
   const safeNomor = nomorSurat.replace(/[^a-zA-Z0-9.-]+/g, '-');
   const safeJenisSurat = String(jenisSurat || 'surat').replace(/[^a-zA-Z0-9.-]+/g, '-').toLowerCase();
-  const fileName = `${safeNomor}-${safeJenisSurat}.html`;
+  const safePermohonanId = String(permohonanId || '').replace(/[^a-zA-Z0-9.-]+/g, '-') || 'permohonan';
+  const fileName = `${safeNomor}-${safeJenisSurat}-${safePermohonanId}.html`;
   const storagePath = `generated-surat/${fileName}`;
   return uploadText(storagePath, htmlContent, 'text/html');
 }
@@ -1017,12 +1143,7 @@ export async function PUT(
   await ensureStatusColumnIsVarchar();
 
   const connection = await db.getConnection();
-  let whatsappNotification:
-    | 'not_triggered'
-    | 'not_configured'
-    | 'no_number'
-    | 'sent'
-    | 'failed' = 'not_triggered';
+  let heldNomorSuratLockName: string | null = null;
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('auth-token')?.value;
@@ -1070,6 +1191,11 @@ export async function PUT(
 
     const permohonan = permohonanRows[0] as PermohonanRow;
     const currentStatus = normalizeCurrentStatus(permohonan.status, permohonan.nomor_surat, permohonan.catatan);
+    const permohonanDetailData = parseDetailData(permohonan.data_detail);
+    const nomorSuratScope = resolveNomorSuratScopeKey(permohonan.jenis_surat, permohonanDetailData);
+    const finalStatuses: NormalizedStatus[] = ['ditandatangani', 'selesai'];
+    const shouldAssignNomorNow =
+      finalStatuses.includes(normalizedStatus) && !finalStatuses.includes(currentStatus);
 
     if (!canTransitionStatus(authUser.role as InternalRole, currentStatus, normalizedStatus)) {
       await connection.rollback();
@@ -1081,10 +1207,6 @@ export async function PUT(
       );
     }
 
-    const finalStatuses: NormalizedStatus[] = ['selesai'];
-    const shouldSendReadyNotification =
-      finalStatuses.includes(normalizedStatus) && !finalStatuses.includes(currentStatus);
-
     let nomorSurat = permohonan.nomor_surat;
     let generatedFilePath = permohonan.file_path;
 
@@ -1092,28 +1214,43 @@ export async function PUT(
 
     if (shouldGenerateSurat) {
       const signerInfo = await resolveKepalaDesaSigner(processedBy);
-      const detailData = parseDetailData(permohonan.data_detail);
+      const detailData = permohonanDetailData;
       const jenisSurat = toJenisSurat(permohonan.jenis_surat);
       const dynamicTemplateId = asText(detailData.dynamic_template_id);
+      const dynamicTemplateSnapshot = extractDynamicTemplateSnapshotForGeneration(detailData);
+
+      console.info('[permohonan][status] birth-data-fetch', {
+        permohonanId: Number(permohonan.id),
+        jenisSurat: permohonan.jenis_surat,
+        hasTempatLahirColumn: Boolean(asText(permohonan.tempat_lahir)),
+        hasTanggalLahirColumn: Boolean(asDate(permohonan.tanggal_lahir)),
+        hasTempatLahirDetail: Boolean(asText(detailData.tempat_lahir) || asText(detailData.tempatLahir)),
+        hasTanggalLahirDetail: Boolean(asText(detailData.tanggal_lahir) || asText(detailData.tanggalLahir)),
+        hasCompositeDetail: Boolean(asText(detailData.tempat_tanggal_lahir) || asText(detailData.tempatTanggalLahir)),
+      });
+
       // For static surat types, check if admin has saved a DB override template
       const staticDbOverride = jenisSurat
-        ? await findDynamicTemplateForGeneration(permohonan.jenis_surat, jenisSurat)
+        ? (dynamicTemplateSnapshot || await findDynamicTemplateForGeneration(permohonan.jenis_surat, jenisSurat))
         : null;
       const dynamicTemplate = staticDbOverride
+        || dynamicTemplateSnapshot
         || (jenisSurat
           ? null
           : await findDynamicTemplateForGeneration(permohonan.jenis_surat, dynamicTemplateId));
 
       const tanggalSurat = new Date();
       const generatedJenisSuratKey = jenisSurat || dynamicTemplate?.id || permohonan.jenis_surat;
-      const nomorSuratScope = toNomorSuratScope(permohonan.jenis_surat);
 
-      if (!nomorSurat) {
-        nomorSurat = await getNextNomorSuratWithLock(connection, tanggalSurat, nomorSuratScope);
+      if (shouldAssignNomorNow) {
+        const result = await getNextNomorSuratWithLock(connection, tanggalSurat, nomorSuratScope);
+        nomorSurat = result.nomorSurat;
+        heldNomorSuratLockName = result.lockName;
       }
 
       const shouldEmbedSignature = ['ditandatangani', 'selesai'].includes(normalizedStatus);
       const shouldRegenerateSurat = !generatedFilePath || shouldEmbedSignature;
+      const namaPemohonTitleCase = toTitleCaseId(String(permohonan.nama_pemohon || '').trim().replace(/\s+/g, ' '));
 
       if (!jenisSurat || staticDbOverride) {
         if (shouldRegenerateSurat) {
@@ -1171,12 +1308,15 @@ export async function PUT(
             ? normalizeCustomTemplateHtml(dynamicTemplate.htmlTemplate)
             : fallbackTemplate;
           const templateTitle = dynamicTemplate?.jenisSurat || permohonan.jenis_surat || 'Surat Keterangan';
-          const htmlBody = renderTemplateWithValues(templateBody, renderValues);
+          const rawHtmlBody = renderTemplateWithValues(templateBody, renderValues);
+          const htmlBody = (permohonan.jenis_surat === 'surat-janda' || staticDbOverride?.jenisSurat === 'surat-janda')
+            ? adaptJandaDudaTitle(rawHtmlBody, String(permohonan.jenis_kelamin || renderValues['jenis_kelamin'] || ''))
+            : rawHtmlBody;
           const htmlContent = renderDynamicSuratDocument(templateTitle, htmlBody, {
             signatureImageUrl: renderValues.ttd_kepala_desa,
             qrCodeDataUrl: renderValues.qr_code,
           });
-          generatedFilePath = await saveGeneratedSuratHtml(htmlContent, nomorSurat, generatedJenisSuratKey);
+          generatedFilePath = await saveGeneratedSuratHtml(htmlContent, nomorSurat, generatedJenisSuratKey, params.id);
         }
       } else {
       const tempatLahir = getTextWithDetail(permohonan.tempat_lahir, detailData, [
@@ -1214,6 +1354,9 @@ export async function PUT(
         'nama_almarhum',
         'namaAlmarhum',
       ]);
+      const namaAlmarhumTitleCase = toTitleCaseId(
+        String((namaAlmarhum || permohonan.nama_pemohon || '').trim()).replace(/\s+/g, ' ')
+      );
       const nikAlmarhum = getTextWithDetail(undefined, detailData, [
         'nik_almarhum',
         'nikAlmarhum',
@@ -1531,11 +1674,6 @@ export async function PUT(
       const masaBerlakuSampai =
         getDateWithDetail(permohonan.masa_berlaku_sampai, detailData, ['masa_berlaku_sampai', 'masaBerlakuSampai']) ||
         new Date(masaBerlakuDari.getFullYear(), masaBerlakuDari.getMonth() + 6, masaBerlakuDari.getDate());
-      const nomorSuratScope = toNomorSuratScope(permohonan.jenis_surat);
-
-      if (!nomorSurat) {
-        nomorSurat = await getNextNomorSuratWithLock(connection, tanggalSurat, nomorSuratScope);
-      }
 
       const shouldEmbedSignature = ['ditandatangani', 'selesai'].includes(normalizedStatus);
       const shouldRegenerateSurat = !generatedFilePath || shouldEmbedSignature;
@@ -1565,7 +1703,7 @@ export async function PUT(
           jenisSurat,
           nomorSurat,
           tanggalSurat,
-          nama: isSuratKematian ? (namaAlmarhum || permohonan.nama_pemohon) : permohonan.nama_pemohon,
+          nama: isSuratKematian ? namaAlmarhumTitleCase : namaPemohonTitleCase,
           nik: isSuratKematian ? (nikAlmarhum || permohonan.nik) : permohonan.nik,
           tempatLahir: isSuratKematian ? (tempatLahirAlmarhum || tempatLahir) : tempatLahir,
           tanggalLahir: isSuratKematian ? (tanggalLahirAlmarhum || tanggalLahir) : tanggalLahir,
@@ -1580,7 +1718,7 @@ export async function PUT(
           },
           alamat: isSuratKematian ? (alamatTerakhir || permohonan.alamat) : permohonan.alamat,
           isiSurat: isSuratCerai
-            ? `Bahwa berdasarkan data administrasi kependudukan yang ada, benar ${permohonan.nama_pemohon} telah bercerai secara sah dengan ${namaMantan || 'pasangannya'}.`
+            ? `Bahwa berdasarkan data administrasi kependudukan yang ada, benar ${namaPemohonTitleCase} telah bercerai secara sah dengan ${namaMantan || 'pasangannya'}.`
             : isSuratJanda
               ? `Bahwa yang namanya tersebut diatas memang benar berstatus ${statusJanda || 'Janda/Duda'}${alasanStatusJanda ? ` (${alasanStatusJanda})` : ''}.`
               : isSuratPenghasilan
@@ -1594,7 +1732,7 @@ export async function PUT(
               : `Dengan ini menerangkan bahwa nama yang di atas tersebut memang benar penduduk Desa Aikmual yang bertempat tinggal di ${permohonan.alamat}.`,
           kematian: isSuratKematian
             ? {
-                namaAlmarhum: namaAlmarhum || permohonan.nama_pemohon,
+                namaAlmarhum: namaAlmarhumTitleCase,
                 nikAlmarhum: nikAlmarhum || permohonan.nik,
                 tempatLahirAlmarhum: tempatLahirAlmarhum || tempatLahir,
                 tanggalLahirAlmarhum: tanggalLahirAlmarhum || tanggalLahir,
@@ -1694,7 +1832,7 @@ export async function PUT(
         };
 
         const htmlContent = generateSuratTemplate(suratData);
-        generatedFilePath = await saveGeneratedSuratHtml(htmlContent, nomorSurat, generatedJenisSuratKey);
+        generatedFilePath = await saveGeneratedSuratHtml(htmlContent, nomorSurat, generatedJenisSuratKey, params.id);
       }
     }
     }
@@ -1708,12 +1846,22 @@ export async function PUT(
       id: params.id,
     });
 
+    // Hapus nomor_surat saat ditolak agar nomor tersebut tidak dihitung ulang
+    // dan dapat digunakan kembali oleh permohonan berikutnya.
+    if (normalizedStatus === 'ditolak') {
+      await connection.execute(
+        'UPDATE permohonan_surat SET nomor_surat = NULL WHERE id = ?',
+        [params.id]
+      );
+    }
+
     const shouldSyncSuratKeluar = ['ditandatangani', 'selesai'].includes(normalizedStatus);
     if (shouldSyncSuratKeluar && nomorSurat) {
       const tanggalArsip = new Date().toISOString().split('T')[0];
       const tujuan = permohonan.nama_pemohon || 'Pemohon';
       const cleanKeperluan = normalizePerihalArchiveDetail(permohonan.keperluan);
-      const perihal = `${permohonan.jenis_surat}${cleanKeperluan ? ` - ${cleanKeperluan}` : ''}`;
+      const canonicalJenisSurat = toCanonicalJenisSuratLabel(permohonan.jenis_surat) || permohonan.jenis_surat;
+      const perihal = `${canonicalJenisSurat}${cleanKeperluan ? ` - ${cleanKeperluan}` : ''}`;
 
       try {
         await upsertSuratKeluarArchive(connection, {
@@ -1732,6 +1880,17 @@ export async function PUT(
 
     await connection.commit();
 
+    // Release the nomor_surat lock AFTER commit so no other transaction can claim
+    // the same number before our UPDATE is visible in the database.
+    if (heldNomorSuratLockName) {
+      try {
+        await connection.execute('SELECT RELEASE_LOCK(?)', [heldNomorSuratLockName]);
+      } catch {
+        // ignore — lock auto-releases when connection is returned to pool
+      }
+      heldNomorSuratLockName = null;
+    }
+
     // Notifikasi email bersifat best-effort agar update status tidak gagal.
     if (typeof permohonan.email === 'string' && permohonan.email.trim()) {
       try {
@@ -1745,51 +1904,6 @@ export async function PUT(
       }
     }
 
-    // Notifikasi WhatsApp bersifat best-effort agar alur update status tetap aman.
-    if (shouldSendReadyNotification && isWhatsAppApiConfigured()) {
-      try {
-        const detailData = parseDetailData(permohonan.data_detail);
-        const waNumber = await resolvePemohonWhatsAppNumber(detailData, permohonan);
-
-        if (waNumber) {
-          const nomorSuratLabel = nomorSurat || '-';
-          const statusText = statusLabel(normalizedStatus);
-          const jenisSuratLabel = permohonan.jenis_surat || 'Surat';
-          const baseUrl = getAppBaseUrl();
-          const trackingUrl = `${baseUrl}/tracking`;
-
-          const finalFileUrl = generatedFilePath
-            ? `${baseUrl}${generatedFilePath}${generatedFilePath.includes('?') ? '&print=1' : '?print=1'}`
-            : trackingUrl;
-
-          const messageLines = [
-            `Halo ${permohonan.nama_pemohon},`,
-            `Permohonan ${jenisSuratLabel} Anda sudah jadi (${statusText}).`,
-            `Nomor Surat: ${nomorSuratLabel}`,
-            `Lihat/unduh surat: ${finalFileUrl}`,
-          ];
-
-          await sendWhatsAppNotification({
-            to: waNumber,
-            message: messageLines.join('\n'),
-            metadata: {
-              permohonanId: Number(params.id),
-              status: normalizedStatus,
-              nomorSurat: nomorSurat || null,
-            },
-          });
-          whatsappNotification = 'sent';
-        } else {
-          whatsappNotification = 'no_number';
-        }
-      } catch (waError) {
-        console.error('Gagal kirim notifikasi WhatsApp:', waError);
-        whatsappNotification = 'failed';
-      }
-    } else if (shouldSendReadyNotification) {
-      whatsappNotification = 'not_configured';
-    }
-
     return NextResponse.json({
       message: 'Status berhasil diupdate',
       data: {
@@ -1797,7 +1911,6 @@ export async function PUT(
         status: normalizedStatus,
         nomor_surat: nomorSurat,
         file_path: generatedFilePath,
-        whatsapp_notification: whatsappNotification,
       },
     });
   } catch (error) {
@@ -1805,6 +1918,14 @@ export async function PUT(
       await connection.rollback();
     } catch {
       // ignore rollback error
+    }
+    // Release lock if acquired before the error occurred
+    if (heldNomorSuratLockName) {
+      try {
+        await connection.execute('SELECT RELEASE_LOCK(?)', [heldNomorSuratLockName]);
+      } catch {
+        // ignore
+      }
     }
     console.error('Gagal mengupdate status permohonan:', error);
     const detailMessage = error instanceof Error && error.message

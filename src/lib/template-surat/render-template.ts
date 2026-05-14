@@ -19,6 +19,8 @@ export function createInitialFormValues(fields: TemplateField[]): TemplateFormVa
 export function renderTemplateWithValues(templateHtml: string, values: TemplateFormValues): string {
   return templateHtml.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key: string) => {
     const rawValue = values[key] ?? "";
+    const escaped = escapeHtml(String(rawValue).toUpperCase());
+    if (key.endsWith('_bold')) return `<strong>${escaped}</strong>`;
     return escapeHtml(String(rawValue));
   });
 }

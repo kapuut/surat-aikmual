@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { AuthUser } from '@/lib/types';
 import { useRequireRole, useSharedStats } from '@/lib/hooks';
 import PopupDatePicker from '@/components/shared/PopupDatePicker';
@@ -13,7 +14,6 @@ import {
   FiClock,
   FiInfo,
   FiRotateCcw,
-  FiTrendingUp,
 } from 'react-icons/fi';
 
 const BAR_COLOR_PALETTE = [
@@ -29,8 +29,14 @@ const BAR_COLOR_PALETTE = [
   '#ea580c',
 ];
 
+const DEFAULT_CHART_SORT = 'date_desc';
+const DEFAULT_CHART_PAGE = 1;
+const DEFAULT_CHART_PAGE_SIZE = 20;
+const DASHBOARD_FILTER_QUERY_KEYS = ['date_from', 'date_to', 'sort', 'page', 'page_size'] as const;
+
 export default function SecretaryDashboardPage() {
   // Ensure only sekretaris users can access this page
+  const pathname = usePathname();
   const { user: authorizedUser, loading, isAuthenticated } = useRequireRole(['sekretaris']);
 
   // All hooks must be called unconditionally, before any early returns
@@ -43,8 +49,9 @@ export default function SecretaryDashboardPage() {
   const [chartLoading, setChartLoading] = useState<boolean>(false);
   const [chartError, setChartError] = useState<string | null>(null);
 
-  const suratMasukBulanIni = stats?.suratMasuk.bulanIni ?? 0;
-  const suratKeluarBulanIni = stats?.suratKeluar.bulanIni ?? 0;
+  const totalSuratMasuk = stats?.suratMasuk.total ?? 0;
+  const totalSuratKeluar = stats?.suratKeluar.total ?? 0;
+  const totalPermohonan = stats?.permohonan.total ?? 0;
   const [disposisiMasuk, setDisposisiMasuk] = useState<number>(0);
 
   const [recentSuratMasuk, setRecentSuratMasuk] = useState<{ nomor_surat: string; asal_surat: string; perihal: string; tanggal_terima: string }[]>([]);
@@ -74,10 +81,13 @@ export default function SecretaryDashboardPage() {
       const params = new URLSearchParams();
       if (dateFrom) params.set('date_from', dateFrom);
       if (dateTo) params.set('date_to', dateTo);
-      params.set('sort', 'date_desc');
+      params.set('sort', DEFAULT_CHART_SORT);
+      params.set('page', String(DEFAULT_CHART_PAGE));
+      params.set('page_size', String(DEFAULT_CHART_PAGE_SIZE));
 
       const response = await fetch(`/api/stats/surat-jenis?${params.toString()}`, {
         credentials: 'include',
+        cache: 'no-store',
       });
       const result = await response.json();
 
@@ -155,22 +165,54 @@ export default function SecretaryDashboardPage() {
 
   useEffect(() => {
     if (!authorizedUser) return;
-    fetchJenisSuratChart();
-  }, [authorizedUser]);
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      DASHBOARD_FILTER_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
+      const nextQuery = url.searchParams.toString();
+      window.history.replaceState({}, '', `${pathname}${nextQuery ? `?${nextQuery}` : ''}`);
+    }
+
+    fetchJenisSuratChart({ dateFrom: '', dateTo: '' });
+  }, [authorizedUser, pathname]);
 
   const applyFilters = () => {
-    fetchJenisSuratChart();
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (chartDateFrom) {
+        url.searchParams.set('date_from', chartDateFrom);
+      } else {
+        url.searchParams.delete('date_from');
+      }
+      if (chartDateTo) {
+        url.searchParams.set('date_to', chartDateTo);
+      } else {
+        url.searchParams.delete('date_to');
+      }
+      url.searchParams.set('sort', DEFAULT_CHART_SORT);
+      url.searchParams.set('page', String(DEFAULT_CHART_PAGE));
+      url.searchParams.set('page_size', String(DEFAULT_CHART_PAGE_SIZE));
+      window.history.replaceState({}, '', `${pathname}?${url.searchParams.toString()}`);
+    }
+
+    fetchJenisSuratChart({
+      dateFrom: chartDateFrom,
+      dateTo: chartDateTo,
+    });
   };
 
   const resetFilters = () => {
-    const defaultFilters = {
-      dateFrom: '',
-      dateTo: '',
-    };
+    setChartDateFrom('');
+    setChartDateTo('');
 
-    setChartDateFrom(defaultFilters.dateFrom);
-    setChartDateTo(defaultFilters.dateTo);
-    fetchJenisSuratChart(defaultFilters);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      DASHBOARD_FILTER_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
+      const nextQuery = url.searchParams.toString();
+      window.history.replaceState({}, '', `${pathname}${nextQuery ? `?${nextQuery}` : ''}`);
+    }
+
+    fetchJenisSuratChart({ dateFrom: '', dateTo: '' });
   };
 
   const filterDescription = useMemo(() => {
@@ -188,6 +230,15 @@ export default function SecretaryDashboardPage() {
     const end = chartDateTo || chartDateFrom;
     return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${chartTotalSurat} data`;
   }, [chartDateFrom, chartDateTo, chartTotalSurat]);
+
+  const chartYear = useMemo(() => {
+    const fromYear = chartDateFrom ? new Date(`${chartDateFrom}T00:00:00`).getFullYear() : null;
+    const toYear = chartDateTo ? new Date(`${chartDateTo}T00:00:00`).getFullYear() : null;
+    if (fromYear && toYear && fromYear === toYear) return fromYear;
+    if (fromYear && !toYear) return fromYear;
+    if (!fromYear && toYear) return toYear;
+    return new Date().getFullYear();
+  }, [chartDateFrom, chartDateTo]);
 
   const hasChartFilter =
     chartDateFrom !== '' ||
@@ -207,17 +258,13 @@ export default function SecretaryDashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1400px] p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
       {/* Statistik */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 mb-8">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 mb-8">
         {/* Box Statistik */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between min-h-[140px]">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1">Surat Masuk</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{suratMasukBulanIni}</p>
-              <div className="flex items-center text-xs text-blue-600">
-                <FiTrendingUp className="w-4 h-4 mr-1" />
-                <span>Bulan ini</span>
-              </div>
+              <p className="text-3xl font-bold text-gray-900">{totalSuratMasuk}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
               <FiInbox className="w-6 h-6 text-blue-600" />
@@ -228,11 +275,7 @@ export default function SecretaryDashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1">Surat Keluar</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{suratKeluarBulanIni}</p>
-              <div className="flex items-center text-xs text-red-600">
-                <FiTrendingUp className="w-4 h-4 mr-1" />
-                <span>Bulan ini</span>
-              </div>
+              <p className="text-3xl font-bold text-gray-900">{totalSuratKeluar}</p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
               <FiSend className="w-6 h-6 text-red-600" />
@@ -242,12 +285,19 @@ export default function SecretaryDashboardPage() {
         <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between min-h-[140px]">
           <div className="flex items-center justify-between">
             <div>
+              <p className="text-sm font-medium text-gray-600 mb-1">Permohonan Surat</p>
+              <p className="text-3xl font-bold text-gray-900">{totalPermohonan}</p>
+            </div>
+            <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+              <FiClock className="w-6 h-6 text-yellow-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between min-h-[140px]">
+          <div className="flex items-center justify-between">
+            <div>
               <p className="text-sm font-medium text-gray-600 mb-1">Disposisi Masuk</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{disposisiMasuk}</p>
-              <div className="flex items-center text-xs text-orange-600">
-                <FiActivity className="w-4 h-4 mr-1" />
-                <span>Total disposisi</span>
-              </div>
+              <p className="text-3xl font-bold text-gray-900">{disposisiMasuk}</p>
             </div>
             <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
               <FiFileText className="w-6 h-6 text-orange-600" />
@@ -326,7 +376,7 @@ export default function SecretaryDashboardPage() {
           {!chartLoading && !chartError && chartData.length > 0 && (
             <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
               <div className="mb-4">
-                <p className="text-base font-semibold text-gray-800">Grafik Surat</p>
+                <p className="text-base font-semibold text-gray-800">Grafik Surat Tahun {chartYear}</p>
                 <p className="text-xs text-gray-500 mt-1">Perbandingan Jumlah Surat per Jenis</p>
               </div>
 

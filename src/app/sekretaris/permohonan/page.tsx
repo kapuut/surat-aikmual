@@ -36,7 +36,7 @@ function statusLabel(status: WorkflowStatus): string {
     case "diproses":
       return "Diproses";
     case "dikirim_ke_kepala_desa":
-      return "Menunggu Konfirmasi Kepala Desa";
+      return "Menunggu Konfirmasi Kades";
     case "perlu_revisi":
       return "Perlu Revisi";
     case "ditandatangani":
@@ -267,7 +267,7 @@ export default function SekretarisPermohonanPage() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Menunggu Konfirmasi Kepala Desa</p>
+              <p className="text-sm font-medium text-gray-500">Menunggu Konfirmasi Kades</p>
               <p className="text-2xl font-bold text-indigo-600">{stats.dikirimKeKepala}</p>
             </div>
             <div className="w-3 h-3 rounded-full bg-indigo-300" />
@@ -364,25 +364,25 @@ export default function SekretarisPermohonanPage() {
       )}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-xs sm:text-sm table-auto border-collapse">
+      <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full text-xs sm:text-sm table-fixed border-collapse">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-2 py-3 text-left font-bold text-gray-700 w-10">No</th>
-              <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">Nomor</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 w-36">Nomor</th>
               <th className="px-3 py-3 text-left font-bold text-gray-700 w-24">Tanggal</th>
-              <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[150px]">Nama Pemohon</th>
-              <th className="px-3 py-3 text-left font-bold text-gray-700 w-32">NIK</th>
-              <th className="px-3 py-3 text-left font-bold text-gray-700">Jenis Surat</th>
-              <th className="px-3 py-3 text-left font-bold text-gray-700 max-w-[150px]">Keperluan</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 w-28">Nama Pemohon</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 w-28">Jenis Surat</th>
+              <th className="px-3 py-3 text-left font-bold text-gray-700 w-28">Keperluan</th>
               <th className="px-2 py-3 text-left font-bold text-gray-700 w-32">Status</th>
-              <th className="px-2 py-3 text-center font-bold text-gray-700 w-48">Aksi</th>
+              <th className="px-2 py-3 text-center font-bold text-gray-700 w-[190px]">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td className="px-4 py-8 text-center text-gray-500" colSpan={9}>
+                <td className="px-4 py-8 text-center text-gray-500" colSpan={8}>
                   <div className="flex flex-col items-center gap-2">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
                     <span>Memuat data permohonan...</span>
@@ -391,7 +391,7 @@ export default function SekretarisPermohonanPage() {
               </tr>
             ) : filteredPermohonan.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-gray-500 italic" colSpan={9}>
+                <td className="px-4 py-8 text-center text-gray-500 italic" colSpan={8}>
                   Belum ada data permohonan
                 </td>
               </tr>
@@ -406,18 +406,17 @@ export default function SekretarisPermohonanPage() {
                   <td className="px-3 py-3 font-semibold text-gray-900 break-words">{nomorPermohonan(item)}</td>
                   <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{new Date(item.created_at).toLocaleDateString("id-ID")}</td>
                   <td className="px-3 py-3 text-gray-700 font-medium max-w-[150px] truncate" title={item.nama_pemohon}>{item.nama_pemohon}</td>
-                  <td className="px-3 py-3 text-gray-600">{item.nik || "-"}</td>
-                  <td className="px-3 py-3 text-gray-700 leading-snug">{item.jenis_surat}</td>
+                  <td className="px-3 py-3 text-gray-700 leading-snug truncate" title={item.jenis_surat}>{item.jenis_surat}</td>
                   <td className="px-3 py-3 text-gray-500 leading-snug italic truncate max-w-[150px]" title={item.keperluan || "-"}>
                     {item.keperluan || "-"}
                   </td>
                   <td className="px-2 py-3">
-                    <span className={`status-chip scale-90 origin-left ${statusClass(item.status)}`}>
+                    <span className={`status-chip scale-90 origin-left whitespace-nowrap ${statusClass(item.status)}`}>
                       {statusLabel(item.status)}
                     </span>
                   </td>
                   <td className="px-2 py-3 text-center align-middle">
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
                       <button
                         onClick={() => window.open(previewUrl, "_blank")}
                         className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
@@ -427,7 +426,7 @@ export default function SekretarisPermohonanPage() {
                         Lihat
                       </button>
                       <a
-                        href={previewUrl}
+                        href={`/api/admin/permohonan/${item.id}/preview?print=1`}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
@@ -443,7 +442,8 @@ export default function SekretarisPermohonanPage() {
               })
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
     </section>
   );

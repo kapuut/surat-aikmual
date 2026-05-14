@@ -173,10 +173,11 @@ function renderPreviewPage(template: DynamicSuratTemplate, renderedHtml: string)
       border-collapse: collapse;
       margin: 0.15cm 0 0.35cm 0;
       font-size: 12pt;
+      line-height: 1.2;
     }
 
     .isi-surat td, .surat-body td {
-      padding: 0.03cm 0;
+      padding: 0.02cm 0;
       border: none;
       vertical-align: top;
     }
@@ -189,6 +190,12 @@ function renderPreviewPage(template: DynamicSuratTemplate, renderedHtml: string)
     .isi-surat .colon, .surat-body .colon {
       width: 0.35cm;
       text-align: center;
+    }
+
+    .isi-surat .nilai, .surat-body .nilai {
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
     }
 
     @media print {
@@ -257,9 +264,10 @@ export async function GET(
       return NextResponse.json({ error: 'Template tidak valid' }, { status: 400 });
     }
 
-    const defaultTemplate = DYNAMIC_SURAT_TEMPLATES.find((item) => item.id === templateId);
-    const customTemplate = defaultTemplate ? null : await getCustomTemplateById(templateId);
-    const template = defaultTemplate || customTemplate;
+    // Check DB first so saved overrides to built-in templates take effect
+    const customTemplate = await getCustomTemplateById(templateId);
+    const defaultTemplate = customTemplate ? null : DYNAMIC_SURAT_TEMPLATES.find((item) => item.id === templateId);
+    const template = customTemplate || defaultTemplate;
 
     if (!template) {
       return NextResponse.json({ error: 'Template placeholder tidak ditemukan' }, { status: 404 });

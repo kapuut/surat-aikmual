@@ -109,6 +109,50 @@ function renderField(
   const wrapperClassName =
     field.type === "textarea" || key === "keperluan" ? "md:col-span-2" : "";
 
+  // Special case: TTL fields – render as two separate inputs (Tempat Lahir + Tanggal Lahir)
+  if (/^tempat_tanggal_lahir/.test(field.name)) {
+    // suffix: "" for main, "_wali" for wali, "_pihak_2" for pihak_2, etc.
+    const suffix = field.name.replace("tempat_tanggal_lahir", "");
+    const tempatKey = `tempat_lahir${suffix}`;
+    const tanggalKey = `tanggal_lahir${suffix}`;
+    const labelSuffix = suffix ? suffix.replace(/_/g, " ").trim() : "";
+    const tempatLabel = labelSuffix
+      ? `Tempat Lahir (${labelSuffix.charAt(0).toUpperCase() + labelSuffix.slice(1)})`
+      : "Tempat Lahir";
+    const tanggalLabel = labelSuffix
+      ? `Tanggal Lahir (${labelSuffix.charAt(0).toUpperCase() + labelSuffix.slice(1)})`
+      : "Tanggal Lahir";
+    return (
+      <div key={field.name} className="md:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label className={labelClassName}>
+            {tempatLabel} {field.required ? <span className="text-red-500">*</span> : null}
+          </label>
+          <input
+            type="text"
+            value={values[tempatKey] ?? ""}
+            onChange={(event) => onFieldChange(tempatKey, event.target.value)}
+            placeholder="Contoh: Praya"
+            required={field.required}
+            className={commonClassName}
+          />
+        </div>
+        <div>
+          <label className={labelClassName}>
+            {tanggalLabel} {field.required ? <span className="text-red-500">*</span> : null}
+          </label>
+          <input
+            type="date"
+            value={values[tanggalKey] ?? ""}
+            onChange={(event) => onFieldChange(tanggalKey, event.target.value)}
+            required={field.required}
+            className={commonClassName}
+          />
+        </div>
+      </div>
+    );
+  }
+
   // Special case: render Agama as a fixed dropdown regardless of template field type
   if (key === "agama") {
     return (
@@ -329,6 +373,10 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
         if (MANAGED_FIELD_KEYS.has(normalizedKey)) {
           return;
         }
+        // Skip empty composite TTL keys — they have been split into tempat_lahir* / tanggal_lahir*
+        if (/^tempat_tanggal_lahir/.test(key) && !value) {
+          return;
+        }
 
         payload.set(key, value);
       });
@@ -541,7 +589,7 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    No. Telepon / WhatsApp <span className="text-red-500">*</span>
+                    No. Telepon / HP <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"

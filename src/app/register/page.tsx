@@ -151,8 +151,8 @@ export default function RegisterPage() {
     const dokumenKTP = formData.get("dokumenKTP");
     const dokumenKK = formData.get("dokumenKK");
 
-    if (!payload.nama || !payload.email || !payload.nik || !payload.password || !payload.alamat || !payload.telepon) {
-      setError("Email dan password wajib diisi");
+    if (!payload.nama || !payload.nik || !payload.password || !payload.alamat || !payload.telepon) {
+      setError("Nama, NIK, password, alamat, dan nomor HP wajib diisi");
       setLoading(false);
       return;
     }
@@ -173,13 +173,13 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+    if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
       setError("Format email tidak sesuai");
       setLoading(false);
       return;
     }
 
-    if (emailCheckState === "taken") {
+    if (payload.email && emailCheckState === "taken") {
       setConflictModal({
         title: "Email Sudah Digunakan",
         message: "Alamat email yang Anda masukkan sudah terdaftar. Gunakan email lain, atau login jika Anda sudah memiliki akun.",
@@ -196,7 +196,7 @@ export default function RegisterPage() {
     }
 
     if (!/^(\+62|62|0|8)\d{8,13}$/.test(payload.telepon.replace(/[^0-9+]/g, ""))) {
-      setError("Format nomor WhatsApp tidak valid");
+      setError("Format nomor HP tidak valid");
       setLoading(false);
       return;
     }
@@ -215,7 +215,9 @@ export default function RegisterPage() {
 
     const submitData = new FormData();
     submitData.set("nama", payload.nama);
-    submitData.set("email", payload.email);
+    if (payload.email) {
+      submitData.set("email", payload.email);
+    }
     submitData.set("nik", payload.nik);
     submitData.set("password", payload.password);
     submitData.set("alamat", payload.alamat);
@@ -300,7 +302,7 @@ export default function RegisterPage() {
 
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
+                  Email <span className="text-gray-400">(Opsional)</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -310,7 +312,6 @@ export default function RegisterPage() {
                     id="email"
                     name="email"
                     type="email"
-                    required
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
                     className={`block w-full pl-10 pr-3 py-3 bg-white text-gray-900 border rounded-lg focus:ring-2 ${
@@ -318,7 +319,7 @@ export default function RegisterPage() {
                         ? "border-red-300 focus:ring-red-500 focus:border-red-500"
                         : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                     }`}
-                    placeholder="Masukkan email"
+                    placeholder="Masukkan email (opsional)"
                   />
                 </div>
                 {emailCheckMessage && (
@@ -425,7 +426,7 @@ export default function RegisterPage() {
 
               <div>
                 <label htmlFor="telepon" className="block text-sm font-medium text-gray-700 mb-2">
-                  Nomor WhatsApp Aktif
+                  Nomor HP Aktif
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -440,9 +441,6 @@ export default function RegisterPage() {
                     placeholder="Contoh: 081234567890"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Digunakan untuk notifikasi saat surat selesai diproses.
-                </p>
               </div>
 
               <div>

@@ -108,12 +108,12 @@ export default function KepalaDesaPermohonanPreviewPage() {
     if (!detail) return null;
     return isFinalized
       ? `/api/admin/permohonan/${detail.id}/preview`
-      : `/api/admin/permohonan/${detail.id}/preview?mode=admin`;
+      : `/api/admin/permohonan/${detail.id}/preview`;
   }, [detail, isFinalized]);
 
-  const downloadUrl = useMemo(() => {
+  const printPdfUrl = useMemo(() => {
     if (!previewUrl) return null;
-    return `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}download=doc`;
+    return `${previewUrl}${previewUrl.includes('?') ? '&' : '?'}print=1`;
   }, [previewUrl]);
 
   const previewKind = useMemo(() => detectPreviewKind(previewUrl), [previewUrl]);
@@ -152,12 +152,14 @@ export default function KepalaDesaPermohonanPreviewPage() {
               <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
                 {statusLabel(detail.status)}
               </span>
-              {downloadUrl && (
+              {printPdfUrl && (
                 <a
-                  href={downloadUrl}
+                  href={printPdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                 >
-                  <FiDownload className="h-4 w-4" /> Unduh Draft (.doc)
+                  <FiDownload className="h-4 w-4" /> Unduh
                 </a>
               )}
               {previewUrl && (

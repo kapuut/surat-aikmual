@@ -29,16 +29,6 @@ interface PermohonanItem {
 
 type PreviewKind = "pdf" | "image" | "docx" | "doc" | "unsupported" | "missing";
 
-function isFinalizedStatus(status: WorkflowStatus): boolean {
-  return status === "ditandatangani" || status === "selesai";
-}
-
-function isGeneratedSuratFile(pathValue: string | null): boolean {
-  if (!pathValue) return false;
-  const lowerPath = pathValue.toLowerCase();
-  return lowerPath.includes("/generated-surat/") || lowerPath.endsWith(".html") || lowerPath.includes(".html?");
-}
-
 function getFileNameFromPath(filePath?: string | null): string {
   if (!filePath) {
     return "-";
@@ -133,36 +123,20 @@ export default function SekretarisPermohonanPreviewPage() {
     fetchDetail();
   }, [permohonanId]);
 
-  const isFinalized = useMemo(() => (detail ? isFinalizedStatus(detail.status) : false), [detail]);
-
   const previewUrl = useMemo(() => {
     if (!detail) return null;
+    return `/api/admin/permohonan/${detail.id}/preview`;
+  }, [detail]);
 
-    const canUseFinalFile = isFinalized && isGeneratedSuratFile(detail.file_path);
-    if (canUseFinalFile && detail.file_path) {
-      return detail.file_path;
-    }
-
-    return isFinalized
-      ? `/api/admin/permohonan/${detail.id}/preview`
-      : `/api/admin/permohonan/${detail.id}/preview?mode=admin`;
-  }, [detail, isFinalized]);
-
-  const downloadDocUrl = useMemo(() => {
-    if (!detail) return null;
-
-    const base = isFinalized
-      ? `/api/admin/permohonan/${detail.id}/preview`
-      : `/api/admin/permohonan/${detail.id}/preview?mode=admin`;
-
-    return `${base}${base.includes("?") ? "&" : "?"}download=doc`;
-  }, [detail, isFinalized]);
+  const printPdfUrl = useMemo(() => {
+    if (!previewUrl) return null;
+    return `${previewUrl}${previewUrl.includes('?') ? '&' : '?'}print=1`;
+  }, [previewUrl]);
 
   const previewKind = useMemo(() => detectPreviewKind(previewUrl), [previewUrl]);
   const title = detail
     ? `${detail.nomor_surat || `REG-${detail.id}/${new Date(detail.created_at).getFullYear()}`} - ${detail.jenis_surat}`
     : "Preview Permohonan";
-  const fileName = getFileNameFromPath(previewUrl);
   const attachmentPaths = Array.isArray(detail?.attachment_paths) ? detail.attachment_paths : [];
 
   return (
@@ -184,12 +158,14 @@ export default function SekretarisPermohonanPreviewPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            {downloadDocUrl ? (
+            {printPdfUrl ? (
               <a
-                href={downloadDocUrl}
+                href={printPdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
               >
-                <FiDownload className="h-4 w-4" /> Unduh Draft (.doc)
+                <FiDownload className="h-4 w-4" /> Unduh
               </a>
             ) : null}
             {previewUrl ? (
@@ -218,8 +194,7 @@ export default function SekretarisPermohonanPreviewPage() {
           ) : null}
 
           {!loading && !error && previewKind === "pdf" && previewUrl ? (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">Nama file: {fileName}</p>
+            <div>
               <iframe
                 src={previewUrl}
                 title={title}
@@ -229,41 +204,32 @@ export default function SekretarisPermohonanPreviewPage() {
           ) : null}
 
           {!loading && !error && previewKind === "image" && previewUrl ? (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">Nama file: {fileName}</p>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <img src={previewUrl} alt={title} className="mx-auto max-w-full rounded-lg shadow-sm" />
-              </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <img src={previewUrl} alt={title} className="mx-auto max-w-full rounded-lg shadow-sm" />
             </div>
           ) : null}
 
           {!loading && !error && previewKind === "docx" && previewUrl ? (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">Nama file: {fileName}</p>
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                <object
-                  data={previewUrl}
-                  type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  className="min-h-[78vh] w-full"
-                >
-                  <div className="p-4 text-sm text-slate-600">
-                    Browser tidak mendukung preview Word langsung. Gunakan tombol <strong>Buka File Asli</strong> atau <strong>Unduh Draft</strong>.
-                  </div>
-                </object>
-              </div>
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+              <object
+                data={previewUrl}
+                type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                className="min-h-[78vh] w-full"
+              >
+                <div className="p-4 text-sm text-slate-600">
+                  Browser tidak mendukung preview Word langsung. Gunakan tombol <strong>Buka File Asli</strong>.
+                </div>
+              </object>
             </div>
           ) : null}
 
           {!loading && !error && previewKind === "doc" && previewUrl ? (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">Nama file: {fileName}</p>
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                <object data={previewUrl} type="application/msword" className="min-h-[78vh] w-full">
-                  <div className="p-4 text-sm text-slate-600">
-                    Browser tidak mendukung preview Word langsung. Gunakan tombol <strong>Buka File Asli</strong> atau <strong>Unduh Draft</strong>.
-                  </div>
-                </object>
-              </div>
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+              <object data={previewUrl} type="application/msword" className="min-h-[78vh] w-full">
+                <div className="p-4 text-sm text-slate-600">
+                  Browser tidak mendukung preview Word langsung. Gunakan tombol <strong>Buka File Asli</strong>.
+                </div>
+              </object>
             </div>
           ) : null}
 

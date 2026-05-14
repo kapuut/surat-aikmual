@@ -68,11 +68,6 @@ function formatDateLabel(value: string | null | undefined): string {
 }
 
 function buildPdfUrl(data: TrackingDetail): string {
-  if (typeof data.file_path === 'string' && data.file_path.trim()) {
-    const path = data.file_path.trim();
-    return `${path}${path.includes('?') ? '&' : '?'}print=1`;
-  }
-
   return `/api/admin/permohonan/${data.id}/preview?print=1`;
 }
 

@@ -265,7 +265,7 @@ export default function SuratPage() {
                               size="sm"
                               variant="outline"
                               className="p-2"
-                              onClick={() => window.open(item.filePath, '_blank')}
+                              onClick={() => window.open(/\.(html|htm|xhtml)$/i.test(item.filePath || '') ? `${item.filePath}?print=1` : item.filePath, '_blank')}
                             >
                               <Download className="w-4 h-4" />
                             </Button>

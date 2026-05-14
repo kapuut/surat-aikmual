@@ -390,10 +390,11 @@ export default function KepalaDesaLaporanSuratKeluarPage() {
 
                       {item.file_path && (
                         <a
-                          href={item.file_path}
-                          download={getStoredFileName(item.file_path)}
+                          href={/\.(html|htm|xhtml)$/i.test(item.file_path) ? `${item.file_path}?print=1` : /\.(doc|docx)$/i.test(item.file_path) ? `/api/files/docx-print?path=${encodeURIComponent(item.file_path)}` : item.file_path}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
-                          title="Unduh file"
+                          title="Unduh"
                         >
                           <FiDownload className="w-3.5 h-3.5" />
                           Unduh

@@ -102,7 +102,7 @@ export default function VerifikasiSuratPage() {
         <div className="mt-6 flex flex-wrap gap-3">
           {data?.file_path && (
             <a
-              href={data.file_path}
+              href={/\.(html|htm|xhtml)$/i.test(data.file_path) ? `${data.file_path}?print=1` : /\.(doc|docx)$/i.test(data.file_path) ? `/api/files/docx-print?path=${encodeURIComponent(data.file_path)}` : data.file_path}
               target="_blank"
               rel="noreferrer"
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"

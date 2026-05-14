@@ -18,6 +18,7 @@ import {
 interface UserDashboardLayoutProps {
   children: React.ReactNode;
   onLogout?: () => void;
+  initialUserName?: string;
 }
 
 type HeaderContent = {
@@ -54,9 +55,9 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
   },
 };
 
-export default function UserDashboardLayout({ children, onLogout }: UserDashboardLayoutProps) {
+export default function UserDashboardLayout({ children, onLogout, initialUserName }: UserDashboardLayoutProps) {
   const pathname = usePathname();
-  const [userName, setUserName] = useState('Warga Desa');
+  const [userName, setUserName] = useState(initialUserName || 'Warga Desa');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -85,6 +86,8 @@ export default function UserDashboardLayout({ children, onLogout }: UserDashboar
   })();
 
   useEffect(() => {
+    if (initialUserName) return;
+
     const fetchUser = async () => {
       try {
         const response = await fetch('/api/auth/verify', { credentials: 'include' });
@@ -100,7 +103,7 @@ export default function UserDashboardLayout({ children, onLogout }: UserDashboar
     };
 
     fetchUser();
-  }, []);
+  }, [initialUserName]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

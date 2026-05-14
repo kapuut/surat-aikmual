@@ -30,7 +30,7 @@ const HEADER_BY_PATH: Record<string, HeaderContent> = {
   },
   '/kepala-desa/permohonan': {
     eyebrow: 'Portal Kepala Desa',
-    title: 'Permohonan Warga',
+    title: 'Permohonan',
     description: 'Tinjau kelengkapan berkas permohonan sebelum persetujuan final.',
   },
   '/kepala-desa/approval': {
@@ -239,7 +239,7 @@ export default function KepalaDesaLayout({ children }: { children: React.ReactNo
               }`}
             >
               <FiFileText className="w-4 h-4" />
-              <span>Permohonan Warga</span>
+              <span>Permohonan</span>
             </Link>
           </div>
 

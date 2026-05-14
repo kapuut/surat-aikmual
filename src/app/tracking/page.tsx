@@ -90,11 +90,6 @@ export default function TrackingPage() {
   };
 
   const buildPdfUrl = (item: Permohonan): string => {
-    if (item.file_path) {
-      return `${item.file_path}${item.file_path.includes('?') ? '&' : '?'}print=1`;
-    }
-
-    // Fallback untuk data lama yang statusnya final tetapi file final belum tertaut.
     return `/api/admin/permohonan/${item.id}/preview?print=1`;
   };
 

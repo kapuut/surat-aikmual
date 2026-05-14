@@ -7,10 +7,10 @@ export default function Footer() {
 
   return (
     <footer id="kontak" className="border-t border-gray-200 bg-white text-gray-700 w-full">
-      <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
-        <div className="grid grid-cols-1 gap-0 md:grid-cols-3 md:gap-8">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-5 lg:px-6 py-8 md:py-10">
+        <div className="w-full flex flex-col gap-7 md:flex-row md:items-start md:justify-between md:gap-6">
           {/* Brand */}
-          <div className="text-left pb-5 md:pb-0">
+          <div className="w-full text-left md:w-[34%]">
             <div className="mb-3 flex items-center gap-3">
               <div className="relative h-10 w-10 flex-shrink-0 md:h-12 md:w-12">
                 <Image
@@ -22,11 +22,11 @@ export default function Footer() {
                 />
               </div>
               <div>
-                <h3 className="text-base font-bold tracking-tight text-gray-900 md:text-xl">Desa Aikmual</h3>
-                <p className="text-xs text-gray-500 md:text-sm">Pelayanan Online</p>
+                <h3 className="text-xl font-bold tracking-tight text-gray-900">Desa Aikmual</h3>
+                <p className="text-sm text-gray-500 md:text-base">Pelayanan Online</p>
               </div>
             </div>
-            <p className="text-xs leading-relaxed text-gray-500 md:text-sm">
+            <p className="text-base leading-relaxed text-gray-500">
               Layanan surat online Desa Aikmual
             </p>
           </div>
@@ -35,12 +35,12 @@ export default function Footer() {
           <div className="border-t border-gray-100 my-4 md:hidden" />
 
           {/* Layanan */}
-          <div className="text-left pb-5 md:pb-0 md:justify-self-center">
-            <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-gray-800 md:text-base">
+          <div className="w-full text-left md:w-[30%] md:px-2">
+            <h3 className="mb-3 flex items-center gap-1.5 text-base font-semibold text-gray-800 md:text-lg">
               <FiFileText className="w-4 h-4 text-green-600" />
               Layanan
             </h3>
-            <ul className="space-y-2 text-xs text-gray-500 leading-relaxed md:text-sm">
+            <ul className="space-y-2 text-base text-gray-500 leading-relaxed">
               <li>
                 <Link href="/permohonan/surat-domisili" className="transition-colors hover:text-green-600">
                   Surat Keterangan Domisili
@@ -73,12 +73,12 @@ export default function Footer() {
           <div className="border-t border-gray-100 my-4 md:hidden" />
 
           {/* Kontak */}
-          <div className="text-left md:justify-self-end">
-            <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-gray-800 md:text-base">
+          <div className="w-full text-left md:w-[32%] md:pl-2">
+            <h3 className="mb-3 flex items-center gap-1.5 text-base font-semibold text-gray-800 md:text-lg">
               <FiMapPin className="w-4 h-4 text-green-600" />
               Kontak
             </h3>
-            <div className="space-y-1.5 text-xs text-gray-500 leading-relaxed md:text-sm">
+            <div className="space-y-1.5 text-base text-gray-500 leading-relaxed">
               <p>Kantor Desa Aikmual</p>
               <p>Kecamatan Aikmual</p>
               <p>Kabupaten Lombok Utara, NTB</p>
@@ -91,8 +91,8 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-6 border-t border-gray-100 pt-4 text-center">
-          <p className="text-xs text-gray-400 md:text-sm">
+        <div className="mt-7 border-t border-gray-100 pt-5 text-center">
+          <p className="text-base text-gray-500">
             &copy; {currentYear} Desa Aikmual. All rights reserved.
           </p>
         </div>

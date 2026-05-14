@@ -53,6 +53,10 @@ function detectPreviewKind(filePath: string | null | undefined): PreviewKind {
 
   const normalizedPath = filePath.toLowerCase();
 
+  if (normalizedPath.includes("/api/admin/permohonan/")) {
+    return "pdf";
+  }
+
   if (normalizedPath.endsWith(".pdf")) {
     return "pdf";
   }
@@ -239,11 +243,18 @@ export default function DetailKepalaDesaSuratKeluarPage() {
               {detail.file_path ? (
                 <div className="inline-flex items-center gap-2">
                   <a
-                    href={detail.file_path}
-                    download={fileName}
+                    href={detail.file_path.includes("/api/admin/permohonan/")
+                      ? `${detail.file_path}?print=1`
+                      : /\.(html|htm|xhtml)$/i.test(detail.file_path)
+                        ? `${detail.file_path}?print=1`
+                        : /\.(doc|docx)$/i.test(detail.file_path)
+                          ? `/api/files/docx-print?path=${encodeURIComponent(detail.file_path)}`
+                          : detail.file_path}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
                   >
-                    <FiDownload className="h-4 w-4" /> Unduh File
+                    <FiDownload className="h-4 w-4" /> Unduh
                   </a>
                   <a
                     href={detail.file_path}
@@ -257,12 +268,7 @@ export default function DetailKepalaDesaSuratKeluarPage() {
               ) : null}
             </div>
 
-            {detail.file_path ? (
-              <div className="mt-3 space-y-1.5 text-sm">
-                <p className="text-gray-600">Nama file: {fileName}</p>
-                <p className="break-all text-xs text-gray-400">Path: {detail.file_path}</p>
-              </div>
-            ) : (
+            {!detail.file_path && (
               <p className="mt-3 inline-flex items-center gap-2 text-sm text-gray-500">
                 <FiFileText className="h-4 w-4" />
                 {detail.is_auto_from_permohonan

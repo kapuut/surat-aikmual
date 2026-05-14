@@ -323,6 +323,7 @@ export async function GET(request: NextRequest) {
       if (!nomorSurat) return;
       if (!isEligiblePermohonanForSuratKeluar((row as any).status)) return;
 
+      const permohonanId = Number((row as any).id) || null;
       const jenisSurat = String((row as any).jenis_surat || "").trim();
       const keperluan = String((row as any).keperluan || "").trim();
       const normalizedKeperluan = normalizePerihalDetail(keperluan);
@@ -330,6 +331,8 @@ export async function GET(request: NextRequest) {
       const perihal = `${jenisSurat || "surat"}${displayKeperluan ? ` - ${displayKeperluan}` : ""}`;
       const filePath = normalizeFilePath((row as any).file_path);
       const tujuan = String((row as any).nama_pemohon || "Pemohon").trim() || "Pemohon";
+      const previewFallbackPath = permohonanId ? `/api/admin/permohonan/${permohonanId}/preview` : null;
+      const permohonanDocumentPath = isGeneratedSuratFile(filePath) ? filePath : (filePath || previewFallbackPath);
       const tanggal = (row as any).updated_at ?? (row as any).created_at ?? null;
       const key = createSyncKey(
         nomorSurat,
@@ -343,22 +346,43 @@ export async function GET(request: NextRequest) {
         tanggal_surat: tanggal,
         tujuan,
         perihal,
-        file_path: filePath,
+        file_path: permohonanDocumentPath,
         status: normalizeStatus((row as any).status),
         created_by_name: null,
         source_type: "permohonan" as const,
-        source_permohonan_id: Number((row as any).id) || null,
+        source_permohonan_id: permohonanId,
       };
 
+      let existingKey: string | null = null;
       let existing = merged.get(key);
+      if (existing) {
+        existingKey = key;
+      }
+
       if (!existing) {
         const fallbackPrefix = createSyncKeyPrefix(
           nomorSurat,
           normalizeSuratSlug(jenisSurat) || jenisSurat.toLowerCase()
         );
-        const matchedKey = Array.from(merged.keys()).find((existingKey) => existingKey.startsWith(fallbackPrefix));
-        if (matchedKey) {
-          existing = merged.get(matchedKey);
+        const matchedEntry = Array.from(merged.entries()).find(([candidateKey]) => candidateKey.startsWith(fallbackPrefix));
+        if (matchedEntry) {
+          existingKey = matchedEntry[0];
+          existing = matchedEntry[1];
+        }
+      }
+
+      if (!existing) {
+        const matchedByNomorTujuan = Array.from(merged.entries()).find(([, candidate]) => {
+          if (candidate.source_permohonan_id) return false;
+          return (
+            normalizeSyncSegment(candidate.nomor_surat) === normalizeSyncSegment(nomorSurat)
+            && normalizeSyncSegment(candidate.tujuan) === normalizeSyncSegment(tujuan)
+          );
+        });
+
+        if (matchedByNomorTujuan) {
+          existingKey = matchedByNomorTujuan[0];
+          existing = matchedByNomorTujuan[1];
         }
       }
 
@@ -368,10 +392,22 @@ export async function GET(request: NextRequest) {
       }
 
       existing.source_type = "permohonan";
-      existing.source_permohonan_id = Number((row as any).id) || existing.source_permohonan_id;
+      existing.source_permohonan_id = permohonanId || existing.source_permohonan_id;
 
-      if (!existing.file_path && fallbackItem.file_path) {
-        existing.file_path = fallbackItem.file_path;
+      if (fallbackItem.file_path) {
+        const existingPath = normalizeFilePath(existing.file_path);
+        const existingIsGenerated = isGeneratedSuratFile(existingPath);
+        const nextIsGenerated = isGeneratedSuratFile(fallbackItem.file_path);
+        const existingIsPreview = Boolean(existingPath && existingPath.includes('/api/admin/permohonan/'));
+        const nextIsPreview = fallbackItem.file_path.includes('/api/admin/permohonan/');
+
+        if (
+          !existingPath
+          || (nextIsGenerated && !existingIsGenerated)
+          || (existingIsPreview && !nextIsPreview)
+        ) {
+          existing.file_path = fallbackItem.file_path;
+        }
       }
 
       if (existing.status !== "Terkirim" && fallbackItem.status === "Terkirim") {
@@ -382,7 +418,7 @@ export async function GET(request: NextRequest) {
         existing.tanggal_surat = fallbackItem.tanggal_surat;
       }
 
-      merged.set(key, existing);
+      merged.set(existingKey || key, existing);
     });
 
     const mergedData = Array.from(merged.values()).sort((a, b) => {

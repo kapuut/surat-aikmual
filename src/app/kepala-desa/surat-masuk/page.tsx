@@ -392,14 +392,16 @@ export default function KepalaDesaSuratMasukPage() {
                           Detail
                         </Link>
                         {surat.file_path && (
-                          <Link
-                            href={`/kepala-desa/surat-masuk/${surat.id}/preview`}
+                          <a
+                            href={/\.(html|htm|xhtml)$/i.test(surat.file_path) ? `${surat.file_path}?print=1` : /\.(doc|docx)$/i.test(surat.file_path) ? `/api/files/docx-print?path=${encodeURIComponent(surat.file_path)}` : surat.file_path}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
                             title="Unduh file"
                           >
                             <FiDownload className="w-3.5 h-3.5" />
                             Unduh
-                          </Link>
+                          </a>
                         )}
                       </div>
                     </td>

@@ -180,17 +180,6 @@ export default function TambahSuratKeluarPage() {
             Isi data surat keluar yang sudah dibuat secara fisik oleh kantor desa. Web ini hanya untuk pendataan arsip.
           </p>
 
-          <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-            <p className="mb-2 font-medium">Data wajib diisi:</p>
-            <ul className="list-disc pl-5">
-              <li>Nomor Surat</li>
-              <li>Tanggal Kirim</li>
-              <li>Tujuan</li>
-              <li>Perihal</li>
-              <li>Dokumen Surat (foto/gambar atau Word)</li>
-            </ul>
-          </div>
-
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">

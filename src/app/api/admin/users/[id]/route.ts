@@ -69,8 +69,13 @@ export async function PUT(
     const status = body?.status === 'nonaktif' ? 'nonaktif' : 'aktif';
     const allowedRoles = new Set(['admin', 'sekretaris', 'kepala_desa', 'masyarakat']);
 
-    if (!nama || !email || !username || !role) {
-      return NextResponse.json({ error: 'Semua field wajib diisi' }, { status: 400 });
+    const requiresEmail = role !== 'masyarakat';
+
+    if (!nama || !username || !role || (requiresEmail && !email)) {
+      return NextResponse.json(
+        { error: requiresEmail ? 'Semua field wajib diisi' : 'Nama, username, dan role wajib diisi' },
+        { status: 400 }
+      );
     }
 
     if (!allowedRoles.has(role)) {
@@ -81,15 +86,19 @@ export async function PUT(
       return NextResponse.json({ error: 'NIK wajib 16 digit angka' }, { status: 400 });
     }
 
-    if (!isValidEmail(email)) {
+    if (email && !isValidEmail(email)) {
       return NextResponse.json({ error: 'Format email tidak valid' }, { status: 400 });
     }
 
     const columnMap = await getUsersColumnMap();
     const idField = columnMap.has('id') ? 'id' : 'id_user';
 
-    const duplicateChecks = ['email = ?', 'username = ?'];
-    const duplicateParams: Array<string | null> = [email, username];
+    const duplicateChecks = ['username = ?'];
+    const duplicateParams: Array<string | null> = [username];
+    if (email) {
+      duplicateChecks.push('email = ?');
+      duplicateParams.push(email);
+    }
     if (nik) {
       duplicateChecks.push('SUBSTRING_INDEX(nik, "_", 1) = ?');
       duplicateParams.push(nik);
@@ -104,7 +113,7 @@ export async function PUT(
 
     if (Array.isArray(existingRows) && existingRows.length > 0) {
       return NextResponse.json(
-        { error: 'Email, username, atau NIK sudah terdaftar' },
+        { error: email ? 'Email, username, atau NIK sudah terdaftar' : 'Username atau NIK sudah terdaftar' },
         { status: 409 }
       );
     }
@@ -122,7 +131,7 @@ export async function PUT(
 
     await db.execute(
       `UPDATE users SET ${updates.join(', ')} WHERE ${idField} = ?`,
-      [username, nama, email, nik || null, role, alamat || null, telepon || null, status, params.id]
+      [username, nama, email || null, nik || null, role, alamat || null, telepon || null, status, params.id]
     );
 
     return NextResponse.json({

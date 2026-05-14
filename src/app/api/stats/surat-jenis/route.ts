@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getUser } from '@/lib/auth';
+import { ALLOWED_SURAT_TYPES, normalizeSuratSlug } from '@/lib/surat-data';
 
 type YearRow = { tahun?: number | string | null };
 
@@ -135,6 +136,11 @@ export async function GET(request: NextRequest) {
         isoDateTo
       );
 
+      const statusCond = "status IN ('ditandatangani', 'selesai')";
+      const finalWhere = whereClause
+        ? `${whereClause} AND ${statusCond}`
+        : `WHERE ${statusCond}`;
+
       try {
         const [result]: any = await db.execute(
           `SELECT
@@ -142,7 +148,7 @@ export async function GET(request: NextRequest) {
              COUNT(*) AS jumlah,
              MAX(${candidate}) AS tanggal_terbaru
            FROM permohonan_surat
-           ${whereClause}
+           ${finalWhere}
            GROUP BY COALESCE(NULLIF(TRIM(jenis_surat), ''), 'Lainnya')
            ORDER BY ${isDateSort ? `tanggal_terbaru ${dateSortDirection}, jumlah DESC` : `jumlah ${sortDirection}`}, jenis_surat ASC`,
           params
@@ -165,8 +171,10 @@ export async function GET(request: NextRequest) {
            COALESCE(NULLIF(TRIM(jenis_surat), ''), 'Lainnya') AS jenis_surat,
            COUNT(*) AS jumlah
          FROM permohonan_surat
+         WHERE status IN ('ditandatangani', 'selesai')
          GROUP BY COALESCE(NULLIF(TRIM(jenis_surat), ''), 'Lainnya')
-        ORDER BY jumlah ${sortDirection}, jenis_surat ASC`
+        ORDER BY jumlah ${sortDirection}, jenis_surat ASC`,
+        []
       );
       rows = Array.isArray(result) ? result : [];
     }
@@ -193,10 +201,71 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const data = (Array.isArray(rows) ? rows : []).map((row: JenisRow) => ({
-      jenis_surat: String(row.jenis_surat || 'Lainnya'),
-      jumlah: normalizeNumber(row.jumlah, 0),
-    }));
+    const staticTitleBySlug = new Map(
+      ALLOWED_SURAT_TYPES.map((item) => [item.slug, item.title] as const)
+    );
+    const aggregated = new Map<
+      string,
+      { jenis_surat: string; jumlah: number; tanggal_terbaru: Date | null }
+    >();
+
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const rawJenis = String((row as JenisRow).jenis_surat || 'Lainnya').trim() || 'Lainnya';
+      const normalizedSlug = normalizeSuratSlug(rawJenis);
+      const bucketKey = normalizedSlug
+        ? `static:${normalizedSlug}`
+        : `raw:${rawJenis.toLowerCase()}`;
+      const bucketLabel = normalizedSlug
+        ? (staticTitleBySlug.get(normalizedSlug) || rawJenis)
+        : rawJenis;
+      const jumlah = normalizeNumber((row as JenisRow).jumlah, 0);
+      const candidateDate = (row as JenisRow).tanggal_terbaru
+        ? new Date(String((row as JenisRow).tanggal_terbaru))
+        : null;
+      const latestDate = candidateDate && !Number.isNaN(candidateDate.getTime())
+        ? candidateDate
+        : null;
+
+      const current = aggregated.get(bucketKey);
+      if (!current) {
+        aggregated.set(bucketKey, {
+          jenis_surat: bucketLabel,
+          jumlah,
+          tanggal_terbaru: latestDate,
+        });
+        continue;
+      }
+
+      current.jumlah += jumlah;
+      if (latestDate && (!current.tanggal_terbaru || latestDate > current.tanggal_terbaru)) {
+        current.tanggal_terbaru = latestDate;
+      }
+    }
+
+    const data = Array.from(aggregated.values())
+      .sort((a, b) => {
+        if (isDateSort) {
+          const aTime = a.tanggal_terbaru?.getTime() ?? 0;
+          const bTime = b.tanggal_terbaru?.getTime() ?? 0;
+          if (aTime !== bTime) {
+            return dateSortDirection === 'ASC' ? aTime - bTime : bTime - aTime;
+          }
+          if (a.jumlah !== b.jumlah) {
+            return b.jumlah - a.jumlah;
+          }
+          return a.jenis_surat.localeCompare(b.jenis_surat, 'id-ID');
+        }
+
+        const jumlahDiff = sortDirection === 'ASC'
+          ? a.jumlah - b.jumlah
+          : b.jumlah - a.jumlah;
+        if (jumlahDiff !== 0) return jumlahDiff;
+        return a.jenis_surat.localeCompare(b.jenis_surat, 'id-ID');
+      })
+      .map((item) => ({
+        jenis_surat: item.jenis_surat,
+        jumlah: item.jumlah,
+      }));
 
     const totalSurat = data.reduce((sum, item) => sum + item.jumlah, 0);
 

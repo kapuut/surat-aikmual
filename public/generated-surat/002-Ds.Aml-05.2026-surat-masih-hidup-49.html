@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Surat Surat Keterangan Masih Hidup</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { margin: 0; background: #f1f5f9; padding: 16px; font-family: 'Bookman Old Style', 'Book Antiqua', serif; font-size: 12pt; line-height: 1.5; color: #000; }
+      .paper { width: 21cm; min-height: 29.7cm; margin: 0 auto; background: #fff; padding: 1.5cm 1.5cm 1.5cm 1.5cm; box-shadow: 0 10px 25px rgba(15,23,42,0.12); }
+      
+    /* ===== KOP SURAT (shared — edit src/lib/kop-surat.ts) ===== */
+    .kop-surat {
+      margin-bottom: 0.7cm;
+      position: relative;
+      padding-bottom: 0.15cm;
+    }
+
+    .kop-row {
+      display: grid;
+      grid-template-columns: 98px 1fr;
+      column-gap: 10px;
+      align-items: center;
+    }
+
+    .logo-wrap {
+      width: 98px;
+      height: 98px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-wrap img {
+      width: 88px;
+      height: 88px;
+      object-fit: contain;
+    }
+
+    .kop-text {
+      text-align: center;
+      padding-right: 98px;
+      font-family: 'Times New Roman', serif;
+    }
+
+    .kop-text .kabupaten {
+      font-size: 14pt;
+      font-weight: bold;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .kop-text .kecamatan {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .kop-text .desa {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 1px;
+    }
+
+    .kop-text .alamat {
+      font-size: 9pt;
+      border: 1px solid #111;
+      padding: 2px 6px;
+      display: inline-block;
+      min-width: 86%;
+      white-space: nowrap;
+    }
+
+    .kop-divider {
+      margin-top: 4px;
+      border-top: 1px solid #000;
+      border-bottom: 2px solid #000;
+      height: 3px;
+    }
+
+    @media (max-width: 900px) {
+      .kop-row { grid-template-columns: 72px 1fr; }
+      .kop-text { padding-right: 0; }
+    }
+    /* ===================================================== */
+  
+      
+      @page {
+        size: A4;
+        margin: 0 !important;
+      }
+
+      @media print {
+        body { 
+          background: #fff; 
+          padding: 0 !important; 
+          margin: 0 !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .paper { 
+          width: 21cm !important; 
+          min-height: 29.7cm !important; 
+          margin: 0 auto !important; 
+          padding: 1.5cm 1.5cm 1.5cm 1.5cm !important; 
+          box-shadow: none !important;
+          border: none !important;
+          page-break-after: always;
+        }
+      }
+    </style>
+    <script>
+      (function() {
+        var originalTitle = document.title;
+        window.onbeforeprint = function() {
+          document.title = "";
+        };
+        window.onafterprint = function() {
+          document.title = originalTitle;
+        };
+      })();
+    </script>
+</head>
+<body>
+  <div class="paper">
+    <div class="kop-surat">
+      <div class="kop-row">
+        <div class="logo-wrap">
+          <img src="/images/logo-loteng.png" alt="Logo Lombok Tengah" />
+        </div>
+        <div class="kop-text">
+          <div class="kabupaten">PEMERINTAH KABUPATEN LOMBOK TENGAH</div>
+          <div class="kecamatan">KECAMATAN PRAYA</div>
+          <div class="desa">DESA AIKMUAL</div>
+          <div class="alamat">Alamat : Jln raya Praya &ndash; Mantang KM 07 Aikmual Praya Phone 08175726709 / 08175790747 Kode Post 83500</div>
+        </div>
+      </div>
+      <div class="kop-divider"></div>
+    </div><div style="font-family: 'Bookman Old Style', 'Book Antiqua', serif; font-size: 12pt; line-height: 1.5; color: #000;">
+      <div style="text-align: center; margin: 0.1cm 0 0.02cm 0; font-size: 12pt; font-weight: bold; text-decoration: underline; text-transform: uppercase;">SURAT KETERANGAN MASIH HIDUP</div>
+      <div style="text-align: center; margin-bottom: 0.32cm; font-size: 12pt; line-height: 1.2;">Nomor : 002/Ds.Aml/05.2026</div>
+
+      <p style="margin: 0 0 0.35cm; text-align: justify; text-indent: 1.1cm; line-height: 1.5; text-indent: 1.1cm; line-height: 1.5;">Yang bertanda tangan di bawah ini Kepala Desa Aikmual Kecamatan Praya Kabupaten Lombok Tengah menerangkan dengan sebenarnya kepada:</p><table style="width: 100%; border-collapse: collapse; margin: 0.15cm 0 0.35cm 1.1cm; font-size: 12pt;"><tr><td style="width: 3.8cm; white-space: nowrap; vertical-align: top;">Nama Lengkap</td><td style="width: 0.35cm; text-align: center; vertical-align: top;">:</td><td style="vertical-align: top;"><strong>IHSAN</strong></td></tr>
+<tr><td style="width: 3.8cm; white-space: nowrap; vertical-align: top;">Tempat / Tanggal Lahir</td><td style="width: 0.35cm; text-align: center; vertical-align: top;">:</td><td style="vertical-align: top;">Mantang, 23/08/2000</td></tr>
+<tr><td style="width: 3.8cm; white-space: nowrap; vertical-align: top;">Jenis Kelamin</td><td style="width: 0.35cm; text-align: center; vertical-align: top;">:</td><td style="vertical-align: top;">Laki-laki</td></tr>
+<tr><td style="width: 3.8cm; white-space: nowrap; vertical-align: top;">Agama</td><td style="width: 0.35cm; text-align: center; vertical-align: top;">:</td><td style="vertical-align: top;">Islam</td></tr>
+<tr><td style="width: 3.8cm; white-space: nowrap; vertical-align: top;">Alamat</td><td style="width: 0.35cm; text-align: center; vertical-align: top;">:</td><td style="vertical-align: top;">Dusun Tegal, Desa Aikmual
+Kec. Praya, Kab. Lombok Tengah
+Provinsi Nusa Tenggara Barat</td></tr>
+<tr><td style="width: 3.8cm; white-space: nowrap; vertical-align: top;">Masa Berlaku</td><td style="width: 0.35cm; text-align: center; vertical-align: top;">:</td><td style="vertical-align: top;">14 Mei 2026 sampai 14 November 2026</td></tr></table><p style="margin: 0 0 0.35cm; text-align: justify; text-indent: 1.1cm; line-height: 1.5; text-indent: 1.1cm; line-height: 1.5;">Dengan ini menerangkan bahwa nama tersebut di atas adalah benar penduduk Desa Aikmual.</p>
+
+      <p style="margin: 0.25cm 0 0.6cm 0; text-align: justify; text-indent: 1.1cm; line-height: 1.5; text-indent: 1.1cm; line-height: 1.5;">Demikian surat keterangan ini kami buat dengan sebenarnya agar dapat dipergunakan sebagaimana mestinya.</p>
+
+      <div style="margin-top: 0.25cm; display: flex; justify-content: flex-end; font-size: 12pt; break-inside: avoid; page-break-inside: avoid;">
+        <div style="width: 7.4cm; text-align: center; margin-right: 0.2cm;">
+          <div>Aikmual, 15 Mei 2026</div>
+          <div style="text-transform: uppercase;">Kepala Desa Aikmual</div>
+          <div style="margin-top:0.35cm;min-height:2.35cm;display:flex;justify-content:center;align-items:flex-end;gap:0.3cm;flex-direction:row;break-inside:avoid;"><div style="width:2.35cm;text-align:center;order:1;"><img src="data:image/png;base64,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" alt="QR verifikasi surat" style="width:1.95cm;height:1.95cm;object-fit:contain;border:1px solid #111;padding:0.04cm;background:#fff;" /></div><img src="/uploads/signatures/kepala-desa-3.png" alt="Tanda tangan Kepala Desa" style="width:3.2cm;height:2.1cm;object-fit:contain;order:2;" /></div>
+          <div style="font-weight: bold; text-transform: uppercase; text-decoration: underline;">M. HASYIM</div>
+        </div>
+      </div>
+    </div></div>
+</body>
+</html>

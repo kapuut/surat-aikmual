@@ -204,7 +204,7 @@ export default function SuratKehilanganPage() {
                 <input type="text" name="kewarganegaraan" required defaultValue="Indonesia" className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">No. Telepon/WhatsApp *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">No. Telepon/HP *</label>
                 <input type="tel" name="noTelp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
 

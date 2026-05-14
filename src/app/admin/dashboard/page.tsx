@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { useRequireRole } from "@/lib/hooks";
 import { useSharedStats, type DashboardStats } from "@/lib/hooks";
 import { AdminStats } from "@/components/dashboard/SharedStats";
@@ -25,8 +26,14 @@ const BAR_COLOR_PALETTE = [
   "#ea580c", // orange
 ];
 
+const DEFAULT_CHART_SORT = "date_desc";
+const DEFAULT_CHART_PAGE = 1;
+const DEFAULT_CHART_PAGE_SIZE = 20;
+const DASHBOARD_FILTER_QUERY_KEYS = ["date_from", "date_to", "sort", "page", "page_size"] as const;
+
 export default function AdminDashboardPage() {
   // Ensure only admin users can access this page
+  const pathname = usePathname();
   const { user: authorizedUser, loading, isAuthenticated } = useRequireRole(['admin']);
   const { stats, loading: statsLoading, error: statsError, refresh } = useSharedStats();
   const [chartDateFrom, setChartDateFrom] = useState<string>("");
@@ -87,6 +94,15 @@ export default function AdminDashboardPage() {
     return `Jumlah data dari tanggal ${formatIsoDate(start)} sampai ${formatIsoDate(end)} = ${chartTotalSurat} data`;
   }, [chartDateFrom, chartDateTo, chartTotalSurat]);
 
+  const chartYear = useMemo(() => {
+    const fromYear = chartDateFrom ? new Date(`${chartDateFrom}T00:00:00`).getFullYear() : null;
+    const toYear = chartDateTo ? new Date(`${chartDateTo}T00:00:00`).getFullYear() : null;
+    if (fromYear && toYear && fromYear === toYear) return fromYear;
+    if (fromYear && !toYear) return fromYear;
+    if (!fromYear && toYear) return toYear;
+    return new Date().getFullYear();
+  }, [chartDateFrom, chartDateTo]);
+
   const hasChartFilter =
     chartDateFrom !== '' ||
     chartDateTo !== '';
@@ -110,10 +126,13 @@ export default function AdminDashboardPage() {
       const params = new URLSearchParams();
       if (dateFrom) params.set("date_from", dateFrom);
       if (dateTo) params.set("date_to", dateTo);
-      params.set("sort", "date_desc");
+      params.set("sort", DEFAULT_CHART_SORT);
+      params.set("page", String(DEFAULT_CHART_PAGE));
+      params.set("page_size", String(DEFAULT_CHART_PAGE_SIZE));
 
       const response = await fetch(`/api/stats/surat-jenis?${params.toString()}`, {
         credentials: "include",
+        cache: "no-store",
       });
       const result = await response.json();
 
@@ -134,22 +153,54 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!authorizedUser) return;
-    fetchJenisSuratChart();
-  }, [authorizedUser]);
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      DASHBOARD_FILTER_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
+      const nextQuery = url.searchParams.toString();
+      window.history.replaceState({}, "", `${pathname}${nextQuery ? `?${nextQuery}` : ""}`);
+    }
+
+    fetchJenisSuratChart({ dateFrom: "", dateTo: "" });
+  }, [authorizedUser, pathname]);
 
   const applyFilters = () => {
-    fetchJenisSuratChart();
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (chartDateFrom) {
+        url.searchParams.set("date_from", chartDateFrom);
+      } else {
+        url.searchParams.delete("date_from");
+      }
+      if (chartDateTo) {
+        url.searchParams.set("date_to", chartDateTo);
+      } else {
+        url.searchParams.delete("date_to");
+      }
+      url.searchParams.set("sort", DEFAULT_CHART_SORT);
+      url.searchParams.set("page", String(DEFAULT_CHART_PAGE));
+      url.searchParams.set("page_size", String(DEFAULT_CHART_PAGE_SIZE));
+      window.history.replaceState({}, "", `${pathname}?${url.searchParams.toString()}`);
+    }
+
+    fetchJenisSuratChart({
+      dateFrom: chartDateFrom,
+      dateTo: chartDateTo,
+    });
   };
 
   const resetFilters = () => {
-    const defaultFilters = {
-      dateFrom: "",
-      dateTo: "",
-    };
+    setChartDateFrom("");
+    setChartDateTo("");
 
-    setChartDateFrom(defaultFilters.dateFrom);
-    setChartDateTo(defaultFilters.dateTo);
-    fetchJenisSuratChart(defaultFilters);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      DASHBOARD_FILTER_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
+      const nextQuery = url.searchParams.toString();
+      window.history.replaceState({}, "", `${pathname}${nextQuery ? `?${nextQuery}` : ""}`);
+    }
+
+    fetchJenisSuratChart({ dateFrom: "", dateTo: "" });
   };
 
   if (loading || !isAuthenticated || !authorizedUser) {
@@ -254,7 +305,7 @@ export default function AdminDashboardPage() {
               {!chartLoading && !chartError && chartData.length > 0 && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 sm:p-5">
                   <div className="mb-4">
-                    <p className="text-base font-semibold text-gray-800">Grafik Surat</p>
+                    <p className="text-base font-semibold text-gray-800">Grafik Surat Tahun {chartYear}</p>
                     <p className="text-xs text-gray-500 mt-1">Perbandingan Jumlah Surat per Jenis</p>
                   </div>
 
