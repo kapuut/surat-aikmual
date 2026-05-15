@@ -1209,12 +1209,11 @@ export async function GET(
       const archivedFinalPath = await resolveFinalSuratKeluarPath(permohonan.nomor_surat, permohonan.jenis_surat);
       const bestFinalPath = [archivedFinalPath, permohonanFinalPath].find((pathValue) => isLikelyFinalDocumentFile(pathValue));
 
-      if (bestFinalPath) {
+      // Only redirect to absolute URLs (e.g. Vercel Blob). Relative paths (local-filesystem files)
+      // do not exist on Vercel's read-only filesystem, so fall through to regenerate dynamically.
+      if (bestFinalPath && /^https?:\/\//i.test(bestFinalPath)) {
         const redirectPath = appendPrintQueryParam(bestFinalPath, printFlag);
-        const redirectUrl = /^https?:\/\//i.test(redirectPath)
-          ? redirectPath
-          : new URL(redirectPath, requestUrl.origin).toString();
-        return NextResponse.redirect(redirectUrl);
+        return NextResponse.redirect(redirectPath);
       }
     }
 

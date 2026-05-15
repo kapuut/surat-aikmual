@@ -839,6 +839,16 @@ function renderDynamicSuratDocument(
         window.onafterprint = function() {
           document.title = originalTitle;
         };
+        try {
+          var params = new URLSearchParams(window.location.search);
+          if (params.get('print') === '1') {
+            window.addEventListener('load', function() {
+              setTimeout(function() { window.print(); }, 300);
+            });
+          }
+        } catch (e) {
+          // ignore query parsing errors
+        }
       })();
     </script>
 </head>
@@ -924,7 +934,11 @@ function getGenderWithDetail(
 }
 
 function getAppBaseUrl(): string {
-  const raw = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const raw =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+    'http://localhost:3000';
   return raw.replace(/\/$/, '');
 }
 
