@@ -332,7 +332,7 @@ export async function GET(request: NextRequest) {
       const filePath = normalizeFilePath((row as any).file_path);
       const tujuan = String((row as any).nama_pemohon || "Pemohon").trim() || "Pemohon";
       const previewFallbackPath = permohonanId ? `/api/admin/permohonan/${permohonanId}/preview` : null;
-      const permohonanDocumentPath = isGeneratedSuratFile(filePath) ? filePath : (filePath || previewFallbackPath);
+      const permohonanDocumentPath = previewFallbackPath || filePath;
       const tanggal = (row as any).updated_at ?? (row as any).created_at ?? null;
       const key = createSyncKey(
         nomorSurat,
@@ -403,6 +403,7 @@ export async function GET(request: NextRequest) {
 
         if (
           !existingPath
+          || nextIsPreview
           || (nextIsGenerated && !existingIsGenerated)
           || (existingIsPreview && !nextIsPreview)
         ) {

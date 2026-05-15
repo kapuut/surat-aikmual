@@ -839,16 +839,6 @@ function renderDynamicSuratDocument(
         window.onafterprint = function() {
           document.title = originalTitle;
         };
-        try {
-          var params = new URLSearchParams(window.location.search);
-          if (params.get('print') === '1') {
-            window.addEventListener('load', function() {
-              setTimeout(function() { window.print(); }, 300);
-            });
-          }
-        } catch (e) {
-          // ignore query parsing errors
-        }
       })();
     </script>
 </head>
@@ -934,12 +924,28 @@ function getGenderWithDetail(
 }
 
 function getAppBaseUrl(): string {
-  const raw =
-    process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-    'http://localhost:3000';
-  return raw.replace(/\/$/, '');
+  const candidates = [
+    process.env.APP_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+  ];
+
+  for (const candidate of candidates) {
+    const cleaned = String(candidate || '').trim();
+    if (!cleaned) continue;
+
+    if (/^https?:\/\//i.test(cleaned)) {
+      return cleaned.replace(/\/$/, '');
+    }
+
+    // Vercel env vars may provide host without protocol.
+    if (/^[a-z0-9.-]+$/i.test(cleaned)) {
+      return `https://${cleaned}`.replace(/\/$/, '');
+    }
+  }
+
+  return 'http://localhost:3000';
 }
 
 function buildVerificationCode(source: string): string {

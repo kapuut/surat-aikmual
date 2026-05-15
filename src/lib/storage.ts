@@ -10,6 +10,10 @@ import path from 'path';
 
 const USE_BLOB = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
+type UploadFileOptions = {
+  contentDisposition?: string;
+};
+
 /**
  * Upload a file buffer and return its public URL.
  *
@@ -21,14 +25,23 @@ const USE_BLOB = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 export async function uploadFile(
   storagePath: string,
   buffer: Buffer,
-  contentType?: string
+  contentType?: string,
+  options?: UploadFileOptions
 ): Promise<string> {
   if (USE_BLOB) {
     try {
-      const blob = await put(storagePath, buffer, {
+      const putOptions: any = {
         access: 'public',
         contentType,
         addRandomSuffix: false,
+      };
+
+      if (options?.contentDisposition) {
+        putOptions.contentDisposition = options.contentDisposition;
+      }
+
+      const blob = await put(storagePath, buffer, {
+        ...putOptions,
       });
       return blob.url;
     } catch (blobErr) {
@@ -59,7 +72,12 @@ export async function uploadText(
   content: string,
   contentType = 'text/html; charset=utf-8'
 ): Promise<string> {
-  return uploadFile(storagePath, Buffer.from(content, 'utf-8'), contentType);
+  return uploadFile(
+    storagePath,
+    Buffer.from(content, 'utf-8'),
+    contentType,
+    { contentDisposition: 'inline' }
+  );
 }
 
 /**

@@ -364,7 +364,7 @@ function mapPermohonanToSuratKeluarDetail(row: RowDataPacket) {
   const previewPath = Number.isFinite(permohonanId) && permohonanId > 0
     ? `/api/admin/permohonan/${permohonanId}/preview`
     : null;
-  const effectivePath = primaryPath || previewPath;
+  const effectivePath = previewPath || primaryPath;
 
   return {
     id: permohonanId * -1,
@@ -583,7 +583,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
         if (relatedPermohonanId) {
           mapped.is_auto_from_permohonan = true;
           mapped.source_permohonan_id = relatedPermohonanId;
-          if (!mapped.file_path) {
+          if (!mapped.file_path || isGeneratedSuratFile(mapped.file_path)) {
             mapped.file_path = `/api/admin/permohonan/${relatedPermohonanId}/preview`;
           }
         }

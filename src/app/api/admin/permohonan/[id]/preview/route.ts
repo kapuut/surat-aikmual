@@ -277,6 +277,47 @@ function appendPrintQueryParam(pathValue: string, printFlag: boolean): string {
   }
 }
 
+function toAbsoluteUrl(pathValue: string, requestOrigin: string): string {
+  if (/^https?:\/\//i.test(pathValue)) {
+    return pathValue;
+  }
+
+  return new URL(pathValue, requestOrigin).toString();
+}
+
+async function proxyFinalHtmlDocument(
+  pathValue: string,
+  requestOrigin: string,
+  printFlag: boolean
+): Promise<NextResponse | null> {
+  if (!isGeneratedSuratFile(pathValue)) {
+    return null;
+  }
+
+  try {
+    const sourcePath = appendPrintQueryParam(pathValue, printFlag);
+    const sourceUrl = toAbsoluteUrl(sourcePath, requestOrigin);
+    const upstream = await fetch(sourceUrl, { cache: 'no-store' });
+    if (!upstream.ok) {
+      return null;
+    }
+
+    const htmlContent = await upstream.text();
+    if (!htmlContent.trim()) {
+      return null;
+    }
+
+    return new NextResponse(htmlContent, {
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
 async function resolveFinalSuratKeluarPath(nomorSurat: string | null, jenisSurat: string): Promise<string | null> {
   if (!nomorSurat || !nomorSurat.trim()) return null;
 
@@ -1209,11 +1250,15 @@ export async function GET(
       const archivedFinalPath = await resolveFinalSuratKeluarPath(permohonan.nomor_surat, permohonan.jenis_surat);
       const bestFinalPath = [archivedFinalPath, permohonanFinalPath].find((pathValue) => isLikelyFinalDocumentFile(pathValue));
 
-      // Only redirect to absolute URLs (e.g. Vercel Blob). Relative paths (local-filesystem files)
-      // do not exist on Vercel's read-only filesystem, so fall through to regenerate dynamically.
-      if (bestFinalPath && /^https?:\/\//i.test(bestFinalPath)) {
+      if (bestFinalPath) {
+        const proxiedHtml = await proxyFinalHtmlDocument(bestFinalPath, requestUrl.origin, printFlag);
+        if (proxiedHtml) {
+          return proxiedHtml;
+        }
+
         const redirectPath = appendPrintQueryParam(bestFinalPath, printFlag);
-        return NextResponse.redirect(redirectPath);
+        const redirectUrl = toAbsoluteUrl(redirectPath, requestUrl.origin);
+        return NextResponse.redirect(redirectUrl);
       }
     }
 
