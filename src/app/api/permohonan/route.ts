@@ -4,13 +4,13 @@ import { cookies } from 'next/headers';
 import { uploadFile, uniqueStoragePath } from '@/lib/storage';
 import { getSuratBySlug, normalizeSuratSlug } from '@/lib/surat-data';
 import { getUser } from '@/lib/auth';
-import { checkBusinessHoursWita } from '@/lib/business-hours';
+import { checkBusinessHoursWita, type BusinessHourCheckResult } from '@/lib/business-hours';
 
 export const runtime = 'nodejs';
 
 const nikRegex = /^\d{16}$/;
 
-function checkBusinessHours(): { isAllowed: boolean; message?: string } {
+function checkBusinessHours(): BusinessHourCheckResult {
   return checkBusinessHoursWita();
 }
 
@@ -1468,9 +1468,11 @@ async function handlePermohonanPost(request: Request) {
       }
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Permohonan berhasil dikirim',
-      id: result.insertId 
+      id: result.insertId,
+      queueNotice: businessHoursCheck.queueNotice || null,
+      processingNextBusinessDay: Boolean(businessHoursCheck.processingNextBusinessDay),
     });
   } catch (error) {
     console.error('Error:', error);

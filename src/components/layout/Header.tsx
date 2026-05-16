@@ -8,13 +8,20 @@ import { createPortal } from "react-dom";
 import { FiAlertCircle, FiLogIn, FiMenu, FiX } from "react-icons/fi";
 import { useAuth } from "@/lib/hooks";
 
+const CONTACT_WHATSAPP_NUMBER_RAW = process.env.NEXT_PUBLIC_CONTACT_WHATSAPP_NUMBER || "6285253271360";
+const CONTACT_WHATSAPP_NUMBER = CONTACT_WHATSAPP_NUMBER_RAW.replace(/\D/g, "") || "6285253271360";
+const CONTACT_WHATSAPP_TEXT = encodeURIComponent(
+  "Halo Desa Aikmual, saya ingin bertanya tentang layanan surat."
+);
+const CONTACT_WHATSAPP_URL = `https://api.whatsapp.com/send?phone=${CONTACT_WHATSAPP_NUMBER}&text=${CONTACT_WHATSAPP_TEXT}`;
+
 const NAV_ITEMS = [
   { label: "Beranda", href: "/#beranda" },
   { label: "Permohonan Surat", href: "/#layanan" },
   { label: "Alur Pengajuan", href: "/#alur-pengajuan" },
   { label: "Informasi", href: "/#informasi" },
   { label: "Lacak Surat", href: "/tracking" },
-  { label: "Kontak", href: "https://wa.me/6285253271360", external: true },
+  { label: "Kontak", href: CONTACT_WHATSAPP_URL, external: true },
 ] as const;
 
 function getDashboardRouteByRole(role?: string): string {

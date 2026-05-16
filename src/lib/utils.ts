@@ -139,7 +139,7 @@ export function isValidDate(date: string): boolean {
   return !isNaN(Date.parse(date));
 }
 
-export function checkBusinessHours(): { isAllowed: boolean; message?: string } {
+export function checkBusinessHours() {
   return checkBusinessHoursWita();
 }
 

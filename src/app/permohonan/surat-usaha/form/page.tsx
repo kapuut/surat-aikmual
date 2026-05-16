@@ -77,12 +77,18 @@ export default function SuratUsahaFormPage() {
         body: formData,
       });
 
+      const result = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Gagal mengajukan permohonan");
+        throw new Error(result?.error || "Gagal mengajukan permohonan");
       }
 
-      setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      const queueNotice = typeof result?.queueNotice === "string" ? result.queueNotice.trim() : "";
+      setSuccessMessage(
+        queueNotice
+          ? `Permohonan berhasil diajukan. ${queueNotice} Anda akan diarahkan ke halaman tracking.`
+          : "Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking."
+      );
       showFeedback();
       window.setTimeout(() => {
         router.push("/tracking");

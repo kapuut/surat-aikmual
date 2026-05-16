@@ -101,12 +101,17 @@ export default function SuratKepemilikanFormPage() {
         body: JSON.stringify(data),
       });
 
+      const result = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Gagal mengajukan permohonan");
+        throw new Error(result?.error || "Gagal mengajukan permohonan");
       }
 
-      alert("Permohonan berhasil diajukan!");
+      const queueNotice = typeof result?.queueNotice === "string" ? result.queueNotice.trim() : "";
+      const successPopup = queueNotice
+        ? `Permohonan berhasil diajukan!\n\n${queueNotice}`
+        : "Permohonan berhasil diajukan!";
+      alert(successPopup);
       router.push("/permohonan/riwayat");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");

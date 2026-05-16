@@ -162,12 +162,18 @@ export default function SuratMasihHidupFormPage() {
         body: submitData,
       });
 
+      const result = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Gagal mengajukan permohonan");
+        throw new Error(result?.error || "Gagal mengajukan permohonan");
       }
 
-      setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      const queueNotice = typeof result?.queueNotice === "string" ? result.queueNotice.trim() : "";
+      setSuccessMessage(
+        queueNotice
+          ? `Permohonan berhasil diajukan. ${queueNotice} Anda akan diarahkan ke halaman tracking.`
+          : "Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking."
+      );
       showFeedback();
       window.setTimeout(() => {
         router.push("/tracking");
@@ -185,7 +191,6 @@ export default function SuratMasihHidupFormPage() {
       <Header />
       <div className="min-h-screen bg-gray-50 py-8 pt-20">
         <div className="max-w-4xl mx-auto px-4">
-          {/* Header */}
           <div className="mb-6">
             <Link
               href="/permohonan/surat-masih-hidup"

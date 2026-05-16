@@ -106,9 +106,13 @@ export default function FormSuratKeterangan() {
       }
 
       const result = await response.json();
-      
+
       // Redirect to success page or show success message
-      alert('Permohonan berhasil dikirim! ID Tracking: ' + result.id);
+      const queueNotice = typeof result?.queueNotice === 'string' ? result.queueNotice.trim() : '';
+      const successPopup = queueNotice
+        ? `Permohonan berhasil dikirim! ID Tracking: ${result.id}\n\n${queueNotice}`
+        : `Permohonan berhasil dikirim! ID Tracking: ${result.id}`;
+      alert(successPopup);
       router.push('/permohonan/riwayat');
       
     } catch (error) {

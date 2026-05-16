@@ -144,6 +144,19 @@ function normalizeSuratName(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+const CONTACT_WHATSAPP_NUMBER_RAW =
+  process.env.NEXT_PUBLIC_CONTACT_WHATSAPP_NUMBER || '6285253271360';
+
+const CONTACT_WHATSAPP_NUMBER = CONTACT_WHATSAPP_NUMBER_RAW.replace(/\D/g, '') || '6285253271360';
+
+const CONTACT_WHATSAPP_TEXT = encodeURIComponent(
+  'Halo Desa Aikmual, saya ingin bertanya tentang layanan surat.'
+);
+
+const CONTACT_WHATSAPP_URL = `https://api.whatsapp.com/send?phone=${CONTACT_WHATSAPP_NUMBER}&text=${CONTACT_WHATSAPP_TEXT}`;
+
+const CONTACT_DISPLAY_NUMBER = '085253271360';
+
 export default function HomePage() {
   const { user, loading, isAuthenticated } = useAuth();
   const [dynamicTemplates, setDynamicTemplates] = useState<DynamicTemplateSummary[]>([]);
@@ -322,8 +335,13 @@ export default function HomePage() {
               </div>
               <div className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-black/20 px-4 py-2">
                 <FiPhone className="h-4 w-4" />
-                <a href="tel:085253271360" className="hover:text-white transition-colors">
-                  Kontak: 085253271360
+                <a
+                  href={CONTACT_WHATSAPP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition-colors"
+                >
+                  Kontak: {CONTACT_DISPLAY_NUMBER}
                 </a>
               </div>
             </div>

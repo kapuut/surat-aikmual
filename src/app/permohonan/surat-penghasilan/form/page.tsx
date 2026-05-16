@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { checkBusinessHours } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiCheckCircle, FiCreditCard, FiSend, FiUpload } from "react-icons/fi";
+import { FiArrowLeft, FiCheckCircle, FiClock, FiCreditCard, FiSend, FiUpload } from "react-icons/fi";
 
 function normalizeSpacing(value: string): string {
   return value.replace(/\s+/g, " ").trim();
@@ -26,6 +26,7 @@ export default function SuratPenghasilanPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [deferredNotice, setDeferredNotice] = useState<string | null>(null);
 
   // Check business hours on page load
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function SuratPenghasilanPage() {
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
+    setDeferredNotice(null);
 
     const formData = new FormData(e.currentTarget);
     const asString = (name: string) => String(formData.get(name) || "");
@@ -82,16 +84,26 @@ export default function SuratPenghasilanPage() {
         body: formData,
       });
 
+      const result = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Gagal mengajukan permohonan");
+        throw new Error(result?.error || "Gagal mengajukan permohonan");
       }
 
-      setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      const queueNotice = typeof result?.queueNotice === "string" ? result.queueNotice.trim() : "";
+      if (queueNotice) {
+        setSuccessMessage("Permohonan berhasil diajukan.");
+        setDeferredNotice(queueNotice);
+      } else {
+        setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      }
       showFeedback();
-      window.setTimeout(() => {
-        router.push("/tracking");
-      }, 1200);
+
+      if (!queueNotice) {
+        window.setTimeout(() => {
+          router.push("/tracking");
+        }, 1200);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
       showFeedback();
@@ -344,6 +356,37 @@ export default function SuratPenghasilanPage() {
           </div>
         </form>
       </div>
+
+      {deferredNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                <FiClock className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Pengajuan Berhasil Dikirim</h3>
+                <p className="text-xs text-slate-500">Informasi jadwal proses</p>
+              </div>
+            </div>
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-900">
+              {deferredNotice}
+            </p>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeferredNotice(null);
+                  router.push("/tracking");
+                }}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                OK, Lanjut
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

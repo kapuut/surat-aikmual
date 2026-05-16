@@ -401,7 +401,12 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
         throw new Error(data?.error || "Gagal mengajukan permohonan surat");
       }
 
-      setSuccessMessage("Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking.");
+      const queueNotice = typeof data?.queueNotice === "string" ? data.queueNotice.trim() : "";
+      setSuccessMessage(
+        queueNotice
+          ? `Permohonan berhasil diajukan. ${queueNotice} Anda akan diarahkan ke halaman tracking.`
+          : "Permohonan berhasil diajukan. Anda akan diarahkan ke halaman tracking."
+      );
       showFeedback();
       window.setTimeout(() => {
         router.push("/tracking");

@@ -678,7 +678,6 @@ export default function PermohonanAdminPage() {
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Nomor</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Tanggal</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Pemohon</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">NIK</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Jenis</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Keperluan</th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
@@ -703,7 +702,6 @@ export default function PermohonanAdminPage() {
                           <td className="px-4 py-3 font-medium">{p.nomor_surat || `REG-${p.id}/${new Date(p.created_at).getFullYear()}`}</td>
                           <td className="px-4 py-3">{new Date(p.created_at).toLocaleDateString("id-ID")}</td>
                           <td className="px-4 py-3 font-medium">{p.nama_pemohon}</td>
-                          <td className="px-4 py-3">{p.nik}</td>
                           <td className="px-4 py-3">{p.jenis_surat}</td>
                           <td className="px-4 py-3">{p.keperluan}</td>
                           <td className="px-4 py-3">
