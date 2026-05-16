@@ -807,6 +807,18 @@ function normalizePersonName(value: unknown): string {
 }
 
 const NO_TITLECASE_KEY_PATTERNS_PREVIEW = /^(nik|nomor|no_|kode|tanggal|waktu|tgl|jam|tahun|bulan|masa_berlaku)/i;
+const PROTECTED_DYNAMIC_IDENTITY_KEYS_PREVIEW = new Set([
+  'nama',
+  'namalengkap',
+  'namapemohon',
+  'namabold',
+  'nik',
+  'alamat',
+]);
+
+function normalizeDynamicIdentityKeyPreview(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
 
 function normalizeDynamicValuePreview(key: string, value: string): string {
   const trimmed = value.trim();
@@ -904,6 +916,10 @@ function buildDynamicTemplateValues(
   const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
   for (const [key, rawValue] of Object.entries(detailData)) {
+    if (PROTECTED_DYNAMIC_IDENTITY_KEYS_PREVIEW.has(normalizeDynamicIdentityKeyPreview(key))) {
+      continue;
+    }
+
     if (rawValue == null) continue;
 
     if (typeof rawValue === 'string') {

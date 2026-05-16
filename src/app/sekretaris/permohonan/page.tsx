@@ -418,7 +418,7 @@ export default function SekretarisPermohonanPage() {
                   <td className="px-2 py-3 text-center align-middle">
                     <div className="flex flex-wrap items-center justify-center gap-2">
                       <button
-                        onClick={() => window.open(previewUrl, "_blank")}
+                        onClick={() => window.location.assign(previewUrl)}
                         className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
                         title={isFinalized ? "Lihat surat final" : "Lihat draft surat"}
                       >
@@ -427,8 +427,6 @@ export default function SekretarisPermohonanPage() {
                       </button>
                       <a
                         href={`/api/admin/permohonan/${item.id}/preview?print=1`}
-                        target="_blank"
-                        rel="noreferrer"
                         className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
                         title={isFinalized ? "Unduh surat final" : "Unduh draft surat"}
                       >

@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import type { TemplateField } from "@/lib/template-surat/types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+  Pragma: "no-cache",
+  Expires: "0",
+} as const;
+
 type DynamicTemplateRow = {
   id: string;
   nama: string;
@@ -42,19 +51,25 @@ export async function GET() {
       fields: parseFieldsJson(row.fields_json),
     }));
 
-    return NextResponse.json({ success: true, templates });
+    return NextResponse.json(
+      { success: true, templates },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (error: unknown) {
     const message = String((error as { message?: unknown })?.message || "").toLowerCase();
 
     // If table does not exist yet, return an empty list instead of failing the page.
     if (message.includes("doesn't exist") || message.includes("does not exist")) {
-      return NextResponse.json({ success: true, templates: [] });
+      return NextResponse.json(
+        { success: true, templates: [] },
+        { headers: NO_STORE_HEADERS }
+      );
     }
 
     console.error("Public dynamic templates GET error:", error);
     return NextResponse.json(
       { success: false, error: "Gagal mengambil template dinamis" },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }

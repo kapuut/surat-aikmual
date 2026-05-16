@@ -735,16 +735,12 @@ export default function PermohonanAdminPage() {
                               <TableActionAnchor
                                 href={suratPreviewUrl}
                                 variant="view"
-                                target="_blank"
-                                rel="noreferrer"
                               >
                                 Lihat
                               </TableActionAnchor>
                               <TableActionAnchor
                                 href={`/api/admin/permohonan/${p.id}/preview?print=1`}
                                 variant="download"
-                                target="_blank"
-                                rel="noreferrer"
                               >
                                 Unduh
                               </TableActionAnchor>

@@ -270,7 +270,10 @@ export default function DynamicSuratFormPage({ params }: DynamicSuratFormPagePro
       try {
         setLoadingTemplate(true);
         setError(null);
-        const response = await fetch("/api/dynamic-templates", { credentials: "include" });
+        const response = await fetch("/api/dynamic-templates", {
+          credentials: "include",
+          cache: "no-store",
+        });
         const data = await response.json();
 
         if (!response.ok || !data?.success || !Array.isArray(data?.templates)) {

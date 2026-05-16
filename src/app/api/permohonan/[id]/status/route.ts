@@ -560,6 +560,18 @@ function toTitleCaseId(value: string): string {
 
 // Keys that should NOT be title-cased (identifiers, numbers, codes)
 const NO_TITLECASE_KEY_PATTERNS = /^(nik|nomor|no_|kode|tanggal|waktu|tgl|jam|tahun|bulan|masa_berlaku)/i;
+const PROTECTED_DYNAMIC_IDENTITY_KEYS = new Set([
+  'nama',
+  'namalengkap',
+  'namapemohon',
+  'namabold',
+  'nik',
+  'alamat',
+]);
+
+function normalizeDynamicIdentityKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
 
 function normalizeDynamicValue(key: string, value: string): string {
   const trimmed = value.trim();
@@ -649,6 +661,10 @@ function buildDynamicTemplateValuesForGeneration(
   const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
   for (const [key, rawValue] of Object.entries(detailData)) {
+    if (PROTECTED_DYNAMIC_IDENTITY_KEYS.has(normalizeDynamicIdentityKey(key))) {
+      continue;
+    }
+
     if (rawValue == null) continue;
 
     if (typeof rawValue === 'string') {

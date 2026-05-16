@@ -103,6 +103,23 @@ function buildSampleValues(fields: TemplateField[], kepalaDesaName?: string): Re
     sampleValues[field.name] = `[${field.label}]`;
   });
 
+  const sampleNama =
+    sampleValues.nama
+    || sampleValues.nama_lengkap
+    || sampleValues.namalengkap
+    || sampleValues.namaLengkap
+    || "[Nama Lengkap]";
+
+  sampleValues.nama = sampleValues.nama || sampleNama;
+  sampleValues.nama_lengkap = sampleValues.nama_lengkap || sampleNama;
+  sampleValues.namalengkap = sampleValues.namalengkap || sampleNama;
+  sampleValues.namaLengkap = sampleValues.namaLengkap || sampleNama;
+  sampleValues.nama_pemohon = sampleValues.nama_pemohon || sampleNama;
+  sampleValues.namaPemohon = sampleValues.namaPemohon || sampleNama;
+  sampleValues.nama_bold = sampleValues.nama_bold || sampleNama;
+  sampleValues.nik = sampleValues.nik || "[NIK]";
+  sampleValues.alamat = sampleValues.alamat || "[Alamat]";
+
   return sampleValues;
 }
 

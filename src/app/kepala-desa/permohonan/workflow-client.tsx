@@ -576,7 +576,7 @@ export default function KepalaDesaWorkflowClient() {
                     <td className="px-2 py-3 text-center align-middle">
                       <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                         <button
-                          onClick={() => window.open(suratPreviewPageUrl, "_blank")}
+                          onClick={() => router.push(suratPreviewPageUrl)}
                           className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold hover:bg-blue-100 border border-blue-200 transition-all shadow-sm"
                           title="Lihat detail surat"
                         >
@@ -585,8 +585,6 @@ export default function KepalaDesaWorkflowClient() {
                         </button>
                         <a
                           href={`/api/admin/permohonan/${item.id}/preview?print=1`}
-                          target="_blank"
-                          rel="noreferrer"
                           className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-bold hover:bg-emerald-100 border border-emerald-200 transition-all shadow-sm"
                           title="Unduh surat"
                         >

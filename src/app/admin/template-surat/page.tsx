@@ -1990,7 +1990,7 @@ export default function TemplateSuratPage() {
               disabled={submittingCustomDynamic}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
             >
-              {submittingCustomDynamic ? "Menyimpan..." : "Simpan Jenis Surat Dinamis"}
+              {submittingCustomDynamic ? "Menyimpan..." : "Simpan Jenis Surat"}
             </button>
           </div>
         </form>
@@ -2058,8 +2058,6 @@ export default function TemplateSuratPage() {
                   </button>
                   <a
                     href={`/api/admin/dynamic-templates/preview/${encodeURIComponent(template.id)}`}
-                    target="_blank"
-                    rel="noreferrer"
                     className="flex-1 rounded-lg bg-blue-50 px-3 py-2 text-center text-sm text-blue-600 hover:bg-blue-100"
                   >
                     Preview
@@ -2189,8 +2187,6 @@ export default function TemplateSuratPage() {
                       </p>
                       <a
                         href={`/api/admin/dynamic-templates/preview/${encodeURIComponent(selectedDynamicTemplate.id)}`}
-                        target="_blank"
-                        rel="noreferrer"
                         className="ml-4 shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
                       >
                         Preview PDF
