@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 
 interface VerificationData {
   id: number;
@@ -14,7 +13,6 @@ interface VerificationData {
   jabatan_penanda_tangan: string;
   status: string;
   tanggal_ttd: string;
-  file_path: string | null;
 }
 
 export default function VerifikasiSuratPage() {
@@ -98,22 +96,6 @@ export default function VerifikasiSuratPage() {
             </table>
           </div>
         )}
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          {data?.file_path && (
-            <a
-              href={/\.(html|htm|xhtml)$/i.test(data.file_path) ? `${data.file_path}?print=1` : /\.(doc|docx)$/i.test(data.file_path) ? `/api/files/docx-print?path=${encodeURIComponent(data.file_path)}` : data.file_path}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Lihat Dokumen Surat
-            </a>
-          )}
-          <Link href="/" className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
-            Kembali
-          </Link>
-        </div>
       </section>
     </main>
   );

@@ -14,7 +14,7 @@ function buildIntegrityToken(source: string): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = request.nextUrl;
     const permohonanId = Number(searchParams.get("permohonan"));
     const kode = String(searchParams.get("kode") || "").trim().toUpperCase();
     const token = String(searchParams.get("token") || "").trim().toUpperCase();
@@ -37,7 +37,6 @@ export async function GET(request: NextRequest) {
         p.status,
         p.updated_at,
         p.processed_by,
-        p.file_path,
         u.nama AS processed_by_name,
         u.role AS processed_by_role
       FROM permohonan_surat p
@@ -111,7 +110,6 @@ export async function GET(request: NextRequest) {
         jabatan_penanda_tangan: row.processed_by_role === "kepala_desa" ? "Kepala Desa" : "Petugas Desa",
         status: String(row.status || "-"),
         tanggal_ttd: row.updated_at,
-        file_path: row.file_path || null,
       },
       reason: "Kode verifikasi dan token integritas cocok",
     });
